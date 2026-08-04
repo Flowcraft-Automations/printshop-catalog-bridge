@@ -341,13 +341,21 @@ function Calculator() {
                           <td className="num px-3 py-1.5">{shekel(p.senzey_price)}</td>
                           <td className="num px-3 py-1.5 font-bold">{shekel(p.final_price)}</td>
                           <td className="px-3 py-1.5">
-                            {(p.qty ?? 1) === 1 && anchorKeys.has(`${w}x${h}`) ? (
-                              <span className="bg-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-white">
-                                עוגן
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/60">—</span>
-                            )}
+                            <button
+                              onClick={() => toggleAnchor.mutate(p)}
+                              title={p.is_anchor ? "הסר עוגן" : "קבע כעוגן לעקומת המשפחה"}
+                              className={
+                                p.is_anchor
+                                  ? "bg-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-white"
+                                  : "border-2 border-dashed border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-[var(--accent-raw)] hover:text-[var(--accent-raw)]"
+                              }
+                            >
+                              {p.is_anchor
+                                ? "עוגן"
+                                : (p.qty ?? 1) === 1 && anchorKeys.has(`${w}x${h}`)
+                                  ? "בשימוש"
+                                  : "קבע עוגן"}
+                            </button>
                           </td>
                         </tr>
                       ))}
