@@ -1498,6 +1498,27 @@ function Catalog() {
                       />
                     </td>
                   )}
+                  {visibleCols.is_anchor && (
+                    <td
+                      style={{ width: scaledWidths.is_anchor }}
+                      className="px-2 py-1 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        title={p.is_anchor ? "עוגן עקומה — לחץ להסרה" : "סמן כעוגן עקומה למשפחה"}
+                        onClick={() =>
+                          update.mutate({ ids: [p.id], patch: { is_anchor: !p.is_anchor } })
+                        }
+                        className={
+                          p.is_anchor
+                            ? "text-[var(--accent-raw)]"
+                            : "text-muted-foreground/40 hover:text-[var(--accent-raw)]"
+                        }
+                      >
+                        <Anchor className="size-4" fill={p.is_anchor ? "currentColor" : "none"} />
+                      </button>
+                    </td>
+                  )}
                   </tr>
                 );
               })}
