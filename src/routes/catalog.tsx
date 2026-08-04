@@ -1839,6 +1839,7 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   flags: "סימונים",
   notes: "הערות",
   verified: "אומת",
+  is_anchor: "עוגן",
 };
 
 function ColumnChooser({
