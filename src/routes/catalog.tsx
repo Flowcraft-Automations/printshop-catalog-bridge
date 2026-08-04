@@ -711,7 +711,7 @@ function Catalog() {
             checked={showClosed}
             onChange={(e) => setShowClosed(e.target.checked)}
           />
-          הצג פריטים סגורים
+          הצג גם נמחקים / לא רלוונטים
         </label>
       </div>
 
