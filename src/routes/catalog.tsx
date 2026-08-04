@@ -18,11 +18,18 @@ import {
   type ProductHistory,
 } from "@/lib/mdvd";
 
-type Search = { family?: string | undefined };
+type Search = {
+  family?: string | undefined;
+  senzey_group?: string | undefined;
+  site_category?: string | undefined;
+};
 
 export const Route = createFileRoute("/catalog")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     family: typeof s['family'] === "string" ? (s['family'] as string) : undefined,
+    senzey_group: typeof s['senzey_group'] === "string" ? (s['senzey_group'] as string) : undefined,
+    site_category:
+      typeof s['site_category'] === "string" ? (s['site_category'] as string) : undefined,
   }),
   head: () => ({
     meta: [
