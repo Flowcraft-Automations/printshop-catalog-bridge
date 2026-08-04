@@ -738,6 +738,11 @@ function EditDrawer({
               site_url: f.site_url,
               anomaly: f.anomaly,
               notes: f.notes,
+              senzey_group: f.senzey_group,
+              site_category: f.site_category,
+              competitor_price: f.competitor_price,
+              competitor_ref: f.competitor_ref,
+              proposed_price: f.proposed_price,
             })
           }
           className="mt-6 w-full bg-[var(--accent-raw)] py-3 font-bold text-white"
