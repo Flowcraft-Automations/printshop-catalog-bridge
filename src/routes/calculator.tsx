@@ -5,7 +5,13 @@ import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
-import { computePrice, shekel, type Family, type QtyDiscount } from "@/lib/mdvd";
+import {
+  buildAnchors,
+  priceFromAnchors,
+  shekel,
+  type Family,
+  type QtyDiscount,
+} from "@/lib/mdvd";
 
 export const Route = createFileRoute("/calculator")({
   head: () => ({
