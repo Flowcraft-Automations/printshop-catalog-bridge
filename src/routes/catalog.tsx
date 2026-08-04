@@ -14,7 +14,9 @@ import {
   STATUSES,
   STATUS_CLASS,
   STATUS_LABEL,
+  buildAnchors,
   displayFieldValue,
+  fitFamilyLine,
   parseFieldValue,
   shekel,
   type Product,
@@ -123,6 +125,8 @@ type ColKey =
   | "site_price"
   | "price_gap"
   | "final_price"
+  | "curve_price"
+  | "curve_dev"
   | "competitor_price"
   | "proposed_price"
   | "senzey_status"
@@ -171,6 +175,21 @@ function noteTextOf(id: string) {
   return NOTE_TEXT[id] ?? "";
 }
 
+/** Curve suggestion per product id, filled by the catalog's per-family fit memo. */
+export type CurveSuggestion = { suggested: number; current: number; dev: number };
+let CURVE: Record<string, CurveSuggestion> = {};
+function curveOf(id: string): CurveSuggestion | null {
+  return CURVE[id] ?? null;
+}
+
+/** Price used as "current" when comparing against the fitted curve. */
+export function currentPrice(p: Product): number | null {
+  const v = p.final_price ?? p.senzey_price ?? p.site_price ?? null;
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   name: (p) => p.name,
   family: (p) => p.family ?? "",
@@ -182,6 +201,8 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   site_price: (p) => p.site_price,
   price_gap: (p) => priceGap(p),
   final_price: (p) => p.final_price,
+  curve_price: (p) => curveOf(p.id)?.suggested ?? null,
+  curve_dev: (p) => curveOf(p.id)?.dev ?? null,
   competitor_price: (p) => p.competitor_price ?? null,
   proposed_price: (p) => p.proposed_price ?? null,
   senzey_status: (p) => p.senzey_status,
@@ -217,6 +238,31 @@ function Catalog() {
     return map;
   }, [allNotes]);
 
+  // Per-family fitted curve → a suggested price for every sized item.
+  const curveByProduct = useMemo(() => {
+    const round5 = (n: number) => Math.round(n / 5) * 5;
+    const fams = [...new Set(products.map((p) => (p.family ?? "").trim()).filter(Boolean))];
+    const out: Record<string, CurveSuggestion> = {};
+    for (const fam of fams) {
+      const { anchors } = buildAnchors(products, fam);
+      if (anchors.length < 2) continue;
+      const fit = fitFamilyLine(anchors);
+      if (!fit) continue;
+      for (const p of products) {
+        if ((p.family ?? "").trim() !== fam) continue;
+        const w = Number(p.width_cm);
+        const h = Number(p.height_cm);
+        if (!w || !h) continue;
+        const cur = currentPrice(p);
+        if (cur === null) continue;
+        const suggested = round5(Math.max(fit.base + fit.rate * ((w * h) / 10000), 0));
+        if (suggested <= 0) continue;
+        out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
+      }
+    }
+    CURVE = out;
+    return out;
+  }, [products]);
 
 
   const [q, setQ] = useState("");
@@ -231,6 +277,7 @@ function Catalog() {
   const [onlyDup, setOnlyDup] = useState(false);
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
+  const [onlyCurveOut, setOnlyCurveOut] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
   const [category, setCategory] = useState(categoryParam ?? "");
@@ -252,6 +299,8 @@ function Catalog() {
     site_price: true,
     price_gap: true,
     final_price: true,
+    curve_price: true,
+    curve_dev: false,
     competitor_price: false,
     proposed_price: false,
     senzey_status: true,
@@ -273,6 +322,8 @@ function Catalog() {
     site_price: 7,
     price_gap: 6,
     final_price: 7,
+    curve_price: 8,
+    curve_dev: 6,
     competitor_price: 7,
     proposed_price: 7,
     senzey_status: 6,
@@ -387,6 +438,7 @@ function Catalog() {
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
+      if (onlyCurveOut && Math.abs(curveByProduct[p.id]?.dev ?? 0) <= 20) return false;
       if (group && (group === EMPTY ? g !== "" : g !== group)) return false;
       if (category && (category === EMPTY ? c !== "" : c !== category)) return false;
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
@@ -411,6 +463,14 @@ function Catalog() {
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
       if (!matchNum(priceGap(p), colFilters.price_gap ?? "")) return false;
       if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
+      if (!matchNum(curveByProduct[p.id]?.suggested ?? null, colFilters.curve_price ?? "")) return false;
+      if (
+        !matchNum(
+          curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : null,
+          colFilters.curve_dev ?? "",
+        )
+      )
+        return false;
       if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
       if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
       if (colFilters.senzey_status && p.senzey_status !== colFilters.senzey_status) return false;
@@ -450,6 +510,8 @@ function Catalog() {
     onlyDup,
     onlyNew,
     onlyProposed,
+    onlyCurveOut,
+    curveByProduct,
     showClosed,
     group,
     category,
@@ -491,6 +553,8 @@ function Catalog() {
       "מחיר אתר": p.site_price ?? "",
       "פער אתר-סנזיי": priceGap(p) ?? "",
       "מחיר סופי": p.final_price ?? "",
+      "מחיר לפי עקומה": curveByProduct[p.id]?.suggested ?? "",
+      "סטייה מהעקומה %": curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : "",
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
@@ -706,6 +770,14 @@ function Catalog() {
           />
           יש מחיר מוצע
         </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={onlyCurveOut}
+            onChange={(e) => setOnlyCurveOut(e.target.checked)}
+          />
+          רק חריגים מהעקומה
+        </label>
         <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
           <Switch
             checked={showClosed}
@@ -838,6 +910,16 @@ function Catalog() {
                 {visibleCols.final_price && (
                   <th style={{ width: scaledWidths.final_price }} className="px-2 py-2">
                     <SortHead k="final_price" label="מחיר סופי" />
+                  </th>
+                )}
+                {visibleCols.curve_price && (
+                  <th style={{ width: scaledWidths.curve_price }} className="px-2 py-2">
+                    <SortHead k="curve_price" label="לפי עקומה" />
+                  </th>
+                )}
+                {visibleCols.curve_dev && (
+                  <th style={{ width: scaledWidths.curve_dev }} className="px-2 py-2">
+                    <SortHead k="curve_dev" label="סטייה %" />
                   </th>
                 )}
                 {visibleCols.competitor_price && (
@@ -1001,6 +1083,26 @@ function Catalog() {
                         value={cf("final_price")}
                         onChange={(e) => setCf("final_price", e.target.value)}
                         placeholder="-"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.curve_price && (
+                    <th style={{ width: scaledWidths.curve_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("curve_price")}
+                        onChange={(e) => setCf("curve_price", e.target.value)}
+                        placeholder="-"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.curve_dev && (
+                    <th style={{ width: scaledWidths.curve_dev }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("curve_dev")}
+                        onChange={(e) => setCf("curve_dev", e.target.value)}
+                        placeholder=">20"
                       />
                     </th>
                   )}
@@ -1226,6 +1328,66 @@ function Catalog() {
                         }}
                         className="num w-full border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
                       />
+                    </td>
+                  )}
+                  {visibleCols.curve_price && (
+                    <td
+                      style={{ width: scaledWidths.curve_price }}
+                      className="num truncate whitespace-nowrap px-2 py-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {(() => {
+                        const c = curveByProduct[p.id];
+                        if (!c) return <span className="text-muted-foreground">—</span>;
+                        const a = Math.abs(c.dev);
+                        const cls =
+                          a > 20
+                            ? "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)] font-bold"
+                            : a > 5
+                              ? "bg-[oklch(0.94_0.08_50)] text-[oklch(0.45_0.15_45)] font-semibold"
+                              : "text-muted-foreground";
+                        return (
+                          <>
+                            <span className={`px-1 ${cls}`} title={`נוכחי ${shekel(c.current)}`}>
+                              {shekel(c.suggested)}
+                            </span>
+                            {a > 5 && c.suggested !== (p.final_price ?? null) && (
+                              <button
+                                onClick={() =>
+                                  update.mutate({
+                                    ids: [p.id],
+                                    patch: { final_price: c.suggested },
+                                  })
+                                }
+                                className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                              >
+                                אמץ
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleCols.curve_dev && (
+                    <td
+                      style={{ width: scaledWidths.curve_dev }}
+                      className="num truncate whitespace-nowrap px-2 py-1"
+                    >
+                      {curveByProduct[p.id] ? (
+                        <span
+                          className={
+                            Math.abs(curveByProduct[p.id]!.dev) > 20
+                              ? "font-bold text-[oklch(0.45_0.16_25)]"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {curveByProduct[p.id]!.dev > 0 ? "+" : ""}
+                          {Math.round(curveByProduct[p.id]!.dev)}%
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                   )}
                   {visibleCols.competitor_price && (
@@ -1663,6 +1825,8 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   site_price: "מחיר אתר",
   price_gap: "פער",
   final_price: "מחיר סופי",
+  curve_price: "מחיר לפי עקומה",
+  curve_dev: "סטייה מהעקומה",
   competitor_price: "מחיר מתחרה",
   proposed_price: "מחיר מוצע",
   senzey_status: "סטטוס סנזיי",
@@ -1711,6 +1875,8 @@ function ColumnChooser({
                     site_price: true,
                     price_gap: true,
                     final_price: true,
+                    curve_price: true,
+                    curve_dev: false,
                     competitor_price: false,
                     proposed_price: false,
                     senzey_status: true,
