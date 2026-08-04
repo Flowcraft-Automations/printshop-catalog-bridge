@@ -277,6 +277,7 @@ function Catalog() {
   const [onlyDup, setOnlyDup] = useState(false);
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
+  const [onlyCurveOut, setOnlyCurveOut] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
   const [category, setCategory] = useState(categoryParam ?? "");
