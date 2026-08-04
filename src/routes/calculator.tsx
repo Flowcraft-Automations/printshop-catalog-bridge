@@ -72,6 +72,7 @@ function Calculator() {
     () => (family ? buildAnchors(products, family) : { anchors: [], skipped: 0 }),
     [products, family],
   );
+  const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
     () => priceFromLine(anchors, skipped, fam, nw, nh, nq),
     [anchors, skipped, fam, nw, nh, nq],
