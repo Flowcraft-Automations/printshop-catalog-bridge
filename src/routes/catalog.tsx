@@ -375,6 +375,7 @@ function Catalog() {
     return out;
   }, [
     products,
+    notesByProduct,
     q,
     family,
     senzeyStatus,
