@@ -1,12 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Download, ExternalLink, X } from "lucide-react";
+import { Download, ExternalLink, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productsQuery } from "@/lib/queries";
-import { STATUSES, STATUS_CLASS, STATUS_LABEL, shekel, type Product } from "@/lib/mdvd";
+import { familiesQuery, productHistoryQuery, productsQuery } from "@/lib/queries";
+import {
+  FIELD_LABEL,
+  STATUSES,
+  STATUS_CLASS,
+  STATUS_LABEL,
+  displayFieldValue,
+  parseFieldValue,
+  shekel,
+  type Product,
+  type ProductHistory,
+} from "@/lib/mdvd";
 
 type Search = { family?: string | undefined };
 
@@ -79,6 +89,7 @@ function Catalog() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-history"] });
       toast.success("עודכן");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -572,10 +583,100 @@ function EditDrawer({
         >
           שמירה
         </button>
+        <HistoryPanel productId={product.id} />
       </aside>
     </div>
   );
 }
+
+function HistoryPanel({ productId }: { productId: string }) {
+  const qc = useQueryClient();
+  const { data: history = [], isLoading } = useQuery(productHistoryQuery(productId));
+
+  const revert = useMutation({
+    mutationFn: async (entries: ProductHistory[]) => {
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      for (const e of entries) patch[e.field] = parseFieldValue(e.field, e.old_value);
+      const { error } = await supabase
+        .from("products")
+        .update(patch as never)
+        .eq("id", productId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-history"] });
+      toast.success("שוחזר");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const batches = useMemo(() => {
+    const map = new Map<string, ProductHistory[]>();
+    for (const h of history) {
+      const arr = map.get(h.batch_id);
+      if (arr) arr.push(h);
+      else map.set(h.batch_id, [h]);
+    }
+    return [...map.values()];
+  }, [history]);
+
+  return (
+    <section className="mt-8 border-t-2 border-[var(--ink)] pt-4">
+      <h3 className="mb-3 text-sm font-black tracking-wide">היסטוריית שינויים</h3>
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">טוען…</p>
+      ) : batches.length === 0 ? (
+        <p className="text-xs text-muted-foreground">אין שינויים מתועדים לפריט זה.</p>
+      ) : (
+        <ol className="space-y-3">
+          {batches.map((entries) => {
+            const first = entries[0]!;
+            return (
+              <li key={first.batch_id} className="border-s-4 border-[var(--accent-raw)] bg-[var(--surface-deep)] p-3">
+                <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-bold text-muted-foreground">
+                  <span>
+                    {new Date(first.changed_at).toLocaleString("he-IL")}
+                    {first.source && first.source !== "manual" ? ` · ${first.source}` : ""}
+                  </span>
+                  {entries.length > 1 && (
+                    <button
+                      onClick={() => revert.mutate(entries)}
+                      disabled={revert.isPending}
+                      className="flex items-center gap-1 underline"
+                    >
+                      <RotateCcw className="size-3" /> שחזר את כל השינוי
+                    </button>
+                  )}
+                </div>
+                <ul className="space-y-1 text-xs">
+                  {entries.map((e) => (
+                    <li key={e.id} className="flex items-center gap-2">
+                      <b className="min-w-24">{FIELD_LABEL[e.field] ?? e.field}</b>
+                      <span className="text-muted-foreground line-through">
+                        {displayFieldValue(e.field, e.old_value)}
+                      </span>
+                      <span>←</span>
+                      <span className="font-semibold">{displayFieldValue(e.field, e.new_value)}</span>
+                      <button
+                        onClick={() => revert.mutate([e])}
+                        disabled={revert.isPending}
+                        className="ms-auto flex items-center gap-1 text-[var(--accent-raw)] underline"
+                      >
+                        <RotateCcw className="size-3" /> שחזר
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
 
 function Field({
   label,

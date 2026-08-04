@@ -56,6 +56,47 @@ export type Database = {
         }
         Relationships: []
       }
+      product_history: {
+        Row: {
+          batch_id: string
+          changed_at: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          product_id: string
+          source: string
+        }
+        Insert: {
+          batch_id: string
+          changed_at?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          product_id: string
+          source?: string
+        }
+        Update: {
+          batch_id?: string
+          changed_at?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          product_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           anomaly: string | null
