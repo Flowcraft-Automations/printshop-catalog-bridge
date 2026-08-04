@@ -109,6 +109,11 @@ function MigrationBoard() {
                       <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
                         <td className="px-4 py-2 font-semibold">
                           {p.name}
+                          {p.source === "approved_new" && (
+                            <span className="ms-2 border border-[oklch(0.5_0.12_155)] bg-[oklch(0.93_0.07_155)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.4_0.1_155)]">
+                              חדש מאושר
+                            </span>
+                          )}
                           {p.notes && (
                             <div className="text-xs font-normal text-muted-foreground">{p.notes}</div>
                           )}
