@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
+import { NoteIndicator } from "@/components/NoteIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productHistoryQuery, productsQuery } from "@/lib/queries";
 import {
@@ -225,7 +226,7 @@ function Catalog() {
     site_status: 6,
     site_url: 4,
     flags: 7,
-    notes: 10,
+    notes: 4,
     verified: 4,
   };
   const scaledWidths = useMemo(() => {
@@ -1133,13 +1134,10 @@ function Catalog() {
                   {visibleCols.notes && (
                     <td
                       style={{ width: scaledWidths.notes }}
-                      className="px-2 py-1"
+                      className="px-2 py-1 text-center"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <NoteCell
-                        value={p.notes}
-                        onSave={(v) => update.mutate({ ids: [p.id], patch: { notes: v } })}
-                      />
+                      <NoteIndicator note={p.notes} onClick={() => setDrawer(p)} />
                     </td>
                   )}
                   {visibleCols.verified && (
@@ -1577,35 +1575,5 @@ function ColumnChooser({
         </>
       )}
     </div>
-  );
-}
-
-function NoteCell({
-  value,
-  onSave,
-}: {
-  value: string | null | undefined;
-  onSave: (v: string | null) => void;
-}) {
-  const [draft, setDraft] = useState(value ?? "");
-  useEffect(() => setDraft(value ?? ""), [value]);
-  const commit = () => {
-    const next = draft.trim();
-    if (next === (value ?? "").trim()) return;
-    onSave(next || null);
-  };
-  return (
-    <input
-      value={draft}
-      title={draft}
-      placeholder="+ הערה"
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") setDraft(value ?? "");
-      }}
-      className="w-full border-b border-dashed border-border bg-transparent px-1 py-0.5 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-solid focus:border-[var(--accent-raw)]"
-    />
   );
 }
