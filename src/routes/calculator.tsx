@@ -347,7 +347,7 @@ function Calculator() {
                       </tr>
                     </thead>
                     <tbody>
-                      {famItems.map(({ p, w, h, area: a }, i) => (
+                      {filteredFamItems.map(({ p, w, h, area: a }, i) => (
                         <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
                           <td className="px-3 py-1.5">{p.name}</td>
                           <td className="num px-3 py-1.5">
