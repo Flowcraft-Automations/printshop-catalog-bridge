@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
+import { NotesPanel } from "@/components/NotesPanel";
 import { supabase } from "@/integrations/supabase/client";
-import { productsQuery } from "@/lib/queries";
+import { productNotesQuery, productsQuery } from "@/lib/queries";
 import { STATUS_LABEL, shekel, type Product } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/migration")({
@@ -32,6 +33,7 @@ const TABS: { key: TabKey; label: string }[] = [
 function MigrationBoard() {
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
+  const { data: allNotes = [] } = useQuery(productNotesQuery());
   const [tab, setTab] = useState<TabKey>("site");
   const [noteFor, setNoteFor] = useState<Product | null>(null);
 
@@ -132,7 +134,10 @@ function MigrationBoard() {
                             </span>
                           )}
                           <span className="ms-2">
-                            <NoteIndicator note={p.notes} onClick={() => setNoteFor(p)} />
+                            <NoteIndicator
+                              notes={allNotes.filter((n) => n.product_id === p.id).map((n) => n.body)}
+                              onClick={() => setNoteFor(p)}
+                            />
                           </span>
                         </td>
                         <td className="num whitespace-nowrap px-3 py-2 text-muted-foreground">

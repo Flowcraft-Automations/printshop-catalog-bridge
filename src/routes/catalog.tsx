@@ -18,6 +18,7 @@ import {
   shekel,
   type Product,
   type ProductHistory,
+  type ProductNote,
 } from "@/lib/mdvd";
 
 type Search = {
@@ -1321,13 +1322,6 @@ function EditDrawer({
               onChange={(e) => set("anomaly", e.target.value)}
             />
           </Field>
-          <Field label="הערות" full>
-            <textarea
-              className={`${inputCls} min-h-20 w-full`}
-              value={f.notes ?? ""}
-              onChange={(e) => set("notes", e.target.value)}
-            />
-          </Field>
           <Field label="קבוצה בסנזיי">
             <input
               className={inputCls}
@@ -1381,7 +1375,6 @@ function EditDrawer({
               site_status: f.site_status,
               site_url: f.site_url,
               anomaly: f.anomaly,
-              notes: f.notes,
               senzey_group: f.senzey_group ?? null,
               site_category: f.site_category ?? null,
               competitor_price: f.competitor_price ?? null,
@@ -1393,6 +1386,7 @@ function EditDrawer({
         >
           שמירה
         </button>
+        <NotesPanel productId={product.id} />
         <HistoryPanel productId={product.id} />
       </aside>
     </div>
