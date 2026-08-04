@@ -110,7 +110,7 @@ function Calculator() {
       <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
         <div className="border-2 border-[var(--ink)] bg-card p-5 shadow-[6px_6px_0_0_var(--ink)]">
           <label className="mb-1 block text-xs font-bold text-muted-foreground">משפחה</label>
-          <div className="relative">
+          <div ref={familyWrapRef} className="relative">
             <input
               className={inputCls}
               value={familyOpen ? familySearch : familySearch || family || ""}
