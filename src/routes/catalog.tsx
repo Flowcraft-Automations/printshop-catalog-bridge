@@ -485,6 +485,8 @@ function Catalog() {
       if (!matchText(noteTextOf(p.id), colFilters.notes ?? "")) return false;
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
+      if (colFilters.is_anchor === "yes" && !p.is_anchor) return false;
+      if (colFilters.is_anchor === "no" && p.is_anchor) return false;
       return true;
     });
 
