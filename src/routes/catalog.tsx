@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
+import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -185,6 +185,58 @@ function Catalog() {
   const [colFilters, setColFilters] = useState<Partial<Record<ColKey, string>>>({});
   const [showColFilters, setShowColFilters] = useState(true);
   const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
+    name: true,
+    family: true,
+    senzey_group: false,
+    site_category: false,
+    size: true,
+    qty: true,
+    senzey_price: true,
+    site_price: true,
+    price_gap: true,
+    final_price: true,
+    competitor_price: false,
+    proposed_price: false,
+    senzey_status: true,
+    site_status: true,
+    site_url: true,
+    flags: true,
+    verified: true,
+  });
+
+  const baseWidths: Record<ColKey, number> = {
+    name: 16,
+    family: 9,
+    senzey_group: 8,
+    site_category: 8,
+    size: 6,
+    qty: 4,
+    senzey_price: 7,
+    site_price: 7,
+    price_gap: 6,
+    final_price: 7,
+    competitor_price: 7,
+    proposed_price: 7,
+    senzey_status: 6,
+    site_status: 6,
+    site_url: 4,
+    flags: 7,
+    verified: 4,
+  };
+  const scaledWidths = useMemo(() => {
+    const visible = Object.entries(baseWidths)
+      .filter(([k]) => visibleCols[k as ColKey])
+      .map(([, v]) => v);
+    const total = visible.reduce((a, b) => a + b, 0);
+    const factor = total > 0 ? (100 - 2) / total : 0;
+    const out: Partial<Record<ColKey, string>> = {};
+    for (const [k, v] of Object.entries(baseWidths)) {
+      if (visibleCols[k as ColKey]) out[k as ColKey] = `${(v * factor).toFixed(2)}%`;
+    }
+    return out;
+  }, [visibleCols]);
+  const visibleCount = Object.values(visibleCols).filter(Boolean).length;
 
   const cf = (k: ColKey) => colFilters[k] ?? "";
   const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
@@ -536,7 +588,7 @@ function Catalog() {
         </div>
       )}
 
-      <div className="mb-2 flex items-center gap-3 text-sm">
+      <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
         <button
           onClick={() => setShowColFilters((v) => !v)}
           className="border-2 border-[var(--ink)] px-3 py-1 font-bold hover:bg-[var(--surface-deep)]"
@@ -544,6 +596,7 @@ function Catalog() {
           {showColFilters ? "הסתר סינון עמודות" : "סינון לפי עמודה"}
           {activeColFilters > 0 && ` (${activeColFilters})`}
         </button>
+        <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
         {(activeColFilters > 0 || sort) && (
           <button
             onClick={() => {
@@ -563,212 +616,308 @@ function Catalog() {
       {isLoading ? (
         <p className="text-muted-foreground">טוען…</p>
       ) : (
-        <div className="overflow-x-auto border-2 border-[var(--ink)] bg-card">
-          <table className="w-full text-sm">
+        <div className="overflow-hidden border-2 border-[var(--ink)] bg-card">
+          <table className="w-full table-fixed text-sm">
             <thead className="bg-[var(--ink)] text-white">
               <tr className="text-right">
-                <th className="w-8 px-2 py-2"></th>
-                <th className="px-3 py-2"><SortHead k="name" label="שם" /></th>
-                <th className="px-3 py-2"><SortHead k="family" label="משפחה" /></th>
-                <th className="hidden px-3 py-2 lg:table-cell">
-                  <SortHead k="senzey_group" label="קבוצה בסנזיי" />
-                </th>
-                <th className="hidden px-3 py-2 lg:table-cell">
-                  <SortHead k="site_category" label="קטגוריה באתר" />
-                </th>
-                <th className="px-3 py-2"><SortHead k="size" label="מידה" /></th>
-                <th className="px-3 py-2"><SortHead k="qty" label="כמות" /></th>
-                <th className="px-3 py-2"><SortHead k="senzey_price" label="סנזיי" /></th>
-                <th className="px-3 py-2"><SortHead k="site_price" label="אתר" /></th>
-                <th className="px-3 py-2"><SortHead k="price_gap" label="פער" /></th>
-                <th className="px-3 py-2"><SortHead k="final_price" label="מחיר סופי" /></th>
-                <th className="px-3 py-2"><SortHead k="competitor_price" label="מחיר מתחרה" /></th>
-                <th className="px-3 py-2"><SortHead k="proposed_price" label="מחיר מוצע" /></th>
-                <th className="px-3 py-2"><SortHead k="senzey_status" label="סט׳ סנזיי" /></th>
-                <th className="px-3 py-2"><SortHead k="site_status" label="סט׳ אתר" /></th>
-                <th className="px-3 py-2 font-semibold">קישור</th>
-                <th className="px-3 py-2 font-semibold">סימונים</th>
-                <th className="px-3 py-2 text-center">
-                  <SortHead k="verified" label="אומת" className="mx-auto" />
-                </th>
+                <th className="w-[32px] px-2 py-2"></th>
+                {visibleCols.name && (
+                  <th style={{ width: scaledWidths.name }} className="px-2 py-2">
+                    <SortHead k="name" label="שם" />
+                  </th>
+                )}
+                {visibleCols.family && (
+                  <th style={{ width: scaledWidths.family }} className="px-2 py-2">
+                    <SortHead k="family" label="משפחה" />
+                  </th>
+                )}
+                {visibleCols.senzey_group && (
+                  <th style={{ width: scaledWidths.senzey_group }} className="px-2 py-2">
+                    <SortHead k="senzey_group" label="קבוצה בסנזיי" />
+                  </th>
+                )}
+                {visibleCols.site_category && (
+                  <th style={{ width: scaledWidths.site_category }} className="px-2 py-2">
+                    <SortHead k="site_category" label="קטגוריה באתר" />
+                  </th>
+                )}
+                {visibleCols.size && (
+                  <th style={{ width: scaledWidths.size }} className="px-2 py-2">
+                    <SortHead k="size" label="מידה" />
+                  </th>
+                )}
+                {visibleCols.qty && (
+                  <th style={{ width: scaledWidths.qty }} className="px-2 py-2">
+                    <SortHead k="qty" label="כמות" />
+                  </th>
+                )}
+                {visibleCols.senzey_price && (
+                  <th style={{ width: scaledWidths.senzey_price }} className="px-2 py-2">
+                    <SortHead k="senzey_price" label="סנזיי" />
+                  </th>
+                )}
+                {visibleCols.site_price && (
+                  <th style={{ width: scaledWidths.site_price }} className="px-2 py-2">
+                    <SortHead k="site_price" label="אתר" />
+                  </th>
+                )}
+                {visibleCols.price_gap && (
+                  <th style={{ width: scaledWidths.price_gap }} className="px-2 py-2">
+                    <SortHead k="price_gap" label="פער" />
+                  </th>
+                )}
+                {visibleCols.final_price && (
+                  <th style={{ width: scaledWidths.final_price }} className="px-2 py-2">
+                    <SortHead k="final_price" label="מחיר סופי" />
+                  </th>
+                )}
+                {visibleCols.competitor_price && (
+                  <th style={{ width: scaledWidths.competitor_price }} className="px-2 py-2">
+                    <SortHead k="competitor_price" label="מחיר מתחרה" />
+                  </th>
+                )}
+                {visibleCols.proposed_price && (
+                  <th style={{ width: scaledWidths.proposed_price }} className="px-2 py-2">
+                    <SortHead k="proposed_price" label="מחיר מוצע" />
+                  </th>
+                )}
+                {visibleCols.senzey_status && (
+                  <th style={{ width: scaledWidths.senzey_status }} className="px-2 py-2">
+                    <SortHead k="senzey_status" label="סט׳ סנזיי" />
+                  </th>
+                )}
+                {visibleCols.site_status && (
+                  <th style={{ width: scaledWidths.site_status }} className="px-2 py-2">
+                    <SortHead k="site_status" label="סט׳ אתר" />
+                  </th>
+                )}
+                {visibleCols.site_url && (
+                  <th style={{ width: scaledWidths.site_url }} className="px-2 py-2 font-semibold">
+                    קישור
+                  </th>
+                )}
+                {visibleCols.flags && (
+                  <th style={{ width: scaledWidths.flags }} className="px-2 py-2 font-semibold">
+                    סימונים
+                  </th>
+                )}
+                {visibleCols.verified && (
+                  <th style={{ width: scaledWidths.verified }} className="px-2 py-2 text-center">
+                    <SortHead k="verified" label="אומת" className="mx-auto" />
+                  </th>
+                )}
               </tr>
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
                   <th className="px-2 pb-2"></th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("name")}
-                      onChange={(e) => setCf("name", e.target.value)}
-                      placeholder="שם…"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <select
-                      className={colInput}
-                      value={cf("family")}
-                      onChange={(e) => setCf("family", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      {families.map((f) => (
-                        <option key={f.family} value={f.family}>
-                          {f.family}
-                        </option>
-                      ))}
-                    </select>
-                  </th>
-                  <th className="hidden px-2 pb-2 lg:table-cell">
-                    <select
-                      className={colInput}
-                      value={cf("senzey_group")}
-                      onChange={(e) => setCf("senzey_group", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      <option value="-">ריק</option>
-                      {groupOptions.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
-                  </th>
-                  <th className="hidden px-2 pb-2 lg:table-cell">
-                    <select
-                      className={colInput}
-                      value={cf("site_category")}
-                      onChange={(e) => setCf("site_category", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      <option value="-">ריק</option>
-                      {categoryOptions.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("size")}
-                      onChange={(e) => setCf("size", e.target.value)}
-                      placeholder="70×100"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("qty")}
-                      onChange={(e) => setCf("qty", e.target.value)}
-                      placeholder=">1"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("senzey_price")}
-                      onChange={(e) => setCf("senzey_price", e.target.value)}
-                      placeholder=">100"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("site_price")}
-                      onChange={(e) => setCf("site_price", e.target.value)}
-                      placeholder=">100"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("price_gap")}
-                      onChange={(e) => setCf("price_gap", e.target.value)}
-                      placeholder=">0"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("final_price")}
-                      onChange={(e) => setCf("final_price", e.target.value)}
-                      placeholder="-"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("competitor_price")}
-                      onChange={(e) => setCf("competitor_price", e.target.value)}
-                      placeholder="*"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("proposed_price")}
-                      onChange={(e) => setCf("proposed_price", e.target.value)}
-                      placeholder="*"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <select
-                      className={colInput}
-                      value={cf("senzey_status")}
-                      onChange={(e) => setCf("senzey_status", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {STATUS_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
-                  </th>
-                  <th className="px-2 pb-2">
-                    <select
-                      className={colInput}
-                      value={cf("site_status")}
-                      onChange={(e) => setCf("site_status", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {STATUS_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
-                  </th>
-                  <th className="px-2 pb-2">
-                    <select
-                      className={colInput}
-                      value={cf("site_url")}
-                      onChange={(e) => setCf("site_url", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      <option value="yes">יש</option>
-                      <option value="no">אין</option>
-                    </select>
-                  </th>
-                  <th className="px-2 pb-2">
-                    <input
-                      className={colInput}
-                      value={cf("flags")}
-                      onChange={(e) => setCf("flags", e.target.value)}
-                      placeholder="חריגה/הערה…"
-                    />
-                  </th>
-                  <th className="px-2 pb-2">
-                    <select
-                      className={colInput}
-                      value={cf("verified")}
-                      onChange={(e) => setCf("verified", e.target.value)}
-                    >
-                      <option value="">הכל</option>
-                      <option value="yes">אומת</option>
-                      <option value="no">לא</option>
-                    </select>
-                  </th>
+                  {visibleCols.name && (
+                    <th style={{ width: scaledWidths.name }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("name")}
+                        onChange={(e) => setCf("name", e.target.value)}
+                        placeholder="שם…"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.family && (
+                    <th style={{ width: scaledWidths.family }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("family")}
+                        onChange={(e) => setCf("family", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        {families.map((f) => (
+                          <option key={f.family} value={f.family}>
+                            {f.family}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.senzey_group && (
+                    <th style={{ width: scaledWidths.senzey_group }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("senzey_group")}
+                        onChange={(e) => setCf("senzey_group", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="-">ריק</option>
+                        {groupOptions.map((g) => (
+                          <option key={g} value={g}>
+                            {g}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.site_category && (
+                    <th style={{ width: scaledWidths.site_category }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("site_category")}
+                        onChange={(e) => setCf("site_category", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="-">ריק</option>
+                        {categoryOptions.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.size && (
+                    <th style={{ width: scaledWidths.size }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("size")}
+                        onChange={(e) => setCf("size", e.target.value)}
+                        placeholder="70×100"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.qty && (
+                    <th style={{ width: scaledWidths.qty }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("qty")}
+                        onChange={(e) => setCf("qty", e.target.value)}
+                        placeholder=">1"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.senzey_price && (
+                    <th style={{ width: scaledWidths.senzey_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("senzey_price")}
+                        onChange={(e) => setCf("senzey_price", e.target.value)}
+                        placeholder=">100"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.site_price && (
+                    <th style={{ width: scaledWidths.site_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("site_price")}
+                        onChange={(e) => setCf("site_price", e.target.value)}
+                        placeholder=">100"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.price_gap && (
+                    <th style={{ width: scaledWidths.price_gap }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("price_gap")}
+                        onChange={(e) => setCf("price_gap", e.target.value)}
+                        placeholder=">0"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.final_price && (
+                    <th style={{ width: scaledWidths.final_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("final_price")}
+                        onChange={(e) => setCf("final_price", e.target.value)}
+                        placeholder="-"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.competitor_price && (
+                    <th style={{ width: scaledWidths.competitor_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("competitor_price")}
+                        onChange={(e) => setCf("competitor_price", e.target.value)}
+                        placeholder="*"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.proposed_price && (
+                    <th style={{ width: scaledWidths.proposed_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("proposed_price")}
+                        onChange={(e) => setCf("proposed_price", e.target.value)}
+                        placeholder="*"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.senzey_status && (
+                    <th style={{ width: scaledWidths.senzey_status }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("senzey_status")}
+                        onChange={(e) => setCf("senzey_status", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {STATUS_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.site_status && (
+                    <th style={{ width: scaledWidths.site_status }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("site_status")}
+                        onChange={(e) => setCf("site_status", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {STATUS_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.site_url && (
+                    <th style={{ width: scaledWidths.site_url }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("site_url")}
+                        onChange={(e) => setCf("site_url", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="yes">יש</option>
+                        <option value="no">אין</option>
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.flags && (
+                    <th style={{ width: scaledWidths.flags }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("flags")}
+                        onChange={(e) => setCf("flags", e.target.value)}
+                        placeholder="חריגה/הערה…"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.verified && (
+                    <th style={{ width: scaledWidths.verified }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("verified")}
+                        onChange={(e) => setCf("verified", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="yes">אומת</option>
+                        <option value="no">לא</option>
+                      </select>
+                    </th>
+                  )}
                 </tr>
               )}
             </thead>
@@ -788,152 +937,198 @@ function Catalog() {
                       onChange={() => toggle(p.id)}
                     />
                   </td>
-                  <td className="max-w-[320px] truncate px-3 py-1 font-semibold" dir="rtl">
-                    <span className="inline-flex items-center gap-1.5">
-                      {p.name}
-                      <button
-                        title="העתק שם"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(p.name).then(() => toast.success("השם הועתק"));
+                  {visibleCols.name && (
+                    <td style={{ width: scaledWidths.name }} className="truncate px-2 py-1 font-semibold" dir="rtl">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="truncate">{p.name}</span>
+                        <button
+                          title="העתק שם"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(p.name).then(() => toast.success("השם הועתק"));
+                          }}
+                          className="inline-flex shrink-0 items-center text-muted-foreground hover:text-[var(--accent-raw)]"
+                        >
+                          <Copy className="size-3.5" />
+                        </button>
+                      </span>
+                    </td>
+                  )}
+                  {visibleCols.family && (
+                    <td style={{ width: scaledWidths.family }} className="truncate px-2 py-1 text-muted-foreground">
+                      {p.family ?? "—"}
+                    </td>
+                  )}
+                  {visibleCols.senzey_group && (
+                    <td
+                      style={{ width: scaledWidths.senzey_group }}
+                      className="truncate px-2 py-1 text-muted-foreground"
+                      title={p.senzey_group ?? ""}
+                    >
+                      {p.senzey_group?.trim() || "—"}
+                    </td>
+                  )}
+                  {visibleCols.site_category && (
+                    <td
+                      style={{ width: scaledWidths.site_category }}
+                      className="truncate px-2 py-1 text-muted-foreground"
+                      title={p.site_category ?? ""}
+                    >
+                      {p.site_category?.trim() || "—"}
+                    </td>
+                  )}
+                  {visibleCols.size && (
+                    <td style={{ width: scaledWidths.size }} className="num truncate px-2 py-1">
+                      {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
+                    </td>
+                  )}
+                  {visibleCols.qty && (
+                    <td style={{ width: scaledWidths.qty }} className="num truncate px-2 py-1">
+                      {p.qty ?? 1}
+                    </td>
+                  )}
+                  {visibleCols.senzey_price && (
+                    <td style={{ width: scaledWidths.senzey_price }} className="num truncate px-2 py-1">
+                      {shekel(p.senzey_price)}
+                    </td>
+                  )}
+                  {visibleCols.site_price && (
+                    <td style={{ width: scaledWidths.site_price }} className="num truncate px-2 py-1">
+                      {shekel(p.site_price)}
+                    </td>
+                  )}
+                  {visibleCols.price_gap && (
+                    <td style={{ width: scaledWidths.price_gap }} className="num truncate px-2 py-1">
+                      {(() => {
+                        const g = priceGap(p);
+                        return (
+                          <span
+                            className={`font-bold ${
+                              g === null
+                                ? "text-muted-foreground"
+                                : g > 0
+                                  ? "text-[oklch(0.45_0.14_150)]"
+                                  : g < 0
+                                    ? "text-[oklch(0.5_0.19_28)]"
+                                    : "text-muted-foreground"
+                            }`}
+                            title="מחיר אתר פחות מחיר סנזיי"
+                          >
+                            {g === null ? "—" : `${g > 0 ? "+" : ""}${shekel(g)}`}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleCols.final_price && (
+                    <td style={{ width: scaledWidths.final_price }} className="truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        defaultValue={p.final_price ?? ""}
+                        key={`fp-${p.id}-${p.final_price}`}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          const num = v === "" ? null : Number(v);
+                          if (num !== (p.final_price ?? null))
+                            update.mutate({ ids: [p.id], patch: { final_price: num } });
                         }}
-                        className="inline-flex shrink-0 items-center text-muted-foreground hover:text-[var(--accent-raw)]"
-                      >
-                        <Copy className="size-3.5" />
-                      </button>
-                    </span>
-                  </td>
-                  <td className="px-3 py-1 text-muted-foreground">{p.family ?? "—"}</td>
-                  <td
-                    className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
-                    title={p.senzey_group ?? ""}
-                  >
-                    {p.senzey_group?.trim() || "—"}
-                  </td>
-                  <td
-                    className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
-                    title={p.site_category ?? ""}
-                  >
-                    {p.site_category?.trim() || "—"}
-                  </td>
-                  <td className="num px-3 py-1">
-                    {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
-                  </td>
-                  <td className="num px-3 py-1">{p.qty ?? 1}</td>
-                  <td className="num px-3 py-1">{shekel(p.senzey_price)}</td>
-                  <td className="num px-3 py-1">{shekel(p.site_price)}</td>
-                  {(() => {
-                    const g = priceGap(p);
-                    return (
-                      <td
-                        className={`num px-3 py-1 font-bold ${
-                          g === null
-                            ? "text-muted-foreground"
-                            : g > 0
-                              ? "text-[oklch(0.45_0.14_150)]"
-                              : g < 0
-                                ? "text-[oklch(0.5_0.19_28)]"
-                                : "text-muted-foreground"
-                        }`}
-                        title="מחיר אתר פחות מחיר סנזיי"
-                      >
-                        {g === null ? "—" : `${g > 0 ? "+" : ""}${shekel(g)}`}
-                      </td>
-                    );
-                  })()}
-                  <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      defaultValue={p.final_price ?? ""}
-                      key={`fp-${p.id}-${p.final_price}`}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        const num = v === "" ? null : Number(v);
-                        if (num !== (p.final_price ?? null))
-                          update.mutate({ ids: [p.id], patch: { final_price: num } });
-                      }}
-                      className="num w-20 border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
-                    />
-                  </td>
-                  <td className="num whitespace-nowrap px-3 py-1">
-                    {shekel(p.competitor_price)}
-                    {p.competitor_ref?.trim() && (
-                      <Info
-                        className="ms-1 inline size-3.5 text-muted-foreground"
-                        aria-label={p.competitor_ref}
-                      >
-                        <title>{p.competitor_ref}</title>
-                      </Info>
-                    )}
-                  </td>
-                  <td className="num whitespace-nowrap px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                    {shekel(p.proposed_price)}
-                    {p.proposed_price != null && p.final_price == null && (
-                      <button
-                        onClick={() =>
+                        className="num w-full border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
+                      />
+                    </td>
+                  )}
+                  {visibleCols.competitor_price && (
+                    <td style={{ width: scaledWidths.competitor_price }} className="num truncate whitespace-nowrap px-2 py-1">
+                      {shekel(p.competitor_price)}
+                      {p.competitor_ref?.trim() && (
+                        <Info
+                          className="ms-1 inline size-3.5 text-muted-foreground"
+                          aria-label={p.competitor_ref}
+                        >
+                          <title>{p.competitor_ref}</title>
+                        </Info>
+                      )}
+                    </td>
+                  )}
+                  {visibleCols.proposed_price && (
+                    <td style={{ width: scaledWidths.proposed_price }} className="num truncate whitespace-nowrap px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      {shekel(p.proposed_price)}
+                      {p.proposed_price != null && p.final_price == null && (
+                        <button
+                          onClick={() =>
+                            update.mutate({
+                              ids: [p.id],
+                              patch: { final_price: p.proposed_price ?? null },
+                            })
+                          }
+                          className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                        >
+                          אמץ
+                        </button>
+                      )}
+                    </td>
+                  )}
+                  {visibleCols.senzey_status && (
+                    <td style={{ width: scaledWidths.senzey_status }} className="truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <StatusSelect
+                        value={p.senzey_status}
+                        onChange={(v) => update.mutate({ ids: [p.id], patch: { senzey_status: v } })}
+                      />
+                    </td>
+                  )}
+                  {visibleCols.site_status && (
+                    <td style={{ width: scaledWidths.site_status }} className="truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <StatusSelect
+                        value={p.site_status}
+                        onChange={(v) => update.mutate({ ids: [p.id], patch: { site_status: v } })}
+                      />
+                    </td>
+                  )}
+                  {visibleCols.site_url && (
+                    <td style={{ width: scaledWidths.site_url }} className="truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      {p.site_url ? (
+                        <a href={p.site_url} target="_blank" rel="noreferrer">
+                          <ExternalLink className="size-4 text-[var(--accent-raw)]" />
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  )}
+                  {visibleCols.flags && (
+                    <td style={{ width: scaledWidths.flags }} className="truncate whitespace-nowrap px-2 py-1">
+                      {p.anomaly && (
+                        <span
+                          title={p.anomaly}
+                          className="me-1 border border-destructive bg-[oklch(0.95_0.05_25)] px-1.5 py-0.5 text-[11px] font-bold text-destructive"
+                        >
+                          חריגה
+                        </span>
+                      )}
+                      {(p.senzey_dup_count ?? 0) > 1 && (
+                        <span className="border border-[oklch(0.6_0.14_50)] bg-[oklch(0.95_0.05_60)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.45_0.14_50)]">
+                          כפילות ×{p.senzey_dup_count}
+                        </span>
+                      )}
+                    </td>
+                  )}
+                  {visibleCols.verified && (
+                    <td style={{ width: scaledWidths.verified }} className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={!!p.verified}
+                        title={p.verified_at ? new Date(p.verified_at).toLocaleString("he-IL") : "סמן כנבדק"}
+                        onChange={(e) =>
                           update.mutate({
                             ids: [p.id],
-                            patch: { final_price: p.proposed_price ?? null },
+                            patch: {
+                              verified: e.target.checked,
+                              verified_at: e.target.checked ? new Date().toISOString() : null,
+                            },
                           })
                         }
-                        className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
-                      >
-                        אמץ
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                    <StatusSelect
-                      value={p.senzey_status}
-                      onChange={(v) => update.mutate({ ids: [p.id], patch: { senzey_status: v } })}
-                    />
-                  </td>
-                  <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                    <StatusSelect
-                      value={p.site_status}
-                      onChange={(v) => update.mutate({ ids: [p.id], patch: { site_status: v } })}
-                    />
-                  </td>
-                  <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                    {p.site_url ? (
-                      <a href={p.site_url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="size-4 text-[var(--accent-raw)]" />
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-1">
-                    {p.anomaly && (
-                      <span
-                        title={p.anomaly}
-                        className="me-1 border border-destructive bg-[oklch(0.95_0.05_25)] px-1.5 py-0.5 text-[11px] font-bold text-destructive"
-                      >
-                        חריגה
-                      </span>
-                    )}
-                    {(p.senzey_dup_count ?? 0) > 1 && (
-                      <span className="border border-[oklch(0.6_0.14_50)] bg-[oklch(0.95_0.05_60)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.45_0.14_50)]">
-                        כפילות ×{p.senzey_dup_count}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={!!p.verified}
-                      title={p.verified_at ? new Date(p.verified_at).toLocaleString("he-IL") : "סמן כנבדק"}
-                      onChange={(e) =>
-                        update.mutate({
-                          ids: [p.id],
-                          patch: {
-                            verified: e.target.checked,
-                            verified_at: e.target.checked ? new Date().toISOString() : null,
-                          },
-                        })
-                      }
-                      className="size-4 accent-[var(--accent-raw)]"
-                    />
-                  </td>
+                        className="size-4 accent-[var(--accent-raw)]"
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1256,6 +1451,97 @@ function Field({
     <div className={full ? "col-span-2" : ""}>
       <div className="mb-1 text-xs font-bold text-muted-foreground">{label}</div>
       {children}
+    </div>
+  );
+}
+
+const COLUMN_LABEL: Record<ColKey, string> = {
+  name: "שם",
+  family: "משפחה",
+  senzey_group: "קבוצה בסנזיי",
+  site_category: "קטגוריה באתר",
+  size: "מידה",
+  qty: "כמות",
+  senzey_price: "מחיר סנזיי",
+  site_price: "מחיר אתר",
+  price_gap: "פער",
+  final_price: "מחיר סופי",
+  competitor_price: "מחיר מתחרה",
+  proposed_price: "מחיר מוצע",
+  senzey_status: "סטטוס סנזיי",
+  site_status: "סטטוס אתר",
+  site_url: "קישור",
+  flags: "סימונים",
+  verified: "אומת",
+};
+
+function ColumnChooser({
+  visible,
+  onChange,
+}: {
+  visible: Record<ColKey, boolean>;
+  onChange: (v: Record<ColKey, boolean>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const count = Object.values(visible).filter(Boolean).length;
+  const toggle = (k: ColKey) => onChange({ ...visible, [k]: !visible[k] });
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 border-2 border-[var(--ink)] px-3 py-1 font-bold hover:bg-[var(--surface-deep)]"
+      >
+        <Columns className="size-4" />
+        עמודות {count > 0 && `(${count})`}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute z-40 mt-1 w-56 border-2 border-[var(--ink)] bg-card p-3 shadow-lg">
+            <div className="mb-2 flex items-center justify-between text-xs font-bold text-muted-foreground">
+              <span>בחר עמודות</span>
+              <button
+                onClick={() =>
+                  onChange({
+                    name: true,
+                    family: true,
+                    senzey_group: false,
+                    site_category: false,
+                    size: true,
+                    qty: true,
+                    senzey_price: true,
+                    site_price: true,
+                    price_gap: true,
+                    final_price: true,
+                    competitor_price: false,
+                    proposed_price: false,
+                    senzey_status: true,
+                    site_status: true,
+                    site_url: true,
+                    flags: true,
+                    verified: true,
+                  })
+                }
+                className="underline"
+              >
+                ברירת מחדל
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 text-sm">
+              {(Object.keys(COLUMN_LABEL) as ColKey[]).map((k) => (
+                <label key={k} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={visible[k]}
+                    onChange={() => toggle(k)}
+                  />
+                  <span>{COLUMN_LABEL[k]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
