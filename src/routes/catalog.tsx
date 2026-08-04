@@ -684,6 +684,41 @@ function EditDrawer({
               onChange={(e) => set("notes", e.target.value)}
             />
           </Field>
+          <Field label="קבוצה בסנזיי">
+            <input
+              className={inputCls}
+              value={f.senzey_group ?? ""}
+              onChange={(e) => set("senzey_group", e.target.value)}
+            />
+          </Field>
+          <Field label="קטגוריה באתר">
+            <input
+              className={inputCls}
+              value={f.site_category ?? ""}
+              onChange={(e) => set("site_category", e.target.value)}
+            />
+          </Field>
+          <Field label="מחיר מתחרה">
+            <input
+              className={`${inputCls} num`}
+              value={f.competitor_price ?? ""}
+              onChange={(e) => set("competitor_price", num(e.target.value))}
+            />
+          </Field>
+          <Field label="מחיר מוצע">
+            <input
+              className={`${inputCls} num`}
+              value={f.proposed_price ?? ""}
+              onChange={(e) => set("proposed_price", num(e.target.value))}
+            />
+          </Field>
+          <Field label="מקור מחיר מתחרה" full>
+            <input
+              className={inputCls}
+              value={f.competitor_ref ?? ""}
+              onChange={(e) => set("competitor_ref", e.target.value)}
+            />
+          </Field>
         </div>
         <button
           onClick={() =>
