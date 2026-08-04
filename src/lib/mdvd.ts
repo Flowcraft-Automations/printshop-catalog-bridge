@@ -19,6 +19,11 @@ export type Product = {
   anomaly: string | null;
   notes: string | null;
   source: string | null;
+  senzey_group?: string | null;
+  site_category?: string | null;
+  competitor_price?: number | null;
+  competitor_ref?: string | null;
+  proposed_price?: number | null;
   verified?: boolean;
   verified_at?: string | null;
   created_at?: string;
