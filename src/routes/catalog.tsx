@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
@@ -220,6 +220,9 @@ function Catalog() {
 
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
+  const [familySearch, setFamilySearch] = useState("");
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const familyWrapRef = useRef<HTMLDivElement>(null);
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
@@ -321,6 +324,21 @@ function Catalog() {
     () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
     [products],
   );
+  const filteredFamilies = useMemo(() => {
+    const qf = familySearch.trim().toLowerCase();
+    if (!qf) return families;
+    return families.filter((f) => f.family.toLowerCase().includes(qf));
+  }, [families, familySearch]);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!familyWrapRef.current?.contains(e.target as Node)) {
+        setFamilyOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
@@ -536,14 +554,81 @@ function Catalog() {
           onChange={(e) => setQ(e.target.value)}
           className={`${inputCls} min-w-[260px] flex-1`}
         />
-        <select value={family} onChange={(e) => setFamily(e.target.value)} className={inputCls}>
-          <option value="">כל המשפחות</option>
-          {families.map((f) => (
-            <option key={f.family} value={f.family}>
-              {f.family}
-            </option>
-          ))}
-        </select>
+        <div ref={familyWrapRef} className="relative min-w-[200px] flex-1">
+          <input
+            value={familyOpen ? familySearch : familySearch || family || ""}
+            placeholder={family ? family : "כל המשפחות — הקלד לחיפוש"}
+            onChange={(e) => {
+              setFamilySearch(e.target.value);
+              setFamilyOpen(true);
+            }}
+            onFocus={() => setFamilyOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setFamilyOpen(false);
+              }
+              if (e.key === "ArrowDown" && filteredFamilies.length > 0) {
+                e.preventDefault();
+                const first = document.querySelector<HTMLButtonElement>("[data-catalog-family-option]");
+                first?.focus();
+              }
+            }}
+            aria-expanded={familyOpen}
+            aria-autocomplete="list"
+            aria-controls="catalog-family-listbox"
+            className={`${inputCls} w-full`}
+          />
+          {familyOpen && (
+            <div
+              id="catalog-family-listbox"
+              className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]"
+            >
+              {filteredFamilies.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">לא נמצאו משפחות</div>
+              ) : (
+                filteredFamilies.map((f) => (
+                  <button
+                    key={f.family}
+                    type="button"
+                    data-catalog-family-option
+                    className={`w-full px-3 py-2 text-right text-sm hover:bg-[var(--accent-raw)] hover:text-white ${
+                      f.family === family ? "bg-[var(--surface-deep)] font-bold" : ""
+                    }`}
+                    onClick={() => {
+                      setFamily(f.family);
+                      setFamilySearch("");
+                      setFamilyOpen(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const next = (e.target as HTMLElement).nextElementSibling as HTMLButtonElement | null;
+                        next?.focus();
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const prev = (e.target as HTMLElement).previousElementSibling as HTMLButtonElement | null;
+                        if (prev) {
+                          prev.focus();
+                        } else {
+                          setFamilyOpen(false);
+                        }
+                      } else if (e.key === "Enter") {
+                        e.preventDefault();
+                        setFamily(f.family);
+                        setFamilySearch("");
+                        setFamilyOpen(false);
+                      } else if (e.key === "Escape") {
+                        setFamilyOpen(false);
+                      }
+                    }}
+                  >
+                    {f.family}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <select
           value={senzeyStatus}
           onChange={(e) => setSenzeyStatus(e.target.value)}
