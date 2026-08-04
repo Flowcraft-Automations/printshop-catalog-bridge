@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Family, Product, ProductHistory } from "./mdvd";
+import type { Family, Product, ProductHistory, ProductNote } from "./mdvd";
 
 export const productHistoryQuery = (productId: string) =>
   queryOptions({
@@ -48,5 +48,25 @@ export const familiesQuery = () =>
         .order("items_count", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Family[];
+    },
+  });
+
+export const productNotesQuery = () =>
+  queryOptions({
+    queryKey: ["product-notes"],
+    queryFn: async (): Promise<ProductNote[]> => {
+      const all: ProductNote[] = [];
+      const page = 1000;
+      for (let from = 0; ; from += page) {
+        const { data, error } = await supabase
+          .from("product_notes")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(from, from + page - 1);
+        if (error) throw error;
+        all.push(...((data ?? []) as unknown as ProductNote[]));
+        if (!data || data.length < page) break;
+      }
+      return all;
     },
   });

@@ -170,3 +170,12 @@ export function computePrice(
     tier: tiers[0] ?? null,
   };
 }
+
+export type ProductNote = {
+  id: string;
+  product_id: string;
+  body: string;
+  author: string | null;
+  created_at: string;
+  updated_at: string;
+};
