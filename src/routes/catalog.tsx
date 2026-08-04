@@ -227,6 +227,7 @@ function Catalog() {
   const [onlyDup, setOnlyDup] = useState(false);
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
   const [category, setCategory] = useState(categoryParam ?? "");
   const [presence, setPresence] = useState("");
@@ -355,6 +356,7 @@ function Catalog() {
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
+      if (!showClosed && isClosedOut(p)) return false;
 
       // per-column filters (Zoho-style)
       if (!matchText(p.name, colFilters.name ?? "")) return false;
@@ -412,6 +414,7 @@ function Catalog() {
     onlyDup,
     onlyNew,
     onlyProposed,
+    showClosed,
     group,
     category,
     presence,
@@ -599,6 +602,14 @@ function Catalog() {
             onChange={(e) => setOnlyProposed(e.target.checked)}
           />
           יש מחיר מוצע
+        </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={showClosed}
+            onChange={(e) => setShowClosed(e.target.checked)}
+          />
+          הצג פריטים סגורים
         </label>
       </div>
 
