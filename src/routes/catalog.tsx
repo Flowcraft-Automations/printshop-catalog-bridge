@@ -438,6 +438,7 @@ function Catalog() {
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
+      if (onlyCurveOut && Math.abs(curveByProduct[p.id]?.dev ?? 0) <= 20) return false;
       if (group && (group === EMPTY ? g !== "" : g !== group)) return false;
       if (category && (category === EMPTY ? c !== "" : c !== category)) return false;
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
