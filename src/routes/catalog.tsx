@@ -266,6 +266,7 @@ function Catalog() {
       if (!matchNum(p.qty, colFilters.qty ?? "")) return false;
       if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
+      if (!matchNum(priceGap(p), colFilters.price_gap ?? "")) return false;
       if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
       if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
       if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
