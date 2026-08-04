@@ -564,6 +564,7 @@ function Catalog() {
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
+      "עוגן": p.is_anchor ? "כן" : "",
       "חריגה": activeAnomaly(p),
       "הערות": (notesByProduct[p.id] ?? []).map((n) => n.body).join(" | "),
       "קבוצה בסנזיי": p.senzey_group ?? "",
