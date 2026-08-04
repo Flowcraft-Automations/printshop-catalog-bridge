@@ -224,7 +224,7 @@ function Catalog() {
   });
 
   const rows = useMemo(() => {
-    return products.filter((p) => {
+    const out = products.filter((p) => {
       const g = (p.senzey_group ?? "").trim();
       const c = (p.site_category ?? "").trim();
       if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
@@ -241,8 +241,49 @@ function Catalog() {
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
+
+      // per-column filters (Zoho-style)
+      if (!matchText(p.name, colFilters.name ?? "")) return false;
+      if (!matchText(p.family, colFilters.family ?? "")) return false;
+      if (!matchText(p.senzey_group, colFilters.senzey_group ?? "")) return false;
+      if (!matchText(p.site_category, colFilters.site_category ?? "")) return false;
+      if (
+        !matchText(
+          p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "",
+          colFilters.size ?? "",
+        )
+      )
+        return false;
+      if (!matchNum(p.qty, colFilters.qty ?? "")) return false;
+      if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
+      if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
+      if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
+      if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
+      if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
+      if (colFilters.senzey_status && p.senzey_status !== colFilters.senzey_status) return false;
+      if (colFilters.site_status && p.site_status !== colFilters.site_status) return false;
+      if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
+      if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
+      if (!matchText(`${p.anomaly ?? ""} ${p.notes ?? ""}`, colFilters.flags ?? "")) return false;
+      if (colFilters.verified === "yes" && !p.verified) return false;
+      if (colFilters.verified === "no" && p.verified) return false;
       return true;
     });
+
+    if (sort) {
+      const get = SORT_VALUE[sort.key];
+      const dir = sort.dir === "asc" ? 1 : -1;
+      out.sort((a, b) => {
+        const va = get(a);
+        const vb = get(b);
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+        return String(va).localeCompare(String(vb), "he") * dir;
+      });
+    }
+    return out;
   }, [
     products,
     q,
@@ -257,6 +298,8 @@ function Catalog() {
     group,
     category,
     presence,
+    colFilters,
+    sort,
   ]);
 
 
