@@ -800,6 +800,25 @@ function Catalog() {
                   <td className="num px-3 py-1">{p.qty ?? 1}</td>
                   <td className="num px-3 py-1">{shekel(p.senzey_price)}</td>
                   <td className="num px-3 py-1">{shekel(p.site_price)}</td>
+                  {(() => {
+                    const g = priceGap(p);
+                    return (
+                      <td
+                        className={`num px-3 py-1 font-bold ${
+                          g === null
+                            ? "text-muted-foreground"
+                            : g > 0
+                              ? "text-[oklch(0.45_0.14_150)]"
+                              : g < 0
+                                ? "text-[oklch(0.5_0.19_28)]"
+                                : "text-muted-foreground"
+                        }`}
+                        title="מחיר אתר פחות מחיר סנזיי"
+                      >
+                        {g === null ? "—" : `${g > 0 ? "+" : ""}${shekel(g)}`}
+                      </td>
+                    );
+                  })()}
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
                     <input
                       defaultValue={p.final_price ?? ""}
