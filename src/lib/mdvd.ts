@@ -19,7 +19,7 @@ export type Product = {
   anomaly: string | null;
   notes: string | null;
   source: string | null;
-  verified?: boolean | null;
+  verified?: boolean;
   verified_at?: string | null;
   created_at?: string;
   updated_at?: string;
