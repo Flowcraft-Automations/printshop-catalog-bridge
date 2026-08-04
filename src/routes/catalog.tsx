@@ -597,7 +597,10 @@ function HistoryPanel({ productId }: { productId: string }) {
     mutationFn: async (entries: ProductHistory[]) => {
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
       for (const e of entries) patch[e.field] = parseFieldValue(e.field, e.old_value);
-      const { error } = await supabase.from("products").update(patch).eq("id", productId);
+      const { error } = await supabase
+        .from("products")
+        .update(patch as never)
+        .eq("id", productId);
       if (error) throw error;
     },
     onSuccess: () => {
