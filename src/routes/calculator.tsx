@@ -268,13 +268,17 @@ function Calculator() {
                 ) : null}
                 {fit ? (
                   <div className="text-[11px] text-muted-foreground/70">
-                    התאמה מ־{fit.count} עוגנים · סטייה ממוצעת {fit.deviation.toFixed(0)}%
+                    {source === "anchors"
+                      ? `העקומה נבנתה מ־${fit.count} עוגנים שסימנת`
+                      : source === "single-anchor"
+                        ? "העקומה נבנתה מעוגן יחיד שסימנת (הרחבה יחסית לשטח)"
+                        : `התאמה מ־${fit.count} עוגנים · סטייה ממוצעת ${fit.deviation.toFixed(0)}%`}
                     {calc.skipped > 0 ? ` · דילגנו על ${calc.skipped} חריגות` : ""}
                   </div>
                 ) : null}
-                {fit && fit.deviation > 15 ? (
+                {fit && source === "all-items" && fit.deviation > 15 ? (
                   <div className="text-[12px] font-bold text-[oklch(0.5_0.16_45)]">
-                    המשפחה הזו מתאימה יותר לסולם מחירים קבוע
+                    סמן עוגן אחד או יותר במשפחה כדי לייצב את העקומה
                   </div>
                 ) : null}
               </div>
