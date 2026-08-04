@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
 import { NotesPanel } from "@/components/NotesPanel";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import {
