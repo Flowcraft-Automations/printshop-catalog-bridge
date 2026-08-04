@@ -89,6 +89,7 @@ function Catalog() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-history"] });
       toast.success("עודכן");
     },
     onError: (e: Error) => toast.error(e.message),
