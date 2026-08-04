@@ -31,6 +31,7 @@ export type Database = {
       }
       families: {
         Row: {
+          base_price: number
           family: string
           items_count: number | null
           min_charge: number | null
@@ -39,6 +40,7 @@ export type Database = {
           rate_m2: number | null
         }
         Insert: {
+          base_price?: number
           family: string
           items_count?: number | null
           min_charge?: number | null
@@ -47,6 +49,7 @@ export type Database = {
           rate_m2?: number | null
         }
         Update: {
+          base_price?: number
           family?: string
           items_count?: number | null
           min_charge?: number | null
