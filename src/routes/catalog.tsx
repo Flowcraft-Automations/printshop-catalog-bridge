@@ -356,6 +356,7 @@ function Catalog() {
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
+      if (!showClosed && isClosedOut(p)) return false;
 
       // per-column filters (Zoho-style)
       if (!matchText(p.name, colFilters.name ?? "")) return false;
