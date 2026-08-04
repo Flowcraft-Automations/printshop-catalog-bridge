@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,21 @@ function MigrationBoard() {
   const system: "site" | "senzey" = tab.startsWith("site") ? "site" : "senzey";
   const field = system === "site" ? "site_status" : "senzey_status";
   const doneView = tab.endsWith("_done");
+
+  const saveNote = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string | null }) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ notes, updated_at: new Date().toISOString() } as never)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast.success("ההערה נשמרה");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const update = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -114,9 +129,10 @@ function MigrationBoard() {
                               חדש מאושר
                             </span>
                           )}
-                          {p.notes && (
-                            <div className="text-xs font-normal text-muted-foreground">{p.notes}</div>
-                          )}
+                          <NoteInput
+                            value={p.notes}
+                            onSave={(notes) => saveNote.mutate({ id: p.id, notes })}
+                          />
                         </td>
                         <td className="num whitespace-nowrap px-3 py-2 text-muted-foreground">
                           {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
@@ -174,5 +190,32 @@ function MigrationBoard() {
         </>
       )}
     </div>
+  );
+}
+
+function NoteInput({
+  value,
+  onSave,
+}: {
+  value: string | null;
+  onSave: (v: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+  return (
+    <input
+      value={draft}
+      placeholder="+ הערה"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        if (next !== (value ?? "").trim()) onSave(next || null);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") setDraft(value ?? "");
+      }}
+      className="mt-0.5 w-full max-w-md border-b border-dashed border-border bg-transparent text-xs font-normal text-muted-foreground outline-none focus:border-solid focus:border-[var(--accent-raw)]"
+    />
   );
 }

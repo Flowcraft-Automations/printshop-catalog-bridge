@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
@@ -125,6 +125,7 @@ type ColKey =
   | "site_status"
   | "site_url"
   | "flags"
+  | "notes"
   | "verified";
 
 /** Site price minus Senzey price; null when either side is missing. */
@@ -151,6 +152,7 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   site_status: (p) => p.site_status,
   site_url: (p) => p.site_url ?? "",
   flags: (p) => `${p.anomaly ?? ""}${p.notes ?? ""}`,
+  notes: (p) => p.notes ?? "",
   verified: (p) => (p.verified ? 1 : 0),
 };
 
@@ -202,6 +204,7 @@ function Catalog() {
     site_status: true,
     site_url: true,
     flags: true,
+    notes: true,
     verified: true,
   });
 
@@ -222,6 +225,7 @@ function Catalog() {
     site_status: 6,
     site_url: 4,
     flags: 7,
+    notes: 10,
     verified: 4,
   };
   const scaledWidths = useMemo(() => {
@@ -327,6 +331,7 @@ function Catalog() {
       if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
       if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
       if (!matchText(`${p.anomaly ?? ""} ${p.notes ?? ""}`, colFilters.flags ?? "")) return false;
+      if (!matchText(p.notes, colFilters.notes ?? "")) return false;
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
       return true;
@@ -701,6 +706,11 @@ function Catalog() {
                     סימונים
                   </th>
                 )}
+                {visibleCols.notes && (
+                  <th style={{ width: scaledWidths.notes }} className="px-2 py-2">
+                    <SortHead k="notes" label="הערות" />
+                  </th>
+                )}
                 {visibleCols.verified && (
                   <th style={{ width: scaledWidths.verified }} className="px-2 py-2 text-center">
                     <SortHead k="verified" label="אומת" className="mx-auto" />
@@ -902,6 +912,16 @@ function Catalog() {
                         value={cf("flags")}
                         onChange={(e) => setCf("flags", e.target.value)}
                         placeholder="חריגה/הערה…"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.notes && (
+                    <th style={{ width: scaledWidths.notes }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("notes")}
+                        onChange={(e) => setCf("notes", e.target.value)}
+                        placeholder="הערה…"
                       />
                     </th>
                   )}
@@ -1108,6 +1128,18 @@ function Catalog() {
                           כפילות ×{p.senzey_dup_count}
                         </span>
                       )}
+                    </td>
+                  )}
+                  {visibleCols.notes && (
+                    <td
+                      style={{ width: scaledWidths.notes }}
+                      className="px-2 py-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <NoteCell
+                        value={p.notes}
+                        onSave={(v) => update.mutate({ ids: [p.id], patch: { notes: v } })}
+                      />
                     </td>
                   )}
                   {visibleCols.verified && (
@@ -1472,6 +1504,7 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   site_status: "סטטוס אתר",
   site_url: "קישור",
   flags: "סימונים",
+  notes: "הערות",
   verified: "אומת",
 };
 
@@ -1519,6 +1552,7 @@ function ColumnChooser({
                     site_status: true,
                     site_url: true,
                     flags: true,
+                    notes: true,
                     verified: true,
                   })
                 }
@@ -1543,5 +1577,35 @@ function ColumnChooser({
         </>
       )}
     </div>
+  );
+}
+
+function NoteCell({
+  value,
+  onSave,
+}: {
+  value: string | null | undefined;
+  onSave: (v: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+  const commit = () => {
+    const next = draft.trim();
+    if (next === (value ?? "").trim()) return;
+    onSave(next || null);
+  };
+  return (
+    <input
+      value={draft}
+      title={draft}
+      placeholder="+ הערה"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") setDraft(value ?? "");
+      }}
+      className="w-full border-b border-dashed border-border bg-transparent px-1 py-0.5 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-solid focus:border-[var(--accent-raw)]"
+    />
   );
 }
