@@ -108,17 +108,40 @@ function Calculator() {
                   <div className="num text-2xl font-black">{shekel(calc.total)}</div>
                 </div>
               </div>
-              <div className="mt-4 space-y-1 border-s-4 border-[var(--accent-raw)] ps-3 font-mono text-[12px] text-muted-foreground">
-                <div>שטח = {nw}×{nh}/10000 = {calc.area.toFixed(4)} מ״ר</div>
-                <div>
-                  תעריף {fam.rate_m2 ?? 0}₪/מ״ר × שטח = {calc.raw.toFixed(2)}₪
+              <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
+                <div
+                  className={
+                    calc.basis === "extrapolated"
+                      ? "font-bold text-[oklch(0.5_0.16_45)]"
+                      : "font-bold"
+                  }
+                >
+                  {calc.label}
                 </div>
-                <div>מינימום {fam.min_charge ?? 0}₪ → {calc.beforeDiscount.toFixed(2)}₪</div>
-                <div>
-                  הנחת כמות ×{calc.mult}
-                  {calc.tier ? ` (מ־${calc.tier.min} יח׳)` : " (אין)"}
+                {calc.detail ? (
+                  <div className="text-muted-foreground">{calc.detail}</div>
+                ) : null}
+                <div className="text-muted-foreground">
+                  שטח מבוקש: {nw}×{nh} = {area.toFixed(3)} מ״ר
                 </div>
-                <div>עיגול ליחידה = {calc.unit}₪ · × {nq} = {calc.total}₪</div>
+                {calc.minApplied ? (
+                  <div className="text-muted-foreground">
+                    הופעל מחיר מינימום של המשפחה ({shekel(fam.min_charge ?? 0)}).
+                  </div>
+                ) : null}
+                {calc.tier ? (
+                  <div className="text-muted-foreground">
+                    הנחת כמות ×{calc.mult} (מ־{calc.tier.min} יח׳).
+                  </div>
+                ) : null}
+                {calc.basis !== "catalog" ? (
+                  <div className="text-muted-foreground">המחיר עוגל ל־5₪ הקרובים.</div>
+                ) : null}
+                {calc.skipped > 0 ? (
+                  <div className="text-[11px] text-muted-foreground/70">
+                    דילגנו על {calc.skipped} חריגות
+                  </div>
+                ) : null}
               </div>
               <button
                 onClick={() =>
