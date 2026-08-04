@@ -220,6 +220,9 @@ function Catalog() {
 
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
+  const [familySearch, setFamilySearch] = useState("");
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const familyWrapRef = useRef<HTMLDivElement>(null);
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
