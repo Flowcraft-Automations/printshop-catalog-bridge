@@ -1577,33 +1577,3 @@ function ColumnChooser({
     </div>
   );
 }
-
-function NoteCell({
-  value,
-  onSave,
-}: {
-  value: string | null | undefined;
-  onSave: (v: string | null) => void;
-}) {
-  const [draft, setDraft] = useState(value ?? "");
-  useEffect(() => setDraft(value ?? ""), [value]);
-  const commit = () => {
-    const next = draft.trim();
-    if (next === (value ?? "").trim()) return;
-    onSave(next || null);
-  };
-  return (
-    <input
-      value={draft}
-      title={draft}
-      placeholder="+ הערה"
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") setDraft(value ?? "");
-      }}
-      className="w-full border-b border-dashed border-border bg-transparent px-1 py-0.5 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-solid focus:border-[var(--accent-raw)]"
-    />
-  );
-}
