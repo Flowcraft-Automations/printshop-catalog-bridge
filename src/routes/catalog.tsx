@@ -1738,6 +1738,8 @@ function ColumnChooser({
                     site_price: true,
                     price_gap: true,
                     final_price: true,
+                    curve_price: true,
+                    curve_dev: false,
                     competitor_price: false,
                     proposed_price: false,
                     senzey_status: true,
