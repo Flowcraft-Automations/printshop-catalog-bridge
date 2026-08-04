@@ -133,6 +133,73 @@ function Calculator() {
     [anchors],
   );
 
+  /* ---------------- אזור ניסוי: sandbox anchors, nothing is written to DB ---------------- */
+  const [simOn, setSimOn] = useState(false);
+  const [simPrice, setSimPrice] = useState<Record<string, string>>({});
+  const [simPin, setSimPin] = useState<Record<string, boolean>>({});
+
+  const resetSim = () => {
+    setSimPrice({});
+    setSimPin({});
+  };
+
+  useEffect(() => {
+    resetSim();
+  }, [family]);
+
+  const simProducts = useMemo(() => {
+    if (!simOn) return products;
+    return products.map((p) => {
+      const priceRaw = simPrice[p.id];
+      const pin = simPin[p.id];
+      if (priceRaw === undefined && pin === undefined) return p;
+      const n = Number(priceRaw);
+      return {
+        ...p,
+        final_price:
+          priceRaw !== undefined && priceRaw !== "" && !Number.isNaN(n) ? n : p.final_price,
+        is_anchor: pin === undefined ? p.is_anchor : pin,
+      } as Product;
+    });
+  }, [products, simOn, simPrice, simPin]);
+
+  const simBuild = useMemo(
+    () =>
+      family && simOn
+        ? buildAnchors(simProducts, family)
+        : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
+    [simProducts, family, simOn],
+  );
+  const simFit = useMemo(() => fitFamilyLine(simBuild.anchors), [simBuild.anchors]);
+  const simCalc = useMemo(
+    () =>
+      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq),
+    [simBuild, fam, simFit, nw, nh, nq],
+  );
+
+  /** suggested price per family item under the experimental curve */
+  const simSuggestions = useMemo(() => {
+    if (!simOn || !fam || !simFit) return [];
+    return filteredFamItems
+      .filter((x) => x.w && x.h)
+      .map((x) => {
+        const res = priceFromLine(
+          simBuild.anchors,
+          simBuild.skipped,
+          fam,
+          simFit,
+          x.w,
+          x.h,
+          1,
+        );
+        const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
+        const diff = current ? ((res.unit - current) / current) * 100 : null;
+        return { ...x, suggested: res.unit, current, diff };
+      });
+  }, [simOn, fam, simFit, simBuild, filteredFamItems]);
+
+
+
 
   return (
     <div>
@@ -384,14 +451,149 @@ function Calculator() {
           ) : null}
 
           {family ? (
+            <section className="mb-8 border-2 border-dashed border-[var(--accent-raw)] bg-card p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black">אזור ניסוי — עקומה זמנית</h2>
+                  <p className="text-sm text-muted-foreground">
+                    שנה מחירי עוגן או סמן עוגנים זמניים. שום דבר לא נשמר בקטלוג.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {simOn ? (
+                    <button
+                      onClick={resetSim}
+                      className="border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold"
+                    >
+                      אפס ניסוי
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={() => setSimOn((v) => !v)}
+                    className={
+                      simOn
+                        ? "bg-[var(--accent-raw)] px-3 py-1.5 text-xs font-bold text-white"
+                        : "border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold"
+                    }
+                  >
+                    {simOn ? "ניסוי פעיל" : "הפעל מצב ניסוי"}
+                  </button>
+                </div>
+              </div>
+
+              {simOn ? (
+                <>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="border-2 border-[var(--ink)] p-3">
+                      <div className="text-[11px] font-bold text-muted-foreground">מחיר נוכחי לחישוב</div>
+                      <div className="num text-2xl font-black">{shekel(calc.unit)}</div>
+                    </div>
+                    <div className="border-2 border-[var(--accent-raw)] p-3">
+                      <div className="text-[11px] font-bold text-muted-foreground">מחיר בניסוי</div>
+                      <div className="num text-2xl font-black text-[var(--accent-raw)]">
+                        {shekel(simCalc.unit)}
+                      </div>
+                    </div>
+                    <div className="border-2 border-dashed border-border p-3">
+                      <div className="text-[11px] font-bold text-muted-foreground">עקומת הניסוי</div>
+                      <div className="num text-sm font-bold">
+                        {simFit
+                          ? `בסיס ${shekel(simFit.base)} + ${(simFit.rate / 10000).toFixed(4)}₪/סמ״ר`
+                          : "אין מספיק עוגנים"}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {simBuild.anchors.length} עוגנים
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 max-h-[360px] overflow-y-auto border-2 border-[var(--ink)]">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-[var(--ink)] text-white">
+                        <tr className="text-right">
+                          <th className="px-3 py-2 font-semibold">שם</th>
+                          <th className="px-3 py-2 font-semibold">מידה</th>
+                          <th className="px-3 py-2 font-semibold">מחיר נוכחי</th>
+                          <th className="px-3 py-2 font-semibold">מחיר ניסוי</th>
+                          <th className="px-3 py-2 font-semibold">עוגן ניסיוני</th>
+                          <th className="px-3 py-2 font-semibold">הצעה מהעקומה</th>
+                          <th className="px-3 py-2 font-semibold">פער %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredFamItems.map(({ p, w: iw, h: ih }, i) => {
+                          const sug = simSuggestions.find((s) => s.p.id === p.id);
+                          const pinned = simPin[p.id] ?? !!p.is_anchor;
+                          const cur = p.final_price ?? p.senzey_price;
+                          return (
+                            <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
+                              <td className="px-3 py-1.5">{p.name}</td>
+                              <td className="num px-3 py-1.5">
+                                {iw && ih ? `${iw}×${ih}` : "—"}
+                              </td>
+                              <td className="num px-3 py-1.5">{shekel(cur)}</td>
+                              <td className="px-3 py-1.5">
+                                <input
+                                  className="num w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 py-0.5 outline-none focus:border-[var(--accent-raw)]"
+                                  value={simPrice[p.id] ?? ""}
+                                  placeholder={cur != null ? String(cur) : "—"}
+                                  onChange={(e) =>
+                                    setSimPrice((s) => ({ ...s, [p.id]: e.target.value }))
+                                  }
+                                />
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <button
+                                  onClick={() =>
+                                    setSimPin((s) => ({ ...s, [p.id]: !pinned }))
+                                  }
+                                  className={
+                                    pinned
+                                      ? "bg-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-white"
+                                      : "border-2 border-dashed border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                                  }
+                                >
+                                  {pinned ? "עוגן" : "קבע"}
+                                </button>
+                              </td>
+                              <td className="num px-3 py-1.5 font-bold">
+                                {sug ? shekel(sug.suggested) : "—"}
+                              </td>
+                              <td
+                                className={`num px-3 py-1.5 font-bold ${
+                                  sug?.diff == null
+                                    ? ""
+                                    : Math.abs(sug.diff) > 20
+                                      ? "text-[oklch(0.5_0.2_25)]"
+                                      : Math.abs(sug.diff) > 5
+                                        ? "text-[oklch(0.55_0.16_70)]"
+                                        : "text-muted-foreground"
+                                }`}
+                              >
+                                {sug?.diff == null ? "—" : `${sug.diff > 0 ? "+" : ""}${sug.diff.toFixed(0)}%`}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
+            </section>
+          ) : null}
+
+          {family ? (
             <CurveChart
-              anchors={anchors}
-              dropped={dropped}
-              fit={fit}
+              anchors={simOn ? simBuild.anchors : anchors}
+              dropped={simOn ? simBuild.dropped : dropped}
+              fit={simOn ? simFit : fit}
               requestedArea={area}
-              requestedPrice={calc.unit}
+              requestedPrice={simOn ? simCalc.unit : calc.unit}
             />
           ) : null}
+
+
 
 
 
