@@ -138,6 +138,20 @@ export function priceGap(p: Product): number | null {
   return Number(p.site_price) - Number(p.senzey_price);
 }
 
+/**
+ * Anomaly text as it should be shown: a price-gap anomaly self-clears once the
+ * Senzey and site prices match (gap = 0).
+ */
+export function activeAnomaly(p: Product): string {
+  const a = (p.anomaly ?? "").trim();
+  if (!a) return "";
+  if (a.includes("פער מחיר")) {
+    const g = priceGap(p);
+    if (g !== null && Math.abs(g) < 0.005) return "";
+  }
+  return a;
+}
+
 let NOTE_TEXT: Record<string, string> = {};
 function noteTextOf(id: string) {
   return NOTE_TEXT[id] ?? "";
