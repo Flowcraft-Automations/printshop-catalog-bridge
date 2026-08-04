@@ -1,0 +1,1 @@
+ALTER TABLE public.families ADD COLUMN IF NOT EXISTS base_price numeric NOT NULL DEFAULT 0;

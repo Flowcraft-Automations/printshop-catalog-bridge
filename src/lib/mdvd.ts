@@ -102,6 +102,7 @@ export type Family = {
   family: string;
   items_count: number | null;
   rate_m2: number | null;
+  base_price: number | null;
   min_charge: number | null;
   qty_discounts: QtyDiscount[] | null;
   notes: string | null;
@@ -182,7 +183,7 @@ export type Anchor = {
 export type AnchorPricing = {
   unit: number;
   total: number;
-  basis: "catalog" | "min-size" | "interpolated" | "extrapolated" | "rate";
+  basis: "catalog" | "line" | "rate";
   label: string;
   detail: string | null;
   anchors: Anchor[];
@@ -190,12 +191,22 @@ export type AnchorPricing = {
   mult: number;
   tier: QtyDiscount | null;
   minApplied: boolean;
+  floorApplied: boolean;
   base: number;
 };
 
 const sizeLabel = (a: Anchor) => `${a.w}×${a.h}`;
 
-/** Build monotonic price anchors from qty=1 products of a family. */
+const median = (nums: number[]) => {
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
+};
+
+/**
+ * Build price anchors from qty=1 products of a family, dropping anomalies whose
+ * price-per-m² deviates more than ×2.5 from the family median.
+ */
 export function buildAnchors(
   products: Product[],
   family: string,
@@ -222,23 +233,71 @@ export function buildAnchors(
       byArea.set(key, cand);
     }
   }
-  const sorted = [...byArea.values()].sort((a, b) => a.area - b.area);
-  const anchors: Anchor[] = [];
-  let skipped = 0;
-  for (const a of sorted) {
-    const last = anchors[anchors.length - 1];
-    if (last && a.price < last.price) {
-      skipped++;
-      continue;
+  const all = [...byArea.values()].sort((a, b) => a.area - b.area);
+  if (all.length < 3) return { anchors: all, skipped: 0 };
+
+  const med = median(all.map((a) => a.price / a.area));
+  const anchors = all.filter((a) => {
+    const ppm = a.price / a.area;
+    return ppm <= med * 2.5 && ppm >= med / 2.5;
+  });
+  return { anchors, skipped: all.length - anchors.length };
+}
+
+export type FamilyFit = {
+  base: number;
+  rate: number;
+  /** average absolute % deviation of anchors from the fitted line */
+  deviation: number;
+  count: number;
+};
+
+/** Least-squares fit of price = base + rate × area, with base clamped to >= 0. */
+export function fitFamilyLine(anchors: Anchor[]): FamilyFit | null {
+  const n = anchors.length;
+  if (n === 0) return null;
+  let base = 0;
+  let rate = 0;
+  if (n === 1) {
+    rate = anchors[0]!.price / anchors[0]!.area;
+  } else {
+    const mx = anchors.reduce((s, a) => s + a.area, 0) / n;
+    const my = anchors.reduce((s, a) => s + a.price, 0) / n;
+    let num = 0;
+    let den = 0;
+    for (const a of anchors) {
+      num += (a.area - mx) * (a.price - my);
+      den += (a.area - mx) ** 2;
     }
-    anchors.push(a);
+    rate = den === 0 ? my / (mx || 1) : num / den;
+    base = my - rate * mx;
+    if (base < 0 || rate <= 0) {
+      // refit through the origin
+      base = 0;
+      const sxx = anchors.reduce((s, a) => s + a.area * a.area, 0);
+      const sxy = anchors.reduce((s, a) => s + a.area * a.price, 0);
+      rate = sxx === 0 ? 0 : sxy / sxx;
+    }
   }
-  return { anchors, skipped };
+  const deviation =
+    anchors.reduce((s, a) => {
+      const fit = base + rate * a.area;
+      return s + Math.abs(fit - a.price) / a.price;
+    }, 0) /
+    n *
+    100;
+  return {
+    base: Math.round(base * 100) / 100,
+    rate: Math.round(rate * 100) / 100,
+    deviation,
+    count: n,
+  };
 }
 
 const round5 = (n: number) => Math.round(n / 5) * 5;
 
-export function priceFromAnchors(
+/** Price a requested size from the family's stored base + rate line. */
+export function priceFromLine(
   anchors: Anchor[],
   skipped: number,
   family: Family | undefined,
@@ -253,102 +312,54 @@ export function priceFromAnchors(
   const tier = tiers[0] ?? null;
   const mult = tier?.mult ?? 1;
   const min = family?.min_charge ?? 0;
+  const base = family?.base_price ?? 0;
+  const rate = family?.rate_m2 ?? 0;
 
-  const finish = (
-    base: number,
-    basis: AnchorPricing["basis"],
-    label: string,
-    detail: string | null,
-    used: Anchor[],
-    exact = false,
-  ): AnchorPricing => {
-    const minApplied = base < min;
-    const floored = Math.max(base, min);
-    const withDiscount = floored * mult;
-    const unit = exact && !minApplied && mult === 1 ? floored : round5(withDiscount);
+  const match = anchors.find((a) => Math.abs(a.area - area) <= a.area * 0.02);
+  if (match && area) {
+    const minApplied = match.price < min;
+    const floored = Math.max(match.price, min);
+    const unit = minApplied || mult !== 1 ? round5(floored * mult) : floored;
     return {
       unit,
       total: unit * qty,
-      basis,
-      label,
-      detail,
-      anchors: used,
+      basis: "catalog",
+      label: "מחיר קטלוג",
+      detail: `נמצאה מידה זהה במחירון: ${sizeLabel(match)} = ${shekel(match.price)}`,
+      anchors: [match],
       skipped,
       mult,
       tier,
       minApplied,
-      base,
+      floorApplied: false,
+      base: match.price,
     };
+  }
+
+  const raw = base + rate * area;
+  const cheapest = anchors.length
+    ? anchors.reduce((m, a) => Math.min(m, a.price), Infinity)
+    : 0;
+  const floorApplied = cheapest > 0 && raw < cheapest;
+  const afterFloor = Math.max(raw, cheapest);
+  const minApplied = afterFloor < min;
+  const beforeDiscount = Math.max(afterFloor, min);
+  const unit = round5(beforeDiscount * mult);
+
+  return {
+    unit,
+    total: unit * qty,
+    basis: anchors.length ? "line" : "rate",
+    label: anchors.length ? "מחיר מחושב" : "חישוב לפי תעריף למ״ר",
+    detail: `מחיר בסיס ${shekel(base)} + ${shekel(rate)} למ״ר × ${area.toFixed(3)} מ״ר = ${shekel(Math.round(raw))}`,
+    anchors: [],
+    skipped,
+    mult,
+    tier,
+    minApplied,
+    floorApplied,
+    base: raw,
   };
-
-  if (anchors.length === 0 || !area) {
-    const rate = family?.rate_m2 ?? 0;
-    return finish(
-      rate * area,
-      "rate",
-      "חישוב לפי תעריף למ״ר",
-      `אין מחירי עוגן במשפחה — חושב לפי ${rate}₪ למ״ר × ${area.toFixed(3)} מ״ר`,
-      [],
-    );
-  }
-
-  const match = anchors.find((a) => Math.abs(a.area - area) <= a.area * 0.02);
-  if (match) {
-    return finish(
-      match.price,
-      "catalog",
-      "מחיר קטלוג",
-      `נמצאה מידה זהה במחירון: ${sizeLabel(match)} = ${shekel(match.price)}`,
-      [match],
-      true,
-    );
-  }
-
-  const first = anchors[0]!;
-  const last = anchors[anchors.length - 1]!;
-
-  if (area < first.area) {
-    return finish(
-      first.price,
-      "min-size",
-      "מחיר מינימלי — המידה הקטנה במחירון",
-      `המידה קטנה מהמידה הקטנה ביותר במחירון (${sizeLabel(first)} = ${shekel(first.price)})`,
-      [first],
-    );
-  }
-
-  if (area > last.area) {
-    const prev = anchors[anchors.length - 2] ?? last;
-    const slope =
-      last.area === prev.area ? 0 : (last.price - prev.price) / (last.area - prev.area);
-    return finish(
-      last.price + slope * (area - last.area),
-      "extrapolated",
-      "מעבר למידה הגדולה במחירון — לבדיקה ידנית",
-      `הורחב מהמדרגה האחרונה: ${sizeLabel(prev)} = ${shekel(prev.price)} עד ${sizeLabel(last)} = ${shekel(last.price)}`,
-      [prev, last],
-    );
-  }
-
-  let lo = first;
-  let hi = last;
-  for (let i = 0; i < anchors.length - 1; i++) {
-    const a = anchors[i]!;
-    const b = anchors[i + 1]!;
-    if (area >= a.area && area <= b.area) {
-      lo = a;
-      hi = b;
-      break;
-    }
-  }
-  const t = hi.area === lo.area ? 0 : (area - lo.area) / (hi.area - lo.area);
-  return finish(
-    lo.price + t * (hi.price - lo.price),
-    "interpolated",
-    "מחיר מחושב",
-    `מחושב בין ${sizeLabel(lo)} = ${shekel(lo.price)} לבין ${sizeLabel(hi)} = ${shekel(hi.price)}`,
-    [lo, hi],
-  );
 }
 
 export type ProductNote = {
