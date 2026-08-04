@@ -324,6 +324,21 @@ function Catalog() {
     () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
     [products],
   );
+  const filteredFamilies = useMemo(() => {
+    const qf = familySearch.trim().toLowerCase();
+    if (!qf) return families;
+    return families.filter((f) => f.family.toLowerCase().includes(qf));
+  }, [families, familySearch]);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!familyWrapRef.current?.contains(e.target as Node)) {
+        setFamilyOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
