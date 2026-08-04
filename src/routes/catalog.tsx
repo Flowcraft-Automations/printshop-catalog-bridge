@@ -424,6 +424,18 @@ function Catalog() {
                   </td>
                   <td className="max-w-[320px] truncate px-3 py-1 font-semibold">{p.name}</td>
                   <td className="px-3 py-1 text-muted-foreground">{p.family ?? "—"}</td>
+                  <td
+                    className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
+                    title={p.senzey_group ?? ""}
+                  >
+                    {p.senzey_group?.trim() || "—"}
+                  </td>
+                  <td
+                    className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
+                    title={p.site_category ?? ""}
+                  >
+                    {p.site_category?.trim() || "—"}
+                  </td>
                   <td className="num px-3 py-1">
                     {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
                   </td>
