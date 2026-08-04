@@ -1,12 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Download, ExternalLink, X } from "lucide-react";
+import { Download, ExternalLink, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productsQuery } from "@/lib/queries";
-import { STATUSES, STATUS_CLASS, STATUS_LABEL, shekel, type Product } from "@/lib/mdvd";
+import { familiesQuery, productHistoryQuery, productsQuery } from "@/lib/queries";
+import {
+  FIELD_LABEL,
+  STATUSES,
+  STATUS_CLASS,
+  STATUS_LABEL,
+  displayFieldValue,
+  parseFieldValue,
+  shekel,
+  type Product,
+  type ProductHistory,
+} from "@/lib/mdvd";
 
 type Search = { family?: string | undefined };
 
