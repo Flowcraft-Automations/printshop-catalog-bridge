@@ -212,6 +212,7 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   flags: (p) => `${activeAnomaly(p)}${noteTextOf(p.id)}`,
   notes: (p) => noteTextOf(p.id),
   verified: (p) => (p.verified ? 1 : 0),
+  is_anchor: (p) => (p.is_anchor ? 1 : 0),
 };
 
 const colInput =
