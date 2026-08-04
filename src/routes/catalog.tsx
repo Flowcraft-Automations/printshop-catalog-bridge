@@ -1688,6 +1688,8 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   site_price: "מחיר אתר",
   price_gap: "פער",
   final_price: "מחיר סופי",
+  curve_price: "מחיר לפי עקומה",
+  curve_dev: "סטייה מהעקומה",
   competitor_price: "מחיר מתחרה",
   proposed_price: "מחיר מוצע",
   senzey_status: "סטטוס סנזיי",
