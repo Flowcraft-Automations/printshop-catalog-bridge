@@ -1218,8 +1218,9 @@ function Catalog() {
                       />
                     </td>
                   )}
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {rows.length > visible.length && (
