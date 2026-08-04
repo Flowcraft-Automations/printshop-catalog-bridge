@@ -1,6 +1,21 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Family, Product } from "./mdvd";
+import type { Family, Product, ProductHistory } from "./mdvd";
+
+export const productHistoryQuery = (productId: string) =>
+  queryOptions({
+    queryKey: ["product-history", productId],
+    queryFn: async (): Promise<ProductHistory[]> => {
+      const { data, error } = await supabase
+        .from("product_history")
+        .select("*")
+        .eq("product_id", productId)
+        .order("changed_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as unknown as ProductHistory[];
+    },
+  });
 
 export const productsQuery = () =>
   queryOptions({
