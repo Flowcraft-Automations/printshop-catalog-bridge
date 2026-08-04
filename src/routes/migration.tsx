@@ -33,6 +33,7 @@ function MigrationBoard() {
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const [tab, setTab] = useState<TabKey>("site");
+  const [noteFor, setNoteFor] = useState<Product | null>(null);
 
   const system: "site" | "senzey" = tab.startsWith("site") ? "site" : "senzey";
   const field = system === "site" ? "site_status" : "senzey_status";
