@@ -173,6 +173,30 @@ function Catalog() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Product | null>(null);
   const [limit, setLimit] = useState(200);
+  const [colFilters, setColFilters] = useState<Partial<Record<ColKey, string>>>({});
+  const [showColFilters, setShowColFilters] = useState(true);
+  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
+
+  const cf = (k: ColKey) => colFilters[k] ?? "";
+  const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
+  const activeColFilters = Object.values(colFilters).filter((v) => (v ?? "").trim()).length;
+  function toggleSort(k: ColKey) {
+    setSort((s) =>
+      s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : null,
+    );
+  }
+  function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
+    const active = sort?.key === k;
+    return (
+      <button
+        onClick={() => toggleSort(k)}
+        className={`flex items-center gap-1 font-semibold ${active ? "text-[var(--paper,#fff)] underline" : ""} ${className}`}
+      >
+        {label}
+        <span className="text-[10px] opacity-70">{active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+      </button>
+    );
+  }
 
   const groupOptions = useMemo(
     () => [...new Set(products.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
