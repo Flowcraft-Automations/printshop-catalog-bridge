@@ -125,6 +125,8 @@ type ColKey =
   | "site_price"
   | "price_gap"
   | "final_price"
+  | "curve_price"
+  | "curve_dev"
   | "competitor_price"
   | "proposed_price"
   | "senzey_status"
