@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { Download, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,16 +111,75 @@ function Catalog() {
     });
   }
 
+  async function exportRows(kind: "xlsx" | "csv") {
+    if (!rows.length) {
+      toast.error("אין שורות לייצוא");
+      return;
+    }
+    const data = rows.map((p) => ({
+      "שם": p.name,
+      "מפתח": p.row_key,
+      "משפחה": p.family ?? "",
+      "רוחב": p.width_cm ?? "",
+      "גובה": p.height_cm ?? "",
+      "כמות": p.qty ?? "",
+      "קיים בסנזיי": p.senzey_exists ? "כן" : "לא",
+      "מזהי סנזיי": p.senzey_ids ?? "",
+      "מחיר סנזיי": p.senzey_price ?? "",
+      "כפילויות סנזיי": p.senzey_dup_count ?? 0,
+      "קיים באתר": p.site_exists ? "כן" : "לא",
+      "קישור": p.site_url ?? "",
+      "מחיר אתר": p.site_price ?? "",
+      "מחיר סופי": p.final_price ?? "",
+      "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
+      "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
+      "אומת": p.verified ? "כן" : "לא",
+      "חריגה": p.anomaly ?? "",
+      "הערות": p.notes ?? "",
+    }));
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.json_to_sheet(data);
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (kind === "csv") {
+      const csv = "\uFEFF" + XLSX.utils.sheet_to_csv(ws);
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mdvd-catalog-${stamp}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "catalog");
+      XLSX.writeFile(wb, `mdvd-catalog-${stamp}.xlsx`);
+    }
+    toast.success(`יוצאו ${rows.length} שורות`);
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageTitle title="קטלוג" sub={`${rows.length.toLocaleString("he-IL")} פריטים תואמים`} />
-        <Link
-          to="/new-product"
-          className="mb-6 bg-[var(--accent-raw)] px-4 py-2 text-sm font-bold text-white"
-        >
-          + מוצר חדש
-        </Link>
+        <div className="mb-6 flex items-center gap-2">
+          <button
+            onClick={() => exportRows("xlsx")}
+            className="flex items-center gap-1.5 border-2 border-[var(--ink)] px-3 py-1.5 text-sm font-bold hover:bg-[var(--surface-deep)]"
+          >
+            <Download className="size-4" /> אקסל
+          </button>
+          <button
+            onClick={() => exportRows("csv")}
+            className="flex items-center gap-1.5 border-2 border-[var(--ink)] px-3 py-1.5 text-sm font-bold hover:bg-[var(--surface-deep)]"
+          >
+            <Download className="size-4" /> CSV
+          </button>
+          <Link
+            to="/new-product"
+            className="bg-[var(--accent-raw)] px-4 py-2 text-sm font-bold text-white"
+          >
+            + מוצר חדש
+          </Link>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3 border-2 border-[var(--ink)] bg-card p-3">
