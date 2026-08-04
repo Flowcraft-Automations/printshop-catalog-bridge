@@ -60,6 +60,11 @@ export const FIELD_LABEL: Record<string, string> = {
   anomaly: "חריגה",
   notes: "הערות",
   verified: "אומת",
+  senzey_group: "קבוצה בסנזיי",
+  site_category: "קטגוריה באתר",
+  competitor_price: "מחיר מתחרה",
+  competitor_ref: "מקור מחיר מתחרה",
+  proposed_price: "מחיר מוצע",
 };
 
 const NUMERIC_FIELDS = new Set([
