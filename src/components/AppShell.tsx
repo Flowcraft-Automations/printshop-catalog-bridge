@@ -7,6 +7,7 @@ const NAV = [
   { to: "/catalog", label: "קטלוג" },
   { to: "/migration", label: "רשימת הגירה" },
   { to: "/calculator", label: "מחשבון מידות" },
+  { to: "/categories", label: "מיפוי קטגוריות" },
   { to: "/new-product", label: "מוצר חדש" },
   { to: "/import", label: "ייבוא נתונים" },
 ] as const;
