@@ -117,6 +117,7 @@ type ColKey =
   | "qty"
   | "senzey_price"
   | "site_price"
+  | "price_gap"
   | "final_price"
   | "competitor_price"
   | "proposed_price"
@@ -125,6 +126,13 @@ type ColKey =
   | "site_url"
   | "flags"
   | "verified";
+
+/** Site price minus Senzey price; null when either side is missing. */
+export function priceGap(p: Product): number | null {
+  if (p.site_price === null || p.site_price === undefined) return null;
+  if (p.senzey_price === null || p.senzey_price === undefined) return null;
+  return Number(p.site_price) - Number(p.senzey_price);
+}
 
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   name: (p) => p.name,
@@ -135,6 +143,7 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   qty: (p) => p.qty ?? 0,
   senzey_price: (p) => p.senzey_price,
   site_price: (p) => p.site_price,
+  price_gap: (p) => priceGap(p),
   final_price: (p) => p.final_price,
   competitor_price: (p) => p.competitor_price ?? null,
   proposed_price: (p) => p.proposed_price ?? null,
@@ -257,6 +266,7 @@ function Catalog() {
       if (!matchNum(p.qty, colFilters.qty ?? "")) return false;
       if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
+      if (!matchNum(priceGap(p), colFilters.price_gap ?? "")) return false;
       if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
       if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
       if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
@@ -333,6 +343,7 @@ function Catalog() {
       "קיים באתר": p.site_exists ? "כן" : "לא",
       "קישור": p.site_url ?? "",
       "מחיר אתר": p.site_price ?? "",
+      "פער אתר-סנזיי": priceGap(p) ?? "",
       "מחיר סופי": p.final_price ?? "",
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
@@ -569,6 +580,7 @@ function Catalog() {
                 <th className="px-3 py-2"><SortHead k="qty" label="כמות" /></th>
                 <th className="px-3 py-2"><SortHead k="senzey_price" label="סנזיי" /></th>
                 <th className="px-3 py-2"><SortHead k="site_price" label="אתר" /></th>
+                <th className="px-3 py-2"><SortHead k="price_gap" label="פער" /></th>
                 <th className="px-3 py-2"><SortHead k="final_price" label="מחיר סופי" /></th>
                 <th className="px-3 py-2"><SortHead k="competitor_price" label="מחיר מתחרה" /></th>
                 <th className="px-3 py-2"><SortHead k="proposed_price" label="מחיר מוצע" /></th>
@@ -665,6 +677,14 @@ function Catalog() {
                       value={cf("site_price")}
                       onChange={(e) => setCf("site_price", e.target.value)}
                       placeholder=">100"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("price_gap")}
+                      onChange={(e) => setCf("price_gap", e.target.value)}
+                      placeholder=">0"
                     />
                   </th>
                   <th className="px-2 pb-2">
@@ -788,6 +808,25 @@ function Catalog() {
                   <td className="num px-3 py-1">{p.qty ?? 1}</td>
                   <td className="num px-3 py-1">{shekel(p.senzey_price)}</td>
                   <td className="num px-3 py-1">{shekel(p.site_price)}</td>
+                  {(() => {
+                    const g = priceGap(p);
+                    return (
+                      <td
+                        className={`num px-3 py-1 font-bold ${
+                          g === null
+                            ? "text-muted-foreground"
+                            : g > 0
+                              ? "text-[oklch(0.45_0.14_150)]"
+                              : g < 0
+                                ? "text-[oklch(0.5_0.19_28)]"
+                                : "text-muted-foreground"
+                        }`}
+                        title="מחיר אתר פחות מחיר סנזיי"
+                      >
+                        {g === null ? "—" : `${g > 0 ? "+" : ""}${shekel(g)}`}
+                      </td>
+                    );
+                  })()}
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
                     <input
                       defaultValue={p.final_price ?? ""}
