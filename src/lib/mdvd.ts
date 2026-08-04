@@ -224,7 +224,7 @@ const median = (nums: number[]) => {
 export function buildAnchors(
   products: Product[],
   family: string,
-): { anchors: Anchor[]; skipped: number } {
+): { anchors: Anchor[]; skipped: number; dropped: Anchor[] } {
   const byArea = new Map<string, Anchor>();
   for (const p of products) {
     if (p.family !== family) continue;
@@ -236,7 +236,7 @@ export function buildAnchors(
     const price = Number(fromFinal ? p.final_price : p.senzey_price);
     if (!price || Number.isNaN(price) || price <= 0) continue;
     const area = (w * h) / 10000;
-    const cand: Anchor = { area, price, w, h, fromFinal };
+    const cand: Anchor = { area, price, w, h, fromFinal, name: p.name };
     const key = area.toFixed(4);
     const prev = byArea.get(key);
     if (
@@ -248,15 +248,18 @@ export function buildAnchors(
     }
   }
   const all = [...byArea.values()].sort((a, b) => a.area - b.area);
-  if (all.length < 3) return { anchors: all, skipped: 0 };
+  if (all.length < 3) return { anchors: all, skipped: 0, dropped: [] };
 
   const med = median(all.map((a) => a.price / a.area));
-  const anchors = all.filter((a) => {
+  const keep = (a: Anchor) => {
     const ppm = a.price / a.area;
     return ppm <= med * 2.5 && ppm >= med / 2.5;
-  });
-  return { anchors, skipped: all.length - anchors.length };
+  };
+  const anchors = all.filter(keep);
+  const dropped = all.filter((a) => !keep(a));
+  return { anchors, skipped: dropped.length, dropped };
 }
+
 
 export type FamilyFit = {
   base: number;
