@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
+import { Anchor, Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
@@ -134,7 +134,8 @@ type ColKey =
   | "site_url"
   | "flags"
   | "notes"
-  | "verified";
+  | "verified"
+  | "is_anchor";
 
 /** Site price minus Senzey price; null when either side is missing. */
 export function priceGap(p: Product): number | null {
@@ -211,6 +212,7 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   flags: (p) => `${activeAnomaly(p)}${noteTextOf(p.id)}`,
   notes: (p) => noteTextOf(p.id),
   verified: (p) => (p.verified ? 1 : 0),
+  is_anchor: (p) => (p.is_anchor ? 1 : 0),
 };
 
 const colInput =
@@ -245,7 +247,7 @@ function Catalog() {
     const out: Record<string, CurveSuggestion> = {};
     for (const fam of fams) {
       const { anchors } = buildAnchors(products, fam);
-      if (anchors.length < 2) continue;
+      if (anchors.length < 1) continue;
       const fit = fitFamilyLine(anchors);
       if (!fit) continue;
       for (const p of products) {
@@ -255,6 +257,11 @@ function Catalog() {
         if (!w || !h) continue;
         const cur = currentPrice(p);
         if (cur === null) continue;
+        // A pinned anchor defines the curve — it can never deviate from it.
+        if (p.is_anchor) {
+          out[p.id] = { suggested: cur, current: cur, dev: 0 };
+          continue;
+        }
         const suggested = round5(Math.max(fit.base + fit.rate * ((w * h) / 10000), 0));
         if (suggested <= 0) continue;
         out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
@@ -309,6 +316,7 @@ function Catalog() {
     flags: true,
     notes: true,
     verified: true,
+    is_anchor: true,
   });
 
   const baseWidths: Record<ColKey, number> = {
@@ -332,6 +340,7 @@ function Catalog() {
     flags: 7,
     notes: 4,
     verified: 4,
+    is_anchor: 4,
   };
   const scaledWidths = useMemo(() => {
     const visible = Object.entries(baseWidths)
@@ -481,6 +490,8 @@ function Catalog() {
       if (!matchText(noteTextOf(p.id), colFilters.notes ?? "")) return false;
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
+      if (colFilters.is_anchor === "yes" && !p.is_anchor) return false;
+      if (colFilters.is_anchor === "no" && p.is_anchor) return false;
       return true;
     });
 
@@ -558,6 +569,7 @@ function Catalog() {
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
+      "עוגן": p.is_anchor ? "כן" : "",
       "חריגה": activeAnomaly(p),
       "הערות": (notesByProduct[p.id] ?? []).map((n) => n.body).join(" | "),
       "קבוצה בסנזיי": p.senzey_group ?? "",
@@ -962,6 +974,11 @@ function Catalog() {
                     <SortHead k="verified" label="אומת" className="mx-auto" />
                   </th>
                 )}
+                {visibleCols.is_anchor && (
+                  <th style={{ width: scaledWidths.is_anchor }} className="px-2 py-2 text-center">
+                    <SortHead k="is_anchor" label="עוגן" className="mx-auto" />
+                  </th>
+                )}
               </tr>
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
@@ -1200,6 +1217,19 @@ function Catalog() {
                       >
                         <option value="">הכל</option>
                         <option value="yes">אומת</option>
+                        <option value="no">לא</option>
+                      </select>
+                    </th>
+                  )}
+                  {visibleCols.is_anchor && (
+                    <th style={{ width: scaledWidths.is_anchor }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("is_anchor")}
+                        onChange={(e) => setCf("is_anchor", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="yes">עוגן</option>
                         <option value="no">לא</option>
                       </select>
                     </th>
@@ -1492,6 +1522,27 @@ function Catalog() {
                         }
                         className="size-4 accent-[var(--accent-raw)]"
                       />
+                    </td>
+                  )}
+                  {visibleCols.is_anchor && (
+                    <td
+                      style={{ width: scaledWidths.is_anchor }}
+                      className="px-2 py-1 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        title={p.is_anchor ? "עוגן עקומה — לחץ להסרה" : "סמן כעוגן עקומה למשפחה"}
+                        onClick={() =>
+                          update.mutate({ ids: [p.id], patch: { is_anchor: !p.is_anchor } })
+                        }
+                        className={
+                          p.is_anchor
+                            ? "text-[var(--accent-raw)]"
+                            : "text-muted-foreground/40 hover:text-[var(--accent-raw)]"
+                        }
+                      >
+                        <Anchor className="size-4" fill={p.is_anchor ? "currentColor" : "none"} />
+                      </button>
                     </td>
                   )}
                   </tr>
@@ -1835,6 +1886,7 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   flags: "סימונים",
   notes: "הערות",
   verified: "אומת",
+  is_anchor: "עוגן",
 };
 
 function ColumnChooser({
@@ -1885,6 +1937,7 @@ function ColumnChooser({
                     flags: true,
                     notes: true,
                     verified: true,
+                    is_anchor: true,
                   })
                 }
                 className="underline"

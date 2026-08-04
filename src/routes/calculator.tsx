@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { CurveChart } from "@/components/CurveChart";
+import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
 
 import {
@@ -67,13 +68,30 @@ function Calculator() {
 
 
 
-  const { anchors, skipped, dropped } = useMemo(
+  const { anchors, skipped, dropped, source } = useMemo(
     () =>
       family
         ? buildAnchors(products, family)
-        : { anchors: [], skipped: 0, dropped: [] },
+        : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
     [products, family],
   );
+
+  const qc = useQueryClient();
+  const toggleAnchor = useMutation({
+    mutationFn: async (p: Product) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_anchor: !p.is_anchor })
+        .eq("id", p.id);
+      if (error) throw error;
+      return !p.is_anchor;
+    },
+    onSuccess: (now) => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast.success(now ? "סומן כעוגן עקומה" : "הוסר מעוגני העקומה");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
@@ -250,13 +268,17 @@ function Calculator() {
                 ) : null}
                 {fit ? (
                   <div className="text-[11px] text-muted-foreground/70">
-                    התאמה מ־{fit.count} עוגנים · סטייה ממוצעת {fit.deviation.toFixed(0)}%
+                    {source === "anchors"
+                      ? `העקומה נבנתה מ־${fit.count} עוגנים שסימנת`
+                      : source === "single-anchor"
+                        ? "העקומה נבנתה מעוגן יחיד שסימנת (הרחבה יחסית לשטח)"
+                        : `התאמה מ־${fit.count} עוגנים · סטייה ממוצעת ${fit.deviation.toFixed(0)}%`}
                     {calc.skipped > 0 ? ` · דילגנו על ${calc.skipped} חריגות` : ""}
                   </div>
                 ) : null}
-                {fit && fit.deviation > 15 ? (
+                {fit && source === "all-items" && fit.deviation > 15 ? (
                   <div className="text-[12px] font-bold text-[oklch(0.5_0.16_45)]">
-                    המשפחה הזו מתאימה יותר לסולם מחירים קבוע
+                    סמן עוגן אחד או יותר במשפחה כדי לייצב את העקומה
                   </div>
                 ) : null}
               </div>
@@ -323,13 +345,21 @@ function Calculator() {
                           <td className="num px-3 py-1.5">{shekel(p.senzey_price)}</td>
                           <td className="num px-3 py-1.5 font-bold">{shekel(p.final_price)}</td>
                           <td className="px-3 py-1.5">
-                            {(p.qty ?? 1) === 1 && anchorKeys.has(`${w}x${h}`) ? (
-                              <span className="bg-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-white">
-                                עוגן
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/60">—</span>
-                            )}
+                            <button
+                              onClick={() => toggleAnchor.mutate(p)}
+                              title={p.is_anchor ? "הסר עוגן" : "קבע כעוגן לעקומת המשפחה"}
+                              className={
+                                p.is_anchor
+                                  ? "bg-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-white"
+                                  : "border-2 border-dashed border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-[var(--accent-raw)] hover:text-[var(--accent-raw)]"
+                              }
+                            >
+                              {p.is_anchor
+                                ? "עוגן"
+                                : (p.qty ?? 1) === 1 && anchorKeys.has(`${w}x${h}`)
+                                  ? "בשימוש"
+                                  : "קבע עוגן"}
+                            </button>
                           </td>
                         </tr>
                       ))}
