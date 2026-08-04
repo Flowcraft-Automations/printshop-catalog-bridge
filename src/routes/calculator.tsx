@@ -414,16 +414,16 @@ function FamilyAdmin({
     <section className="mt-10">
       <h2 className="mb-1 text-lg font-black">ניהול עקומות תמחור</h2>
       <p className="mb-3 text-sm text-muted-foreground">
-        מחיר בסיס + תעריף לסמ״ר, מחיר מינימום והנחות כמות (פורמט: 10:0.85, 20:0.75).
-        «התאם מחדש מהנתונים» מחשב את הקו מהמוצרים הקיימים; עריכה ידנית נשמרת עד ההתאמה הבאה.
+        מחיר הבסיס והתעריף לסמ״ר מחושבים אוטומטית מהמוצרים הקיימים בכל משפחה ומתעדכנים
+        לבד. ניתן לערוך כאן מחיר מינימום והנחות כמות (פורמט: 10:0.85, 20:0.75).
       </p>
       <div className="overflow-x-auto border-2 border-[var(--ink)] bg-card">
         <table className="w-full text-sm">
           <thead className="bg-[var(--ink)] text-white">
             <tr className="text-right">
               <th className="px-3 py-2 font-semibold">משפחה</th>
-              <th className="px-3 py-2 font-semibold">מחיר בסיס</th>
-              <th className="px-3 py-2 font-semibold">₪/סמ״ר</th>
+              <th className="px-3 py-2 font-semibold">מחיר בסיס (מחושב)</th>
+              <th className="px-3 py-2 font-semibold">₪/סמ״ר (מחושב)</th>
               <th className="px-3 py-2 font-semibold">מינימום</th>
               <th className="px-3 py-2 font-semibold">הנחות כמות</th>
               <th className="px-3 py-2 font-semibold">איכות התאמה</th>
@@ -473,10 +473,6 @@ function FamilyRow({
   odd: boolean;
   onSave: (row: Family) => void;
 }) {
-  const [base, setBase] = useState(f.base_price?.toString() ?? "0");
-  const [rate, setRate] = useState(
-    f.rate_m2 == null ? "" : (f.rate_m2 / 10000).toFixed(4),
-  );
   const [min, setMin] = useState(f.min_charge?.toString() ?? "");
   const [tiers, setTiers] = useState(tiersToText(f.qty_discounts));
 
@@ -490,8 +486,6 @@ function FamilyRow({
 
   const row = (over?: Partial<Family>): Family => ({
     ...f,
-    base_price: base === "" ? 0 : Number(base),
-    rate_m2: rate === "" ? null : Number(rate) * 10000,
     min_charge: min === "" ? null : Number(min),
     qty_discounts: textToTiers(tiers),
     ...over,
@@ -500,11 +494,11 @@ function FamilyRow({
   return (
     <tr className={odd ? "bg-[var(--surface-deep)]" : ""}>
       <td className="px-3 py-1.5 font-semibold">{f.family}</td>
-      <td className="px-3 py-1.5">
-        <input className={cell} value={base} onChange={(e) => setBase(e.target.value)} />
+      <td className="num px-3 py-1.5 text-muted-foreground">
+        {fit ? shekel(fit.base) : "—"}
       </td>
-      <td className="px-3 py-1.5">
-        <input className={cell} value={rate} onChange={(e) => setRate(e.target.value)} />
+      <td className="num px-3 py-1.5 text-muted-foreground">
+        {fit ? `${(fit.rate / 10000).toFixed(4)}₪` : "—"}
       </td>
       <td className="px-3 py-1.5">
         <input className={cell} value={min} onChange={(e) => setMin(e.target.value)} />
@@ -542,18 +536,6 @@ function FamilyRow({
           className="border border-[var(--ink)] px-2 py-1 text-xs font-bold hover:bg-[oklch(0.93_0.05_250)]"
         >
           שמור
-        </button>
-        <button
-          disabled={!fit}
-          onClick={() => {
-            if (!fit) return;
-            setBase(String(fit.base));
-            setRate((fit.rate / 10000).toFixed(4));
-            onSave(row({ base_price: fit.base, rate_m2: fit.rate }));
-          }}
-          className="ms-2 border border-[var(--ink)] px-2 py-1 text-xs font-bold hover:bg-[oklch(0.93_0.07_155)] disabled:opacity-40"
-        >
-          התאם מחדש מהנתונים
         </button>
       </td>
     </tr>
