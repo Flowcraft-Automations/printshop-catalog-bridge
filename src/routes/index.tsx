@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
+import { activeAnomaly } from "@/routes/catalog";
 import { STATUS_LABEL } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/")({
@@ -64,7 +65,7 @@ function Dashboard() {
   const both = products.filter((p) => p.site_exists && p.senzey_exists).length;
   const onlySite = products.filter((p) => p.site_exists && !p.senzey_exists).length;
   const onlySenzey = products.filter((p) => !p.site_exists && p.senzey_exists).length;
-  const anomalies = products.filter((p) => p.anomaly && p.anomaly.trim()).length;
+  const anomalies = products.filter((p) => activeAnomaly(p)).length;
   const gaps = products.filter((p) => (p.notes ?? "").includes("פער מחיר")).length;
   const approvedNew = products.filter(
     (p) => p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"),
