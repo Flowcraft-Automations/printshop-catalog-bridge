@@ -175,6 +175,21 @@ function noteTextOf(id: string) {
   return NOTE_TEXT[id] ?? "";
 }
 
+/** Curve suggestion per product id, filled by the catalog's per-family fit memo. */
+export type CurveSuggestion = { suggested: number; current: number; dev: number };
+let CURVE: Record<string, CurveSuggestion> = {};
+function curveOf(id: string): CurveSuggestion | null {
+  return CURVE[id] ?? null;
+}
+
+/** Price used as "current" when comparing against the fitted curve. */
+export function currentPrice(p: Product): number | null {
+  const v = p.final_price ?? p.senzey_price ?? p.site_price ?? null;
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   name: (p) => p.name,
   family: (p) => p.family ?? "",
@@ -186,6 +201,8 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   site_price: (p) => p.site_price,
   price_gap: (p) => priceGap(p),
   final_price: (p) => p.final_price,
+  curve_price: (p) => curveOf(p.id)?.suggested ?? null,
+  curve_dev: (p) => curveOf(p.id)?.dev ?? null,
   competitor_price: (p) => p.competitor_price ?? null,
   proposed_price: (p) => p.proposed_price ?? null,
   senzey_status: (p) => p.senzey_status,
