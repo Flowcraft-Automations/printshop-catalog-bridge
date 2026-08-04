@@ -19,6 +19,11 @@ export type Product = {
   anomaly: string | null;
   notes: string | null;
   source: string | null;
+  senzey_group?: string | null;
+  site_category?: string | null;
+  competitor_price?: number | null;
+  competitor_ref?: string | null;
+  proposed_price?: number | null;
   verified?: boolean;
   verified_at?: string | null;
   created_at?: string;
@@ -55,6 +60,11 @@ export const FIELD_LABEL: Record<string, string> = {
   anomaly: "חריגה",
   notes: "הערות",
   verified: "אומת",
+  senzey_group: "קבוצה בסנזיי",
+  site_category: "קטגוריה באתר",
+  competitor_price: "מחיר מתחרה",
+  competitor_ref: "מקור מחיר מתחרה",
+  proposed_price: "מחיר מוצע",
 };
 
 const NUMERIC_FIELDS = new Set([
@@ -65,6 +75,8 @@ const NUMERIC_FIELDS = new Set([
   "senzey_dup_count",
   "site_price",
   "final_price",
+  "competitor_price",
+  "proposed_price",
 ]);
 const BOOL_FIELDS = new Set(["senzey_exists", "site_exists", "verified"]);
 

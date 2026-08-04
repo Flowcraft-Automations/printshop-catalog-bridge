@@ -40,6 +40,11 @@ const PRODUCT_COLS = [
   "anomaly",
   "notes",
   "source",
+  "senzey_group",
+  "site_category",
+  "competitor_price",
+  "competitor_ref",
+  "proposed_price",
 ] as const;
 
 // Never overwritten on existing rows — manual work is protected.
@@ -48,8 +53,9 @@ const PROTECTED = ["final_price", "senzey_status", "site_status", "notes"];
 const num = (v: unknown) =>
   v === undefined || v === null || v === "" ? null : Number.isNaN(Number(v)) ? null : Number(v);
 const str = (v: unknown) => (v === undefined || v === null || v === "" ? null : String(v).trim());
+const text = (v: unknown) => (v === undefined || v === null ? "" : String(v).trim());
 const bool = (v: unknown) =>
-  typeof v === "boolean" ? v : ["true", "1", "כן", "yes"].includes(String(v).toLowerCase());
+  typeof v === "boolean" ? v : ["true", "1", "כן", "yes"].includes(String(v).trim().toLowerCase());
 
 function normalizeProduct(r: Row) {
   return {
@@ -72,6 +78,11 @@ function normalizeProduct(r: Row) {
     anomaly: str(r['anomaly']),
     notes: str(r['notes']),
     source: str(r['source']) ?? "import",
+    senzey_group: text(r['senzey_group']),
+    site_category: text(r['site_category']),
+    competitor_price: num(r['competitor_price']),
+    competitor_ref: text(r['competitor_ref']),
+    proposed_price: num(r['proposed_price']),
   };
 }
 

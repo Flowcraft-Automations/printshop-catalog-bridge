@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Download, ExternalLink, RotateCcw, X } from "lucide-react";
+import { Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,11 +18,18 @@ import {
   type ProductHistory,
 } from "@/lib/mdvd";
 
-type Search = { family?: string | undefined };
+type Search = {
+  family?: string | undefined;
+  senzey_group?: string | undefined;
+  site_category?: string | undefined;
+};
 
 export const Route = createFileRoute("/catalog")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     family: typeof s['family'] === "string" ? (s['family'] as string) : undefined,
+    senzey_group: typeof s['senzey_group'] === "string" ? (s['senzey_group'] as string) : undefined,
+    site_category:
+      typeof s['site_category'] === "string" ? (s['site_category'] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -61,8 +68,14 @@ function StatusSelect({
   );
 }
 
+const EMPTY = "__empty__";
+
 function Catalog() {
-  const { family: familyParam } = Route.useSearch();
+  const {
+    family: familyParam,
+    senzey_group: groupParam,
+    site_category: categoryParam,
+  } = Route.useSearch();
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: families = [] } = useQuery(familiesQuery());
@@ -74,10 +87,23 @@ function Catalog() {
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+  const [onlyNew, setOnlyNew] = useState(false);
+  const [onlyProposed, setOnlyProposed] = useState(false);
+  const [group, setGroup] = useState(groupParam ?? "");
+  const [category, setCategory] = useState(categoryParam ?? "");
   const [presence, setPresence] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Product | null>(null);
   const [limit, setLimit] = useState(200);
+
+  const groupOptions = useMemo(
+    () => [...new Set(products.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
+    [products],
+  );
+  const categoryOptions = useMemo(
+    () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
+    [products],
+  );
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
@@ -97,6 +123,8 @@ function Catalog() {
 
   const rows = useMemo(() => {
     return products.filter((p) => {
+      const g = (p.senzey_group ?? "").trim();
+      const c = (p.site_category ?? "").trim();
       if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
       if (family && (p.family ?? "") !== family) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
@@ -104,12 +132,31 @@ function Catalog() {
       if (onlyAnomaly && !(p.anomaly ?? "").trim()) return false;
       if (onlyGap && !(p.notes ?? "").includes("פער מחיר")) return false;
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+      if (onlyNew && p.source !== "approved_new") return false;
+      if (onlyProposed && p.proposed_price == null) return false;
+      if (group && (group === EMPTY ? g !== "" : g !== group)) return false;
+      if (category && (category === EMPTY ? c !== "" : c !== category)) return false;
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
       return true;
     });
-  }, [products, q, family, senzeyStatus, siteStatus, onlyAnomaly, onlyGap, onlyDup, presence]);
+  }, [
+    products,
+    q,
+    family,
+    senzeyStatus,
+    siteStatus,
+    onlyAnomaly,
+    onlyGap,
+    onlyDup,
+    onlyNew,
+    onlyProposed,
+    group,
+    category,
+    presence,
+  ]);
+
 
   const visible = rows.slice(0, limit);
 
@@ -147,6 +194,12 @@ function Catalog() {
       "אומת": p.verified ? "כן" : "לא",
       "חריגה": p.anomaly ?? "",
       "הערות": p.notes ?? "",
+      "קבוצה בסנזיי": p.senzey_group ?? "",
+      "קטגוריה באתר": p.site_category ?? "",
+      "מחיר מתחרה": p.competitor_price ?? "",
+      "מקור מחיר מתחרה": p.competitor_ref ?? "",
+      "מחיר מוצע": p.proposed_price ?? "",
+      "מקור": p.source ?? "",
     }));
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(data);
@@ -254,6 +307,36 @@ function Catalog() {
           <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
           רק כפילויות
         </label>
+        <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
+          <option value="">קבוצה בסנזיי: הכל</option>
+          <option value={EMPTY}>— ללא קבוצה —</option>
+          {groupOptions.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+          <option value="">קטגוריה באתר: הכל</option>
+          <option value={EMPTY}>— ללא קטגוריה —</option>
+          {categoryOptions.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+          מוצרים חדשים מאושרים
+        </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={onlyProposed}
+            onChange={(e) => setOnlyProposed(e.target.checked)}
+          />
+          יש מחיר מוצע
+        </label>
       </div>
 
       {selected.size > 0 && (
@@ -307,11 +390,15 @@ function Catalog() {
                 <th className="w-8 px-2 py-2"></th>
                 <th className="px-3 py-2 font-semibold">שם</th>
                 <th className="px-3 py-2 font-semibold">משפחה</th>
+                <th className="hidden px-3 py-2 font-semibold lg:table-cell">קבוצה בסנזיי</th>
+                <th className="hidden px-3 py-2 font-semibold lg:table-cell">קטגוריה באתר</th>
                 <th className="px-3 py-2 font-semibold">מידה</th>
                 <th className="px-3 py-2 font-semibold">כמות</th>
                 <th className="px-3 py-2 font-semibold">סנזיי</th>
                 <th className="px-3 py-2 font-semibold">אתר</th>
                 <th className="px-3 py-2 font-semibold">מחיר סופי</th>
+                <th className="px-3 py-2 font-semibold">מחיר מתחרה</th>
+                <th className="px-3 py-2 font-semibold">מחיר מוצע</th>
                 <th className="px-3 py-2 font-semibold">סט׳ סנזיי</th>
                 <th className="px-3 py-2 font-semibold">סט׳ אתר</th>
                 <th className="px-3 py-2 font-semibold">קישור</th>
@@ -337,6 +424,18 @@ function Catalog() {
                   </td>
                   <td className="max-w-[320px] truncate px-3 py-1 font-semibold">{p.name}</td>
                   <td className="px-3 py-1 text-muted-foreground">{p.family ?? "—"}</td>
+                  <td
+                    className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
+                    title={p.senzey_group ?? ""}
+                  >
+                    {p.senzey_group?.trim() || "—"}
+                  </td>
+                  <td
+                    className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
+                    title={p.site_category ?? ""}
+                  >
+                    {p.site_category?.trim() || "—"}
+                  </td>
                   <td className="num px-3 py-1">
                     {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
                   </td>
@@ -355,6 +454,33 @@ function Catalog() {
                       }}
                       className="num w-20 border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
                     />
+                  </td>
+                  <td className="num whitespace-nowrap px-3 py-1">
+                    {shekel(p.competitor_price)}
+                    {p.competitor_ref?.trim() && (
+                      <Info
+                        className="ms-1 inline size-3.5 text-muted-foreground"
+                        aria-label={p.competitor_ref}
+                      >
+                        <title>{p.competitor_ref}</title>
+                      </Info>
+                    )}
+                  </td>
+                  <td className="num whitespace-nowrap px-3 py-1" onClick={(e) => e.stopPropagation()}>
+                    {shekel(p.proposed_price)}
+                    {p.proposed_price != null && p.final_price == null && (
+                      <button
+                        onClick={() =>
+                          update.mutate({
+                            ids: [p.id],
+                            patch: { final_price: p.proposed_price ?? null },
+                          })
+                        }
+                        className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                      >
+                        אמץ
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
                     <StatusSelect
@@ -558,6 +684,41 @@ function EditDrawer({
               onChange={(e) => set("notes", e.target.value)}
             />
           </Field>
+          <Field label="קבוצה בסנזיי">
+            <input
+              className={inputCls}
+              value={f.senzey_group ?? ""}
+              onChange={(e) => set("senzey_group", e.target.value)}
+            />
+          </Field>
+          <Field label="קטגוריה באתר">
+            <input
+              className={inputCls}
+              value={f.site_category ?? ""}
+              onChange={(e) => set("site_category", e.target.value)}
+            />
+          </Field>
+          <Field label="מחיר מתחרה">
+            <input
+              className={`${inputCls} num`}
+              value={f.competitor_price ?? ""}
+              onChange={(e) => set("competitor_price", num(e.target.value))}
+            />
+          </Field>
+          <Field label="מחיר מוצע">
+            <input
+              className={`${inputCls} num`}
+              value={f.proposed_price ?? ""}
+              onChange={(e) => set("proposed_price", num(e.target.value))}
+            />
+          </Field>
+          <Field label="מקור מחיר מתחרה" full>
+            <input
+              className={inputCls}
+              value={f.competitor_ref ?? ""}
+              onChange={(e) => set("competitor_ref", e.target.value)}
+            />
+          </Field>
         </div>
         <button
           onClick={() =>
@@ -577,6 +738,11 @@ function EditDrawer({
               site_url: f.site_url,
               anomaly: f.anomaly,
               notes: f.notes,
+              senzey_group: f.senzey_group ?? null,
+              site_category: f.site_category ?? null,
+              competitor_price: f.competitor_price ?? null,
+              competitor_ref: f.competitor_ref ?? null,
+              proposed_price: f.proposed_price ?? null,
             })
           }
           className="mt-6 w-full bg-[var(--accent-raw)] py-3 font-bold text-white"
