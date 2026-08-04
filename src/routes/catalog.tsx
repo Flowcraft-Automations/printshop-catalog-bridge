@@ -414,6 +414,7 @@ function Catalog() {
     onlyDup,
     onlyNew,
     onlyProposed,
+    showClosed,
     group,
     category,
     presence,
