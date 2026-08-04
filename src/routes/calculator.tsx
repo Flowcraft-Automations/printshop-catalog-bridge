@@ -319,15 +319,21 @@ function Calculator() {
               <h2 className="mb-1 text-lg font-black">
                 כל הפריטים במשפחה «{family}»
               </h2>
-              <p className="mb-3 text-sm text-muted-foreground">
-                {famItems.length} פריטים · {anchors.length} עוגני תמחור
+              <p className="mb-2 text-sm text-muted-foreground">
+                {filteredFamItems.length} פריטים מוצגים · {anchors.length} עוגני תמחור
               </p>
-              {famItems.length === 0 ? (
-                <p className="border-2 border-dashed border-border p-6 text-sm text-muted-foreground">
-                  אין פריטים במשפחה.
+              <input
+                className={inputCls}
+                value={itemSearch}
+                placeholder="סנן לפי שם פריט…"
+                onChange={(e) => setItemSearch(e.target.value)}
+              />
+              {filteredFamItems.length === 0 ? (
+                <p className="mt-3 border-2 border-dashed border-border p-6 text-sm text-muted-foreground">
+                  לא נמצאו פריטים תואמים לחיפוש.
                 </p>
               ) : (
-                <div className="max-h-[420px] overflow-y-auto border-2 border-[var(--ink)] bg-card">
+                <div className="mt-3 max-h-[420px] overflow-y-auto border-2 border-[var(--ink)] bg-card">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[var(--ink)] text-white">
                       <tr className="text-right">
