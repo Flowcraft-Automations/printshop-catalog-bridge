@@ -67,13 +67,30 @@ function Calculator() {
 
 
 
-  const { anchors, skipped, dropped } = useMemo(
+  const { anchors, skipped, dropped, source } = useMemo(
     () =>
       family
         ? buildAnchors(products, family)
-        : { anchors: [], skipped: 0, dropped: [] },
+        : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
     [products, family],
   );
+
+  const qc = useQueryClient();
+  const toggleAnchor = useMutation({
+    mutationFn: async (p: Product) => {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_anchor: !p.is_anchor })
+        .eq("id", p.id);
+      if (error) throw error;
+      return !p.is_anchor;
+    },
+    onSuccess: (now) => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast.success(now ? "סומן כעוגן עקומה" : "הוסר מעוגני העקומה");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
