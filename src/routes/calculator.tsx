@@ -122,6 +122,12 @@ function Calculator() {
       .sort((a, b) => a.area - b.area || a.p.name.localeCompare(b.p.name, "he"));
   }, [products, family]);
 
+  const filteredFamItems = useMemo(() => {
+    const q = itemSearch.trim().toLowerCase();
+    if (!q) return famItems;
+    return famItems.filter(({ p }) => p.name.toLowerCase().includes(q));
+  }, [famItems, itemSearch]);
+
   const anchorKeys = useMemo(
     () => new Set(anchors.map((a) => `${a.w}x${a.h}`)),
     [anchors],
