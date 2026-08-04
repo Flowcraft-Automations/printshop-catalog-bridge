@@ -1133,13 +1133,10 @@ function Catalog() {
                   {visibleCols.notes && (
                     <td
                       style={{ width: scaledWidths.notes }}
-                      className="px-2 py-1"
+                      className="px-2 py-1 text-center"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <NoteCell
-                        value={p.notes}
-                        onSave={(v) => update.mutate({ ids: [p.id], patch: { notes: v } })}
-                      />
+                      <NoteIndicator note={p.notes} onClick={() => setDrawer(p)} />
                     </td>
                   )}
                   {visibleCols.verified && (
