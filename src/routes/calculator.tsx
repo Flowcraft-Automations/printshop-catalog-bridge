@@ -133,6 +133,73 @@ function Calculator() {
     [anchors],
   );
 
+  /* ---------------- אזור ניסוי: sandbox anchors, nothing is written to DB ---------------- */
+  const [simOn, setSimOn] = useState(false);
+  const [simPrice, setSimPrice] = useState<Record<string, string>>({});
+  const [simPin, setSimPin] = useState<Record<string, boolean>>({});
+
+  const resetSim = () => {
+    setSimPrice({});
+    setSimPin({});
+  };
+
+  useEffect(() => {
+    resetSim();
+  }, [family]);
+
+  const simProducts = useMemo(() => {
+    if (!simOn) return products;
+    return products.map((p) => {
+      const priceRaw = simPrice[p.id];
+      const pin = simPin[p.id];
+      if (priceRaw === undefined && pin === undefined) return p;
+      const n = Number(priceRaw);
+      return {
+        ...p,
+        final_price:
+          priceRaw !== undefined && priceRaw !== "" && !Number.isNaN(n) ? n : p.final_price,
+        is_anchor: pin === undefined ? p.is_anchor : pin,
+      } as Product;
+    });
+  }, [products, simOn, simPrice, simPin]);
+
+  const simBuild = useMemo(
+    () =>
+      family && simOn
+        ? buildAnchors(simProducts, family)
+        : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
+    [simProducts, family, simOn],
+  );
+  const simFit = useMemo(() => fitFamilyLine(simBuild.anchors), [simBuild.anchors]);
+  const simCalc = useMemo(
+    () =>
+      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq),
+    [simBuild, fam, simFit, nw, nh, nq],
+  );
+
+  /** suggested price per family item under the experimental curve */
+  const simSuggestions = useMemo(() => {
+    if (!simOn || !fam || !simFit) return [];
+    return filteredFamItems
+      .filter((x) => x.w && x.h)
+      .map((x) => {
+        const res = priceFromLine(
+          simBuild.anchors,
+          simBuild.skipped,
+          fam,
+          simFit,
+          x.w,
+          x.h,
+          1,
+        );
+        const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
+        const diff = current ? ((res.unit - current) / current) * 100 : null;
+        return { ...x, suggested: res.unit, current, diff };
+      });
+  }, [simOn, fam, simFit, simBuild, filteredFamItems]);
+
+
+
 
   return (
     <div>
