@@ -26,6 +26,7 @@ export type Product = {
   proposed_price?: number | null;
   verified?: boolean;
   verified_at?: string | null;
+  is_anchor?: boolean;
   created_at?: string;
   updated_at?: string;
 };
