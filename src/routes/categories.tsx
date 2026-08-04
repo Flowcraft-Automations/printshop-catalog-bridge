@@ -62,7 +62,10 @@ function CategoryMap() {
                   <td className="px-3 py-1.5">
                     <Link
                       to="/catalog"
-                      search={{ senzey_group: r.g, site_category: r.c }}
+                      search={{
+                        senzey_group: r.g || "__empty__",
+                        site_category: r.c || "__empty__",
+                      }}
                       className="font-semibold text-[var(--accent-raw)] hover:underline"
                     >
                       {r.g || "— ללא קבוצה —"}
