@@ -966,6 +966,11 @@ function Catalog() {
                     <SortHead k="verified" label="אומת" className="mx-auto" />
                   </th>
                 )}
+                {visibleCols.is_anchor && (
+                  <th style={{ width: scaledWidths.is_anchor }} className="px-2 py-2 text-center">
+                    <SortHead k="is_anchor" label="עוגן" className="mx-auto" />
+                  </th>
+                )}
               </tr>
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
