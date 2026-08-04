@@ -190,7 +190,9 @@ export type Anchor = {
   w: number;
   h: number;
   fromFinal: boolean;
+  name?: string;
 };
+
 
 export type AnchorPricing = {
   unit: number;
