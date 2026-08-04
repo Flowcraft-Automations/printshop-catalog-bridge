@@ -177,6 +177,19 @@ function Catalog() {
   const { data: allNotes = [] } = useQuery(productNotesQuery());
   const { data: families = [] } = useQuery(familiesQuery());
 
+  const notesByProduct = useMemo(() => {
+    const map: Record<string, ProductNote[]> = {};
+    const text: Record<string, string> = {};
+    for (const n of allNotes) {
+      (map[n.product_id] ??= []).push(n);
+      text[n.product_id] = `${text[n.product_id] ?? ""} ${n.body}`.trim();
+    }
+    NOTE_TEXT = text;
+    return map;
+  }, [allNotes]);
+
+
+
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
   const [senzeyStatus, setSenzeyStatus] = useState("");
