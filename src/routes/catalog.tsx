@@ -335,6 +335,7 @@ function Catalog() {
     flags: 7,
     notes: 4,
     verified: 4,
+    is_anchor: 4,
   };
   const scaledWidths = useMemo(() => {
     const visible = Object.entries(baseWidths)
