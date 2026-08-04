@@ -455,6 +455,33 @@ function Catalog() {
                       className="num w-20 border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
                     />
                   </td>
+                  <td className="num whitespace-nowrap px-3 py-1">
+                    {shekel(p.competitor_price)}
+                    {p.competitor_ref?.trim() && (
+                      <Info
+                        className="ms-1 inline size-3.5 text-muted-foreground"
+                        aria-label={p.competitor_ref}
+                      >
+                        <title>{p.competitor_ref}</title>
+                      </Info>
+                    )}
+                  </td>
+                  <td className="num whitespace-nowrap px-3 py-1" onClick={(e) => e.stopPropagation()}>
+                    {shekel(p.proposed_price)}
+                    {p.proposed_price != null && p.final_price == null && (
+                      <button
+                        onClick={() =>
+                          update.mutate({
+                            ids: [p.id],
+                            patch: { final_price: p.proposed_price ?? null },
+                          })
+                        }
+                        className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                      >
+                        אמץ
+                      </button>
+                    )}
+                  </td>
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
                     <StatusSelect
                       value={p.senzey_status}
