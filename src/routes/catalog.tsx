@@ -70,6 +70,84 @@ function StatusSelect({
 
 const EMPTY = "__empty__";
 
+/** Zoho-style per-column matchers */
+function matchText(value: string | null | undefined, expr: string) {
+  const f = expr.trim();
+  if (!f) return true;
+  const v = (value ?? "").trim();
+  if (f === "-" || f === "ריק") return v === "";
+  if (f === "*") return v !== "";
+  return v.toLowerCase().includes(f.toLowerCase());
+}
+
+function matchNum(value: number | null | undefined, expr: string) {
+  const f = expr.trim();
+  if (!f) return true;
+  if (f === "-" || f === "ריק") return value == null;
+  if (f === "*") return value != null;
+  const range = f.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+  if (range) {
+    if (value == null) return false;
+    return value >= Number(range[1]) && value <= Number(range[2]);
+  }
+  const m = f.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return true;
+  if (value == null) return false;
+  const n = Number(m[2]);
+  switch (m[1]) {
+    case ">":
+      return value > n;
+    case ">=":
+      return value >= n;
+    case "<":
+      return value < n;
+    case "<=":
+      return value <= n;
+    default:
+      return value === n;
+  }
+}
+
+type ColKey =
+  | "name"
+  | "family"
+  | "senzey_group"
+  | "site_category"
+  | "size"
+  | "qty"
+  | "senzey_price"
+  | "site_price"
+  | "final_price"
+  | "competitor_price"
+  | "proposed_price"
+  | "senzey_status"
+  | "site_status"
+  | "site_url"
+  | "flags"
+  | "verified";
+
+const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
+  name: (p) => p.name,
+  family: (p) => p.family ?? "",
+  senzey_group: (p) => p.senzey_group ?? "",
+  site_category: (p) => p.site_category ?? "",
+  size: (p) => (p.width_cm ?? 0) * (p.height_cm ?? 0),
+  qty: (p) => p.qty ?? 0,
+  senzey_price: (p) => p.senzey_price,
+  site_price: (p) => p.site_price,
+  final_price: (p) => p.final_price,
+  competitor_price: (p) => p.competitor_price,
+  proposed_price: (p) => p.proposed_price,
+  senzey_status: (p) => p.senzey_status,
+  site_status: (p) => p.site_status,
+  site_url: (p) => p.site_url ?? "",
+  flags: (p) => `${p.anomaly ?? ""}${p.notes ?? ""}`,
+  verified: (p) => (p.verified ? 1 : 0),
+};
+
+const colInput =
+  "w-full min-w-[64px] border border-white/30 bg-white/10 px-1.5 py-0.5 text-xs font-normal text-white placeholder:text-white/50 outline-none focus:border-white";
+
 function Catalog() {
   const {
     family: familyParam,
