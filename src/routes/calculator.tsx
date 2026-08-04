@@ -1,18 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
-import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
 import {
   buildAnchors,
   fitFamilyLine,
   priceFromLine,
   shekel,
-  type Family,
   type Product,
-  type QtyDiscount,
 } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/calculator")({
