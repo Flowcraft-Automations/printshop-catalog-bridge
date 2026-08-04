@@ -381,13 +381,20 @@ function Calculator() {
   );
 }
 
-function FamilyAdmin({ families }: { families: Family[] }) {
+function FamilyAdmin({
+  families,
+  products,
+}: {
+  families: Family[];
+  products: Product[];
+}) {
   const qc = useQueryClient();
   const save = useMutation({
     mutationFn: async (row: Family) => {
       const { error } = await supabase
         .from("families")
         .update({
+          base_price: row.base_price ?? 0,
           rate_m2: row.rate_m2,
           min_charge: row.min_charge,
           qty_discounts: row.qty_discounts ?? [],
@@ -407,22 +414,31 @@ function FamilyAdmin({ families }: { families: Family[] }) {
     <section className="mt-10">
       <h2 className="mb-1 text-lg font-black">ניהול עקומות תמחור</h2>
       <p className="mb-3 text-sm text-muted-foreground">
-        תעריף למ״ר, מחיר מינימום והנחות כמות (פורמט: 10:0.85, 20:0.75)
+        מחיר בסיס + תעריף למ״ר, מחיר מינימום והנחות כמות (פורמט: 10:0.85, 20:0.75).
+        «התאם מחדש מהנתונים» מחשב את הקו מהמוצרים הקיימים; עריכה ידנית נשמרת עד ההתאמה הבאה.
       </p>
       <div className="overflow-x-auto border-2 border-[var(--ink)] bg-card">
         <table className="w-full text-sm">
           <thead className="bg-[var(--ink)] text-white">
             <tr className="text-right">
               <th className="px-3 py-2 font-semibold">משפחה</th>
+              <th className="px-3 py-2 font-semibold">מחיר בסיס</th>
               <th className="px-3 py-2 font-semibold">₪/מ״ר</th>
               <th className="px-3 py-2 font-semibold">מינימום</th>
               <th className="px-3 py-2 font-semibold">הנחות כמות</th>
+              <th className="px-3 py-2 font-semibold">איכות התאמה</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {families.map((f, i) => (
-              <FamilyRow key={f.family} f={f} odd={i % 2 === 1} onSave={(r) => save.mutate(r)} />
+              <FamilyRow
+                key={f.family}
+                f={f}
+                products={products}
+                odd={i % 2 === 1}
+                onSave={(r) => save.mutate(r)}
+              />
             ))}
           </tbody>
         </table>
@@ -448,22 +464,43 @@ function textToTiers(s: string): QtyDiscount[] {
 
 function FamilyRow({
   f,
+  products,
   odd,
   onSave,
 }: {
   f: Family;
+  products: Product[];
   odd: boolean;
   onSave: (row: Family) => void;
 }) {
+  const [base, setBase] = useState(f.base_price?.toString() ?? "0");
   const [rate, setRate] = useState(f.rate_m2?.toString() ?? "");
   const [min, setMin] = useState(f.min_charge?.toString() ?? "");
   const [tiers, setTiers] = useState(tiersToText(f.qty_discounts));
 
-  const cell = "num w-24 border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-[var(--accent-raw)]";
+  const fit = useMemo(
+    () => fitFamilyLine(buildAnchors(products, f.family).anchors),
+    [products, f.family],
+  );
+
+  const cell =
+    "num w-24 border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-[var(--accent-raw)]";
+
+  const row = (over?: Partial<Family>): Family => ({
+    ...f,
+    base_price: base === "" ? 0 : Number(base),
+    rate_m2: rate === "" ? null : Number(rate),
+    min_charge: min === "" ? null : Number(min),
+    qty_discounts: textToTiers(tiers),
+    ...over,
+  });
 
   return (
     <tr className={odd ? "bg-[var(--surface-deep)]" : ""}>
       <td className="px-3 py-1.5 font-semibold">{f.family}</td>
+      <td className="px-3 py-1.5">
+        <input className={cell} value={base} onChange={(e) => setBase(e.target.value)} />
+      </td>
       <td className="px-3 py-1.5">
         <input className={cell} value={rate} onChange={(e) => setRate(e.target.value)} />
       </td>
@@ -479,20 +516,45 @@ function FamilyRow({
         />
       </td>
       <td className="px-3 py-1.5">
+        {!fit ? (
+          <span className="text-muted-foreground/60">אין עוגנים</span>
+        ) : (
+          <span
+            className={
+              fit.deviation > 15 ? "font-bold text-[oklch(0.5_0.16_45)]" : "text-muted-foreground"
+            }
+            title={
+              fit.deviation > 15
+                ? "המשפחה הזו מתאימה יותר לסולם מחירים קבוע"
+                : `${fit.count} עוגנים`
+            }
+          >
+            <span className="num">{fit.deviation.toFixed(0)}%</span>
+            {fit.deviation > 15 ? " ⚠" : ""}
+          </span>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-3 py-1.5">
         <button
-          onClick={() =>
-            onSave({
-              ...f,
-              rate_m2: rate === "" ? null : Number(rate),
-              min_charge: min === "" ? null : Number(min),
-              qty_discounts: textToTiers(tiers),
-            })
-          }
+          onClick={() => onSave(row())}
           className="border border-[var(--ink)] px-2 py-1 text-xs font-bold hover:bg-[oklch(0.93_0.05_250)]"
         >
           שמור
+        </button>
+        <button
+          disabled={!fit}
+          onClick={() => {
+            if (!fit) return;
+            setBase(String(fit.base));
+            setRate(String(fit.rate));
+            onSave(row({ base_price: fit.base, rate_m2: fit.rate }));
+          }}
+          className="ms-2 border border-[var(--ink)] px-2 py-1 text-xs font-bold hover:bg-[oklch(0.93_0.07_155)] disabled:opacity-40"
+        >
+          התאם מחדש מהנתונים
         </button>
       </td>
     </tr>
   );
 }
+
