@@ -129,10 +129,9 @@ function MigrationBoard() {
                               חדש מאושר
                             </span>
                           )}
-                          <NoteInput
-                            value={p.notes}
-                            onSave={(notes) => saveNote.mutate({ id: p.id, notes })}
-                          />
+                          <span className="ms-2">
+                            <NoteIndicator note={p.notes} onClick={() => setNoteFor(p)} />
+                          </span>
                         </td>
                         <td className="num whitespace-nowrap px-3 py-2 text-muted-foreground">
                           {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
