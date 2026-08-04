@@ -311,6 +311,7 @@ function Catalog() {
     flags: true,
     notes: true,
     verified: true,
+    is_anchor: true,
   });
 
   const baseWidths: Record<ColKey, number> = {
