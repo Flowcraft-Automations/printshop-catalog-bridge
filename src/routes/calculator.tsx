@@ -63,6 +63,24 @@ function Calculator() {
       .slice(0, 12);
   }, [products, family, fam, area]);
 
+  const famItems = useMemo(() => {
+    if (!family) return [];
+    return products
+      .filter((p) => p.family === family)
+      .map((p) => {
+        const w = Number(p.width_cm) || 0;
+        const h = Number(p.height_cm) || 0;
+        return { p, w, h, area: (w * h) / 10000 };
+      })
+      .sort((a, b) => a.area - b.area || a.p.name.localeCompare(b.p.name, "he"));
+  }, [products, family]);
+
+  const anchorKeys = useMemo(
+    () => new Set(anchors.map((a) => `${a.w}x${a.h}`)),
+    [anchors],
+  );
+
+
   return (
     <div>
       <PageTitle title="מחשבון מידות" sub="חישוב מחיר לפי עקומת התמחור של המשפחה" />
@@ -168,7 +186,63 @@ function Calculator() {
         </div>
 
         <div>
+          {family ? (
+            <section className="mb-8">
+              <h2 className="mb-1 text-lg font-black">
+                כל הפריטים במשפחה «{family}»
+              </h2>
+              <p className="mb-3 text-sm text-muted-foreground">
+                {famItems.length} פריטים · {anchors.length} עוגני תמחור
+              </p>
+              {famItems.length === 0 ? (
+                <p className="border-2 border-dashed border-border p-6 text-sm text-muted-foreground">
+                  אין פריטים במשפחה.
+                </p>
+              ) : (
+                <div className="max-h-[420px] overflow-y-auto border-2 border-[var(--ink)] bg-card">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-[var(--ink)] text-white">
+                      <tr className="text-right">
+                        <th className="px-3 py-2 font-semibold">שם</th>
+                        <th className="px-3 py-2 font-semibold">מידה</th>
+                        <th className="px-3 py-2 font-semibold">מ״ר</th>
+                        <th className="px-3 py-2 font-semibold">כמות</th>
+                        <th className="px-3 py-2 font-semibold">סנזיי</th>
+                        <th className="px-3 py-2 font-semibold">סופי</th>
+                        <th className="px-3 py-2 font-semibold">עוגן</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {famItems.map(({ p, w, h, area: a }, i) => (
+                        <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
+                          <td className="px-3 py-1.5">{p.name}</td>
+                          <td className="num px-3 py-1.5">
+                            {w && h ? `${w}×${h}` : "—"}
+                          </td>
+                          <td className="num px-3 py-1.5">{a ? a.toFixed(3) : "—"}</td>
+                          <td className="num px-3 py-1.5">{p.qty ?? 1}</td>
+                          <td className="num px-3 py-1.5">{shekel(p.senzey_price)}</td>
+                          <td className="num px-3 py-1.5 font-bold">{shekel(p.final_price)}</td>
+                          <td className="px-3 py-1.5">
+                            {(p.qty ?? 1) === 1 && anchorKeys.has(`${w}x${h}`) ? (
+                              <span className="bg-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-white">
+                                עוגן
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/60">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           <h2 className="mb-3 text-lg font-black">מוצרים קיימים דומים (±25% שטח)</h2>
+
           {!fam ? (
             <p className="text-sm text-muted-foreground">בחר משפחה.</p>
           ) : similar.length === 0 ? (
