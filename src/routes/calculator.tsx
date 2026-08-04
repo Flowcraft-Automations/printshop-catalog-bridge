@@ -219,21 +219,18 @@ function Calculator() {
                 </div>
               </div>
               <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
-                <div
-                  className={
-                    calc.basis === "extrapolated"
-                      ? "font-bold text-[oklch(0.5_0.16_45)]"
-                      : "font-bold"
-                  }
-                >
-                  {calc.label}
-                </div>
+                <div className="font-bold">{calc.label}</div>
                 {calc.detail ? (
                   <div className="text-muted-foreground">{calc.detail}</div>
                 ) : null}
                 <div className="text-muted-foreground">
                   שטח מבוקש: {nw}×{nh} = {area.toFixed(3)} מ״ר
                 </div>
+                {calc.floorApplied ? (
+                  <div className="text-muted-foreground">
+                    הועלה למחיר הפריט הזול ביותר במשפחה.
+                  </div>
+                ) : null}
                 {calc.minApplied ? (
                   <div className="text-muted-foreground">
                     הופעל מחיר מינימום של המשפחה ({shekel(fam.min_charge ?? 0)}).
@@ -247,9 +244,15 @@ function Calculator() {
                 {calc.basis !== "catalog" ? (
                   <div className="text-muted-foreground">המחיר עוגל ל־5₪ הקרובים.</div>
                 ) : null}
-                {calc.skipped > 0 ? (
+                {fit ? (
                   <div className="text-[11px] text-muted-foreground/70">
-                    דילגנו על {calc.skipped} חריגות
+                    התאמה מ־{fit.count} עוגנים · סטייה ממוצעת {fit.deviation.toFixed(0)}%
+                    {calc.skipped > 0 ? ` · דילגנו על ${calc.skipped} חריגות` : ""}
+                  </div>
+                ) : null}
+                {fit && fit.deviation > 15 ? (
+                  <div className="text-[12px] font-bold text-[oklch(0.5_0.16_45)]">
+                    המשפחה הזו מתאימה יותר לסולם מחירים קבוע
                   </div>
                 ) : null}
               </div>
