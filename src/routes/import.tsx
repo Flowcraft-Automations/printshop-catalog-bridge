@@ -78,6 +78,11 @@ function normalizeProduct(r: Row) {
     anomaly: str(r['anomaly']),
     notes: str(r['notes']),
     source: str(r['source']) ?? "import",
+    senzey_group: text(r['senzey_group']),
+    site_category: text(r['site_category']),
+    competitor_price: num(r['competitor_price']),
+    competitor_ref: text(r['competitor_ref']),
+    proposed_price: num(r['proposed_price']),
   };
 }
 
