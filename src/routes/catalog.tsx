@@ -134,7 +134,8 @@ type ColKey =
   | "site_url"
   | "flags"
   | "notes"
-  | "verified";
+  | "verified"
+  | "is_anchor";
 
 /** Site price minus Senzey price; null when either side is missing. */
 export function priceGap(p: Product): number | null {
