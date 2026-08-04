@@ -34,6 +34,8 @@ function Calculator() {
   const { data: products = [] } = useQuery(productsQuery());
 
   const [family, setFamily] = useState("");
+  const [familySearch, setFamilySearch] = useState("");
+  const [familyOpen, setFamilyOpen] = useState(false);
   const [w, setW] = useState("100");
   const [h, setH] = useState("70");
   const [qty, setQty] = useState("1");
@@ -43,6 +45,13 @@ function Calculator() {
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
   const area = (nw * nh) / 10000;
+
+  const filteredFamilies = useMemo(() => {
+    const q = familySearch.trim().toLowerCase();
+    if (!q) return families;
+    return families.filter((f) => f.family.toLowerCase().includes(q));
+  }, [families, familySearch]);
+
 
   const { anchors, skipped } = useMemo(
     () => (family ? buildAnchors(products, family) : { anchors: [], skipped: 0 }),
