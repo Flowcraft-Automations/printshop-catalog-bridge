@@ -54,6 +54,17 @@ function Calculator() {
     return families.filter((f) => f.family.toLowerCase().includes(q));
   }, [families, familySearch]);
 
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!familyWrapRef.current?.contains(e.target as Node)) {
+        setFamilyOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+
 
   const { anchors, skipped } = useMemo(
     () => (family ? buildAnchors(products, family) : { anchors: [], skipped: 0 }),
