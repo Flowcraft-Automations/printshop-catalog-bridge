@@ -1086,6 +1086,26 @@ function Catalog() {
                       />
                     </th>
                   )}
+                  {visibleCols.curve_price && (
+                    <th style={{ width: scaledWidths.curve_price }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("curve_price")}
+                        onChange={(e) => setCf("curve_price", e.target.value)}
+                        placeholder="-"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.curve_dev && (
+                    <th style={{ width: scaledWidths.curve_dev }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("curve_dev")}
+                        onChange={(e) => setCf("curve_dev", e.target.value)}
+                        placeholder=">20"
+                      />
+                    </th>
+                  )}
                   {visibleCols.competitor_price && (
                     <th style={{ width: scaledWidths.competitor_price }} className="px-2 pb-2">
                       <input
