@@ -390,11 +390,15 @@ function Catalog() {
                 <th className="w-8 px-2 py-2"></th>
                 <th className="px-3 py-2 font-semibold">שם</th>
                 <th className="px-3 py-2 font-semibold">משפחה</th>
+                <th className="hidden px-3 py-2 font-semibold lg:table-cell">קבוצה בסנזיי</th>
+                <th className="hidden px-3 py-2 font-semibold lg:table-cell">קטגוריה באתר</th>
                 <th className="px-3 py-2 font-semibold">מידה</th>
                 <th className="px-3 py-2 font-semibold">כמות</th>
                 <th className="px-3 py-2 font-semibold">סנזיי</th>
                 <th className="px-3 py-2 font-semibold">אתר</th>
                 <th className="px-3 py-2 font-semibold">מחיר סופי</th>
+                <th className="px-3 py-2 font-semibold">מחיר מתחרה</th>
+                <th className="px-3 py-2 font-semibold">מחיר מוצע</th>
                 <th className="px-3 py-2 font-semibold">סט׳ סנזיי</th>
                 <th className="px-3 py-2 font-semibold">סט׳ אתר</th>
                 <th className="px-3 py-2 font-semibold">קישור</th>
