@@ -138,19 +138,32 @@ export function priceGap(p: Product): number | null {
   return Number(p.site_price) - Number(p.senzey_price);
 }
 
+const CLOSED_STATUSES = new Set(["deleted", "not_relevant"]);
+
+/** Both platforms are closed out (deleted / not relevant) — nothing left to flag. */
+export function isClosedOut(p: Product): boolean {
+  return (
+    CLOSED_STATUSES.has(p.senzey_status ?? "") &&
+    CLOSED_STATUSES.has(p.site_status ?? "")
+  );
+}
+
 /**
  * Anomaly text as it should be shown: a price-gap anomaly self-clears once the
- * Senzey and site prices match (gap = 0).
+ * Senzey and site prices match (gap = 0), and every anomaly clears once both
+ * statuses are נמחק / לא רלוונטי.
  */
 export function activeAnomaly(p: Product): string {
   const a = (p.anomaly ?? "").trim();
   if (!a) return "";
+  if (isClosedOut(p)) return "";
   if (a.includes("פער מחיר")) {
     const g = priceGap(p);
     if (g !== null && Math.abs(g) < 0.005) return "";
   }
   return a;
 }
+
 
 let NOTE_TEXT: Record<string, string> = {};
 function noteTextOf(id: string) {
@@ -1160,11 +1173,12 @@ function Catalog() {
                           חריגה
                         </span>
                       )}
-                      {(p.senzey_dup_count ?? 0) > 1 && (
+                      {!isClosedOut(p) && (p.senzey_dup_count ?? 0) > 1 && (
                         <span className="border border-[oklch(0.6_0.14_50)] bg-[oklch(0.95_0.05_60)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.45_0.14_50)]">
                           כפילות ×{p.senzey_dup_count}
                         </span>
                       )}
+
                     </td>
                   )}
                   {visibleCols.notes && (
