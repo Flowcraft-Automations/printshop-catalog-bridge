@@ -100,6 +100,8 @@ export type Database = {
       products: {
         Row: {
           anomaly: string | null
+          competitor_price: number | null
+          competitor_ref: string | null
           created_at: string | null
           family: string | null
           final_price: number | null
@@ -107,13 +109,16 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          proposed_price: number | null
           qty: number | null
           row_key: string
           senzey_dup_count: number | null
           senzey_exists: boolean | null
+          senzey_group: string | null
           senzey_ids: string | null
           senzey_price: number | null
           senzey_status: string | null
+          site_category: string | null
           site_exists: boolean | null
           site_price: number | null
           site_status: string | null
@@ -126,6 +131,8 @@ export type Database = {
         }
         Insert: {
           anomaly?: string | null
+          competitor_price?: number | null
+          competitor_ref?: string | null
           created_at?: string | null
           family?: string | null
           final_price?: number | null
@@ -133,13 +140,16 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          proposed_price?: number | null
           qty?: number | null
           row_key: string
           senzey_dup_count?: number | null
           senzey_exists?: boolean | null
+          senzey_group?: string | null
           senzey_ids?: string | null
           senzey_price?: number | null
           senzey_status?: string | null
+          site_category?: string | null
           site_exists?: boolean | null
           site_price?: number | null
           site_status?: string | null
@@ -152,6 +162,8 @@ export type Database = {
         }
         Update: {
           anomaly?: string | null
+          competitor_price?: number | null
+          competitor_ref?: string | null
           created_at?: string | null
           family?: string | null
           final_price?: number | null
@@ -159,13 +171,16 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          proposed_price?: number | null
           qty?: number | null
           row_key?: string
           senzey_dup_count?: number | null
           senzey_exists?: boolean | null
+          senzey_group?: string | null
           senzey_ids?: string | null
           senzey_price?: number | null
           senzey_status?: string | null
+          site_category?: string | null
           site_exists?: boolean | null
           site_price?: number | null
           site_status?: string | null
