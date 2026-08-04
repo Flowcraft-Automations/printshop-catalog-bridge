@@ -66,6 +66,9 @@ function Dashboard() {
   const onlySenzey = products.filter((p) => !p.site_exists && p.senzey_exists).length;
   const anomalies = products.filter((p) => p.anomaly && p.anomaly.trim()).length;
   const gaps = products.filter((p) => (p.notes ?? "").includes("פער מחיר")).length;
+  const approvedNew = products.filter(
+    (p) => p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"),
+  ).length;
 
   const count = (key: "site_status" | "senzey_status", v: string) =>
     products.filter((p) => p[key] === v).length;
