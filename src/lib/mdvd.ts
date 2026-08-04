@@ -75,6 +75,8 @@ const NUMERIC_FIELDS = new Set([
   "senzey_dup_count",
   "site_price",
   "final_price",
+  "competitor_price",
+  "proposed_price",
 ]);
 const BOOL_FIELDS = new Set(["senzey_exists", "site_exists", "verified"]);
 
