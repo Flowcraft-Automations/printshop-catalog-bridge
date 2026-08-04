@@ -42,17 +42,26 @@ function Calculator() {
   const nw = Number(w) || 0;
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
-  const calc = computePrice(fam, nw, nh, nq);
+  const area = (nw * nh) / 10000;
+
+  const { anchors, skipped } = useMemo(
+    () => (family ? buildAnchors(products, family) : { anchors: [], skipped: 0 }),
+    [products, family],
+  );
+  const calc = useMemo(
+    () => priceFromAnchors(anchors, skipped, fam, nw, nh, nq),
+    [anchors, skipped, fam, nw, nh, nq],
+  );
 
   const similar = useMemo(() => {
-    if (!fam || !calc.area) return [];
+    if (!fam || !area) return [];
     return products
       .filter((p) => p.family === family && p.width_cm && p.height_cm)
       .map((p) => ({ p, area: (Number(p.width_cm) * Number(p.height_cm)) / 10000 }))
-      .filter((x) => x.area >= calc.area * 0.75 && x.area <= calc.area * 1.25)
-      .sort((a, b) => Math.abs(a.area - calc.area) - Math.abs(b.area - calc.area))
+      .filter((x) => x.area >= area * 0.75 && x.area <= area * 1.25)
+      .sort((a, b) => Math.abs(a.area - area) - Math.abs(b.area - area))
       .slice(0, 12);
-  }, [products, family, fam, calc.area]);
+  }, [products, family, fam, area]);
 
   return (
     <div>
