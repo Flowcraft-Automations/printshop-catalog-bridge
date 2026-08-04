@@ -7,9 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
 import {
   buildAnchors,
-  priceFromAnchors,
+  fitFamilyLine,
+  priceFromLine,
   shekel,
   type Family,
+  type Product,
   type QtyDiscount,
 } from "@/lib/mdvd";
 
