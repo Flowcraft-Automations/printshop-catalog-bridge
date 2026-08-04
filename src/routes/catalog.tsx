@@ -1208,6 +1208,19 @@ function Catalog() {
                       </select>
                     </th>
                   )}
+                  {visibleCols.is_anchor && (
+                    <th style={{ width: scaledWidths.is_anchor }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("is_anchor")}
+                        onChange={(e) => setCf("is_anchor", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="yes">עוגן</option>
+                        <option value="no">לא</option>
+                      </select>
+                    </th>
+                  )}
                 </tr>
               )}
             </thead>
