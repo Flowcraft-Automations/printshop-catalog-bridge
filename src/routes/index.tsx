@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
+import { activeAnomaly } from "@/routes/catalog";
 import { STATUS_LABEL } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/")({
