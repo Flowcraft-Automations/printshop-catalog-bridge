@@ -63,6 +63,24 @@ function Calculator() {
       .slice(0, 12);
   }, [products, family, fam, area]);
 
+  const famItems = useMemo(() => {
+    if (!family) return [];
+    return products
+      .filter((p) => p.family === family)
+      .map((p) => {
+        const w = Number(p.width_cm) || 0;
+        const h = Number(p.height_cm) || 0;
+        return { p, w, h, area: (w * h) / 10000 };
+      })
+      .sort((a, b) => a.area - b.area || a.p.name.localeCompare(b.p.name, "he"));
+  }, [products, family]);
+
+  const anchorKeys = useMemo(
+    () => new Set(anchors.map((a) => `${a.w}x${a.h}`)),
+    [anchors],
+  );
+
+
   return (
     <div>
       <PageTitle title="מחשבון מידות" sub="חישוב מחיר לפי עקומת התמחור של המשפחה" />
