@@ -70,6 +70,84 @@ function StatusSelect({
 
 const EMPTY = "__empty__";
 
+/** Zoho-style per-column matchers */
+function matchText(value: string | null | undefined, expr: string) {
+  const f = expr.trim();
+  if (!f) return true;
+  const v = (value ?? "").trim();
+  if (f === "-" || f === "ריק") return v === "";
+  if (f === "*") return v !== "";
+  return v.toLowerCase().includes(f.toLowerCase());
+}
+
+function matchNum(value: number | null | undefined, expr: string) {
+  const f = expr.trim();
+  if (!f) return true;
+  if (f === "-" || f === "ריק") return value == null;
+  if (f === "*") return value != null;
+  const range = f.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+  if (range) {
+    if (value == null) return false;
+    return value >= Number(range[1]) && value <= Number(range[2]);
+  }
+  const m = f.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return true;
+  if (value == null) return false;
+  const n = Number(m[2]);
+  switch (m[1]) {
+    case ">":
+      return value > n;
+    case ">=":
+      return value >= n;
+    case "<":
+      return value < n;
+    case "<=":
+      return value <= n;
+    default:
+      return value === n;
+  }
+}
+
+type ColKey =
+  | "name"
+  | "family"
+  | "senzey_group"
+  | "site_category"
+  | "size"
+  | "qty"
+  | "senzey_price"
+  | "site_price"
+  | "final_price"
+  | "competitor_price"
+  | "proposed_price"
+  | "senzey_status"
+  | "site_status"
+  | "site_url"
+  | "flags"
+  | "verified";
+
+const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
+  name: (p) => p.name,
+  family: (p) => p.family ?? "",
+  senzey_group: (p) => p.senzey_group ?? "",
+  site_category: (p) => p.site_category ?? "",
+  size: (p) => (p.width_cm ?? 0) * (p.height_cm ?? 0),
+  qty: (p) => p.qty ?? 0,
+  senzey_price: (p) => p.senzey_price,
+  site_price: (p) => p.site_price,
+  final_price: (p) => p.final_price,
+  competitor_price: (p) => p.competitor_price ?? null,
+  proposed_price: (p) => p.proposed_price ?? null,
+  senzey_status: (p) => p.senzey_status,
+  site_status: (p) => p.site_status,
+  site_url: (p) => p.site_url ?? "",
+  flags: (p) => `${p.anomaly ?? ""}${p.notes ?? ""}`,
+  verified: (p) => (p.verified ? 1 : 0),
+};
+
+const colInput =
+  "w-full min-w-[64px] border border-white/30 bg-white/10 px-1.5 py-0.5 text-xs font-normal text-white placeholder:text-white/50 outline-none focus:border-white";
+
 function Catalog() {
   const {
     family: familyParam,
@@ -95,6 +173,30 @@ function Catalog() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Product | null>(null);
   const [limit, setLimit] = useState(200);
+  const [colFilters, setColFilters] = useState<Partial<Record<ColKey, string>>>({});
+  const [showColFilters, setShowColFilters] = useState(true);
+  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
+
+  const cf = (k: ColKey) => colFilters[k] ?? "";
+  const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
+  const activeColFilters = Object.values(colFilters).filter((v) => (v ?? "").trim()).length;
+  function toggleSort(k: ColKey) {
+    setSort((s) =>
+      s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : null,
+    );
+  }
+  function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
+    const active = sort?.key === k;
+    return (
+      <button
+        onClick={() => toggleSort(k)}
+        className={`flex items-center gap-1 font-semibold ${active ? "text-[var(--paper,#fff)] underline" : ""} ${className}`}
+      >
+        {label}
+        <span className="text-[10px] opacity-70">{active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+      </button>
+    );
+  }
 
   const groupOptions = useMemo(
     () => [...new Set(products.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
@@ -122,7 +224,7 @@ function Catalog() {
   });
 
   const rows = useMemo(() => {
-    return products.filter((p) => {
+    const out = products.filter((p) => {
       const g = (p.senzey_group ?? "").trim();
       const c = (p.site_category ?? "").trim();
       if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
@@ -139,8 +241,49 @@ function Catalog() {
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
+
+      // per-column filters (Zoho-style)
+      if (!matchText(p.name, colFilters.name ?? "")) return false;
+      if (!matchText(p.family, colFilters.family ?? "")) return false;
+      if (!matchText(p.senzey_group, colFilters.senzey_group ?? "")) return false;
+      if (!matchText(p.site_category, colFilters.site_category ?? "")) return false;
+      if (
+        !matchText(
+          p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "",
+          colFilters.size ?? "",
+        )
+      )
+        return false;
+      if (!matchNum(p.qty, colFilters.qty ?? "")) return false;
+      if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
+      if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
+      if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
+      if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
+      if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
+      if (colFilters.senzey_status && p.senzey_status !== colFilters.senzey_status) return false;
+      if (colFilters.site_status && p.site_status !== colFilters.site_status) return false;
+      if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
+      if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
+      if (!matchText(`${p.anomaly ?? ""} ${p.notes ?? ""}`, colFilters.flags ?? "")) return false;
+      if (colFilters.verified === "yes" && !p.verified) return false;
+      if (colFilters.verified === "no" && p.verified) return false;
       return true;
     });
+
+    if (sort) {
+      const get = SORT_VALUE[sort.key];
+      const dir = sort.dir === "asc" ? 1 : -1;
+      out.sort((a, b) => {
+        const va = get(a);
+        const vb = get(b);
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+        return String(va).localeCompare(String(vb), "he") * dir;
+      });
+    }
+    return out;
   }, [
     products,
     q,
@@ -155,6 +298,8 @@ function Catalog() {
     group,
     category,
     presence,
+    colFilters,
+    sort,
   ]);
 
 
@@ -380,6 +525,30 @@ function Catalog() {
         </div>
       )}
 
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <button
+          onClick={() => setShowColFilters((v) => !v)}
+          className="border-2 border-[var(--ink)] px-3 py-1 font-bold hover:bg-[var(--surface-deep)]"
+        >
+          {showColFilters ? "הסתר סינון עמודות" : "סינון לפי עמודה"}
+          {activeColFilters > 0 && ` (${activeColFilters})`}
+        </button>
+        {(activeColFilters > 0 || sort) && (
+          <button
+            onClick={() => {
+              setColFilters({});
+              setSort(null);
+            }}
+            className="underline"
+          >
+            ניקוי סינון עמודות ומיון
+          </button>
+        )}
+        <span className="text-xs text-muted-foreground">
+          מספרים: ‎&gt;100‎ · ‎&lt;=50‎ · ‎10-30‎ · ‎-‎ ריק · ‎*‎ לא ריק
+        </span>
+      </div>
+
       {isLoading ? (
         <p className="text-muted-foreground">טוען…</p>
       ) : (
@@ -388,23 +557,200 @@ function Catalog() {
             <thead className="bg-[var(--ink)] text-white">
               <tr className="text-right">
                 <th className="w-8 px-2 py-2"></th>
-                <th className="px-3 py-2 font-semibold">שם</th>
-                <th className="px-3 py-2 font-semibold">משפחה</th>
-                <th className="hidden px-3 py-2 font-semibold lg:table-cell">קבוצה בסנזיי</th>
-                <th className="hidden px-3 py-2 font-semibold lg:table-cell">קטגוריה באתר</th>
-                <th className="px-3 py-2 font-semibold">מידה</th>
-                <th className="px-3 py-2 font-semibold">כמות</th>
-                <th className="px-3 py-2 font-semibold">סנזיי</th>
-                <th className="px-3 py-2 font-semibold">אתר</th>
-                <th className="px-3 py-2 font-semibold">מחיר סופי</th>
-                <th className="px-3 py-2 font-semibold">מחיר מתחרה</th>
-                <th className="px-3 py-2 font-semibold">מחיר מוצע</th>
-                <th className="px-3 py-2 font-semibold">סט׳ סנזיי</th>
-                <th className="px-3 py-2 font-semibold">סט׳ אתר</th>
+                <th className="px-3 py-2"><SortHead k="name" label="שם" /></th>
+                <th className="px-3 py-2"><SortHead k="family" label="משפחה" /></th>
+                <th className="hidden px-3 py-2 lg:table-cell">
+                  <SortHead k="senzey_group" label="קבוצה בסנזיי" />
+                </th>
+                <th className="hidden px-3 py-2 lg:table-cell">
+                  <SortHead k="site_category" label="קטגוריה באתר" />
+                </th>
+                <th className="px-3 py-2"><SortHead k="size" label="מידה" /></th>
+                <th className="px-3 py-2"><SortHead k="qty" label="כמות" /></th>
+                <th className="px-3 py-2"><SortHead k="senzey_price" label="סנזיי" /></th>
+                <th className="px-3 py-2"><SortHead k="site_price" label="אתר" /></th>
+                <th className="px-3 py-2"><SortHead k="final_price" label="מחיר סופי" /></th>
+                <th className="px-3 py-2"><SortHead k="competitor_price" label="מחיר מתחרה" /></th>
+                <th className="px-3 py-2"><SortHead k="proposed_price" label="מחיר מוצע" /></th>
+                <th className="px-3 py-2"><SortHead k="senzey_status" label="סט׳ סנזיי" /></th>
+                <th className="px-3 py-2"><SortHead k="site_status" label="סט׳ אתר" /></th>
                 <th className="px-3 py-2 font-semibold">קישור</th>
                 <th className="px-3 py-2 font-semibold">סימונים</th>
-                <th className="px-3 py-2 text-center font-semibold">אומת</th>
+                <th className="px-3 py-2 text-center">
+                  <SortHead k="verified" label="אומת" className="mx-auto" />
+                </th>
               </tr>
+              {showColFilters && (
+                <tr className="bg-[var(--ink)] text-right align-top">
+                  <th className="px-2 pb-2"></th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("name")}
+                      onChange={(e) => setCf("name", e.target.value)}
+                      placeholder="שם…"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <select
+                      className={colInput}
+                      value={cf("family")}
+                      onChange={(e) => setCf("family", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      {families.map((f) => (
+                        <option key={f.family} value={f.family}>
+                          {f.family}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th className="hidden px-2 pb-2 lg:table-cell">
+                    <select
+                      className={colInput}
+                      value={cf("senzey_group")}
+                      onChange={(e) => setCf("senzey_group", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      <option value="-">ריק</option>
+                      {groupOptions.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th className="hidden px-2 pb-2 lg:table-cell">
+                    <select
+                      className={colInput}
+                      value={cf("site_category")}
+                      onChange={(e) => setCf("site_category", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      <option value="-">ריק</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("size")}
+                      onChange={(e) => setCf("size", e.target.value)}
+                      placeholder="70×100"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("qty")}
+                      onChange={(e) => setCf("qty", e.target.value)}
+                      placeholder=">1"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("senzey_price")}
+                      onChange={(e) => setCf("senzey_price", e.target.value)}
+                      placeholder=">100"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("site_price")}
+                      onChange={(e) => setCf("site_price", e.target.value)}
+                      placeholder=">100"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("final_price")}
+                      onChange={(e) => setCf("final_price", e.target.value)}
+                      placeholder="-"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("competitor_price")}
+                      onChange={(e) => setCf("competitor_price", e.target.value)}
+                      placeholder="*"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("proposed_price")}
+                      onChange={(e) => setCf("proposed_price", e.target.value)}
+                      placeholder="*"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <select
+                      className={colInput}
+                      value={cf("senzey_status")}
+                      onChange={(e) => setCf("senzey_status", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      {STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th className="px-2 pb-2">
+                    <select
+                      className={colInput}
+                      value={cf("site_status")}
+                      onChange={(e) => setCf("site_status", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      {STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </th>
+                  <th className="px-2 pb-2">
+                    <select
+                      className={colInput}
+                      value={cf("site_url")}
+                      onChange={(e) => setCf("site_url", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      <option value="yes">יש</option>
+                      <option value="no">אין</option>
+                    </select>
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
+                      value={cf("flags")}
+                      onChange={(e) => setCf("flags", e.target.value)}
+                      placeholder="חריגה/הערה…"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <select
+                      className={colInput}
+                      value={cf("verified")}
+                      onChange={(e) => setCf("verified", e.target.value)}
+                    >
+                      <option value="">הכל</option>
+                      <option value="yes">אומת</option>
+                      <option value="no">לא</option>
+                    </select>
+                  </th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {visible.map((p, i) => (
