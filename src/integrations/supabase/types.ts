@@ -145,6 +145,7 @@ export type Database = {
           final_price: number | null
           height_cm: number | null
           id: string
+          is_anchor: boolean
           name: string
           notes: string | null
           proposed_price: number | null
@@ -176,6 +177,7 @@ export type Database = {
           final_price?: number | null
           height_cm?: number | null
           id?: string
+          is_anchor?: boolean
           name: string
           notes?: string | null
           proposed_price?: number | null
@@ -207,6 +209,7 @@ export type Database = {
           final_price?: number | null
           height_cm?: number | null
           id?: string
+          is_anchor?: boolean
           name?: string
           notes?: string | null
           proposed_price?: number | null
