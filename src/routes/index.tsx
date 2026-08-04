@@ -93,13 +93,18 @@ function Dashboard() {
     <div>
       <PageTitle title="לוח בקרה" sub="תמונת מצב מלאה של הקטלוג בשתי המערכות" />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <Kpi label='סה"כ פריטים' value={products.length} />
         <Kpi label="קיים בשתי המערכות" value={both} />
         <Kpi label="רק באתר" value={onlySite} />
         <Kpi label="רק בסנזיי" value={onlySenzey} />
         <Kpi label="חריגות מחיר" value={anomalies} tone="text-destructive" />
         <Kpi label="פערי מחיר" value={gaps} tone="text-[oklch(0.55_0.16_50)]" />
+        <Kpi
+          label="מוצרים חדשים מאושרים"
+          value={approvedNew}
+          tone="text-[oklch(0.45_0.12_155)]"
+        />
       </div>
 
       <div className="mt-6 grid gap-3 md:grid-cols-2">
