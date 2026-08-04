@@ -463,6 +463,14 @@ function Catalog() {
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
       if (!matchNum(priceGap(p), colFilters.price_gap ?? "")) return false;
       if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
+      if (!matchNum(curveByProduct[p.id]?.suggested ?? null, colFilters.curve_price ?? "")) return false;
+      if (
+        !matchNum(
+          curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : null,
+          colFilters.curve_dev ?? "",
+        )
+      )
+        return false;
       if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
       if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
       if (colFilters.senzey_status && p.senzey_status !== colFilters.senzey_status) return false;
