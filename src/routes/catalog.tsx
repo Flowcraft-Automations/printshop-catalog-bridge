@@ -246,6 +246,7 @@ function Catalog() {
                 <th className="px-3 py-2 font-semibold">סט׳ אתר</th>
                 <th className="px-3 py-2 font-semibold">קישור</th>
                 <th className="px-3 py-2 font-semibold">סימונים</th>
+                <th className="px-3 py-2 text-center font-semibold">אומת</th>
               </tr>
             </thead>
             <tbody>
