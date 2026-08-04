@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +34,11 @@ function Calculator() {
   const { data: products = [] } = useQuery(productsQuery());
 
   const [family, setFamily] = useState("");
+  const [familySearch, setFamilySearch] = useState("");
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const familyWrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState("100");
+
   const [h, setH] = useState("70");
   const [qty, setQty] = useState("1");
 
@@ -43,6 +47,24 @@ function Calculator() {
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
   const area = (nw * nh) / 10000;
+
+  const filteredFamilies = useMemo(() => {
+    const q = familySearch.trim().toLowerCase();
+    if (!q) return families;
+    return families.filter((f) => f.family.toLowerCase().includes(q));
+  }, [families, familySearch]);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!familyWrapRef.current?.contains(e.target as Node)) {
+        setFamilyOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+
 
   const { anchors, skipped } = useMemo(
     () => (family ? buildAnchors(products, family) : { anchors: [], skipped: 0 }),
@@ -88,14 +110,82 @@ function Calculator() {
       <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
         <div className="border-2 border-[var(--ink)] bg-card p-5 shadow-[6px_6px_0_0_var(--ink)]">
           <label className="mb-1 block text-xs font-bold text-muted-foreground">משפחה</label>
-          <select className={inputCls} value={family} onChange={(e) => setFamily(e.target.value)}>
-            <option value="">— בחר משפחה —</option>
-            {families.map((f) => (
-              <option key={f.family} value={f.family}>
-                {f.family}
-              </option>
-            ))}
-          </select>
+          <div ref={familyWrapRef} className="relative">
+            <input
+              className={inputCls}
+              value={familyOpen ? familySearch : familySearch || family || ""}
+              placeholder={family ? family : "הקלד לחיפוש משפחה…"}
+              onChange={(e) => {
+                setFamilySearch(e.target.value);
+                setFamilyOpen(true);
+              }}
+              onFocus={() => setFamilyOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setFamilyOpen(false);
+                }
+                if (e.key === "ArrowDown" && filteredFamilies.length > 0) {
+                  e.preventDefault();
+                  const first = document.querySelector<HTMLButtonElement>("[data-family-option]");
+                  first?.focus();
+                }
+              }}
+              aria-expanded={familyOpen}
+              aria-autocomplete="list"
+              aria-controls="family-listbox"
+            />
+            {familyOpen && (
+              <div
+                id="family-listbox"
+                className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]"
+              >
+                {filteredFamilies.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">לא נמצאו משפחות</div>
+                ) : (
+                  filteredFamilies.map((f) => (
+                    <button
+                      key={f.family}
+                      type="button"
+                      data-family-option
+                      className={`w-full px-3 py-2 text-right text-sm hover:bg-[var(--accent-raw)] hover:text-white ${
+                        f.family === family ? "bg-[var(--surface-deep)] font-bold" : ""
+                      }`}
+                      onClick={() => {
+                        setFamily(f.family);
+                        setFamilySearch("");
+                        setFamilyOpen(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          const next = (e.target as HTMLElement).nextElementSibling as HTMLButtonElement | null;
+                          next?.focus();
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          const prev = (e.target as HTMLElement).previousElementSibling as HTMLButtonElement | null;
+                          if (prev) {
+                            prev.focus();
+                          } else {
+                            setFamilyOpen(false);
+                          }
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          setFamily(f.family);
+                          setFamilySearch("");
+                          setFamilyOpen(false);
+                        } else if (e.key === "Escape") {
+                          setFamilyOpen(false);
+                        }
+                      }}
+                    >
+                      {f.family}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
 
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div>
