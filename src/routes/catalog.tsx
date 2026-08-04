@@ -343,6 +343,7 @@ function Catalog() {
       "קיים באתר": p.site_exists ? "כן" : "לא",
       "קישור": p.site_url ?? "",
       "מחיר אתר": p.site_price ?? "",
+      "פער אתר-סנזיי": priceGap(p) ?? "",
       "מחיר סופי": p.final_price ?? "",
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
