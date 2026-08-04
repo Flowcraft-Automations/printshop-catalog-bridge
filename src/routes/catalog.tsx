@@ -788,7 +788,21 @@ function Catalog() {
                       onChange={() => toggle(p.id)}
                     />
                   </td>
-                  <td className="max-w-[320px] truncate px-3 py-1 font-semibold">{p.name}</td>
+                  <td className="max-w-[320px] truncate px-3 py-1 font-semibold" dir="rtl">
+                    <span className="inline-flex items-center gap-1.5">
+                      {p.name}
+                      <button
+                        title="העתק שם"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(p.name).then(() => toast.success("השם הועתק"));
+                        }}
+                        className="inline-flex shrink-0 items-center text-muted-foreground hover:text-[var(--accent-raw)]"
+                      >
+                        <Copy className="size-3.5" />
+                      </button>
+                    </span>
+                  </td>
                   <td className="px-3 py-1 text-muted-foreground">{p.family ?? "—"}</td>
                   <td
                     className="hidden max-w-[140px] truncate px-3 py-1 text-muted-foreground lg:table-cell"
