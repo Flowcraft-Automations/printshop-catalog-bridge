@@ -1,32 +1,24 @@
-# Use website prices in the calculator (fix "missing" items like שמשונית)
+# Pricing curve chart in the calculator
 
-## What I checked
+Add a visual chart of the family's pricing curve so outliers are obvious at a glance.
 
-I compared the new file `MDVD_app_seed_data_v2_3.xlsx` against the database row by row:
+## What you'll see
 
-- File: 1,059 products — database: 1,059 products. Nothing missing, nothing extra.
-- Website prices: 398 in the file, 398 in the database.
-- שמשונית: 287 items in both; 134 of them have a website price in both.
-- Only 4 rows differ, and those are your own manual edits.
+A chart panel under the family items table, shown once a family is selected:
 
-So the import is complete. The items that "disappear" are being dropped later, by the calculator.
-
-## The real cause
-
-The calculator builds its pricing anchors from `final_price`, and falls back to `senzey_price` only. Any product that is priced **only on the website** is skipped — it never becomes an anchor and never influences the fitted price line.
-
-For שמשונית this is severe: 287 items in the family, but 153 of them are website-only or partly website-priced, so a large part of the real price ladder is invisible to the calculator.
-
-## What to change
-
-1. Anchor price source becomes: `final_price` → `senzey_price` → `site_price` (first available wins). Track which source was used.
-2. When both Senzey and site prices exist and differ, prefer Senzey (ERP is the source of truth) but keep the item as an anchor.
-3. The family items panel marks each row with its price source (סופי / סנזיי / אתר) so it is obvious where a number came from.
-4. The plain-language breakdown mentions when the fit relies on website prices, e.g. "מבוסס גם על מחירי אתר".
-5. Similar-products panel shows the same effective price rather than a blank when only the website price exists.
+- X axis = area (מ״ר), Y axis = price (₪).
+- Each catalog item with a size and price is a dot.
+- The fitted line (base + rate × area) is drawn across the chart.
+- Dots are color-coded:
+  - accent = anchor used in the fit
+  - grey outline = anomaly dropped by the ×2.5 median filter
+  - orange ring = anchor kept in the fit but deviating more than 20% from the line (suspicious, worth a manual look)
+- The requested size (once width/height are entered) is plotted as a distinct marker so you can see where your quote falls on the curve.
+- Hover tooltip shows: product name, size, area, actual price, fitted price, and deviation %.
+- A short legend plus counts: "N עוגנים · X חריגות · Y סטיות מעל 20%".
 
 ## Technical notes
 
-- `buildAnchors` in `src/lib/mdvd.ts`: extend the price pick to include `site_price`, add a `source: "final" | "senzey" | "site"` field on `Anchor`, and keep the existing dedupe-by-area preference order (final > senzey > site, then lowest price).
-- The ×2.5 median price-per-m² anomaly filter stays unchanged and now runs over the larger anchor set.
-- `src/routes/calculator.tsx`: show the source tag per family item, and extend the anchor/breakdown text. No schema or import changes needed.
+- `src/lib/mdvd.ts`: `buildAnchors` also returns `dropped: Anchor[]` (the anomalies it filters out) and each `Anchor` carries the source product name, so the chart can label points. Existing callers keep working — the `skipped` count stays.
+- New component `src/components/CurveChart.tsx` using recharts (already installed): `ComposedChart` with a `Scatter` per point class, a `Line` for the fit, and a custom tooltip. Colors come from the existing CSS variables (`--accent-raw`, `--ink`, muted), never hardcoded hex, and the chart is styled to match the app's bordered/hard-shadow look rather than recharts defaults.
+- `src/routes/calculator.tsx`: renders `<CurveChart>` with `anchors`, `dropped`, `fit`, and the requested area; no pricing logic changes.
