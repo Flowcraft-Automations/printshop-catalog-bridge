@@ -580,6 +580,7 @@ function Catalog() {
                 <th className="px-3 py-2"><SortHead k="qty" label="כמות" /></th>
                 <th className="px-3 py-2"><SortHead k="senzey_price" label="סנזיי" /></th>
                 <th className="px-3 py-2"><SortHead k="site_price" label="אתר" /></th>
+                <th className="px-3 py-2"><SortHead k="price_gap" label="פער" /></th>
                 <th className="px-3 py-2"><SortHead k="final_price" label="מחיר סופי" /></th>
                 <th className="px-3 py-2"><SortHead k="competitor_price" label="מחיר מתחרה" /></th>
                 <th className="px-3 py-2"><SortHead k="proposed_price" label="מחיר מוצע" /></th>
