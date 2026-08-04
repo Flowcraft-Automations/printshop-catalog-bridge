@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
+import { CurveChart } from "@/components/CurveChart";
 import { familiesQuery, productsQuery } from "@/lib/queries";
+
 import {
   buildAnchors,
   fitFamilyLine,
