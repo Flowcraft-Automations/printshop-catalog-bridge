@@ -226,7 +226,7 @@ function Catalog() {
       ) : (
         <div className="overflow-x-auto border-2 border-[var(--ink)] bg-card">
           <table className="w-full text-sm">
-            <thead className="sticky top-[57px] z-20 bg-[var(--ink)] text-white">
+            <thead className="bg-[var(--ink)] text-white [&_th]:sticky [&_th]:top-[57px] [&_th]:z-20 [&_th]:bg-[var(--ink)]">
               <tr className="text-right">
                 <th className="w-8 px-2 py-2"></th>
                 <th className="px-3 py-2 font-semibold">שם</th>
