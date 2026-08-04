@@ -531,10 +531,10 @@ function Catalog() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3 border-2 border-[var(--ink)] bg-card p-3">
         <input
-          placeholder="חיפוש לפי שם…"
+          placeholder="חיפוש לפי תת-מחרוזת (שם, משפחה, קבוצה, קטגוריה, הערות…)"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className={`${inputCls} min-w-[220px] flex-1`}
+          className={`${inputCls} min-w-[260px] flex-1`}
         />
         <select value={family} onChange={(e) => setFamily(e.target.value)} className={inputCls}>
           <option value="">כל המשפחות</option>
