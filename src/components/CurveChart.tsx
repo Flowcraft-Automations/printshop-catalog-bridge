@@ -14,24 +14,34 @@ import { shekel, type Anchor, type FamilyFit } from "@/lib/mdvd";
 type Point = Anchor & { fit: number; dev: number; kind: "ok" | "warn" | "dropped" };
 
 function PointTooltip({ active, payload }: { active?: boolean; payload?: unknown }) {
-  const items = (payload as { payload: Point }[] | undefined) ?? [];
+  const items = (payload as { payload?: Partial<Point> }[] | undefined) ?? [];
   if (!active || items.length === 0) return null;
-  const p = items[0]!.payload;
+  const p = items.find((i) => i.payload && typeof i.payload.price === "number")?.payload;
+  if (!p || typeof p.area !== "number") return null;
+  const isPoint = p.kind !== undefined;
   return (
     <div className="border-2 border-[var(--ink)] bg-card p-2 text-[12px] shadow-[4px_4px_0_0_var(--ink)]">
-      <div className="font-bold">{p.name ?? `${p.w}×${p.h}`}</div>
-      <div className="num text-muted-foreground">
-        {p.w}×{p.h} · {p.area.toFixed(3)} מ״ר
-      </div>
+      <div className="font-bold">{p.name ?? (p.w && p.h ? `${p.w}×${p.h}` : "המידה המבוקשת")}</div>
+      {p.w && p.h ? (
+        <div className="num text-muted-foreground">
+          {p.w}×{p.h} · {p.area.toFixed(3)} מ״ר
+        </div>
+      ) : (
+        <div className="num text-muted-foreground">{p.area.toFixed(3)} מ״ר</div>
+      )}
       <div className="num">מחיר: {shekel(p.price)}</div>
-      {p.kind === "dropped" ? (
+      {!isPoint ? null : p.kind === "dropped" ? (
         <div className="font-bold text-muted-foreground">חריגה — לא נכללת בהתאמה</div>
       ) : (
         <>
-          <div className="num text-muted-foreground">לפי הקו: {shekel(Math.round(p.fit))}</div>
-          <div className={`num ${p.kind === "warn" ? "font-bold" : "text-muted-foreground"}`}>
-            סטייה {p.dev.toFixed(0)}%
-          </div>
+          {typeof p.fit === "number" ? (
+            <div className="num text-muted-foreground">לפי הקו: {shekel(Math.round(p.fit))}</div>
+          ) : null}
+          {typeof p.dev === "number" ? (
+            <div className={`num ${p.kind === "warn" ? "font-bold" : "text-muted-foreground"}`}>
+              סטייה {p.dev.toFixed(0)}%
+            </div>
+          ) : null}
         </>
       )}
     </div>
