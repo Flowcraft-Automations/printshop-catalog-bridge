@@ -992,14 +992,23 @@ function Catalog() {
               )}
             </thead>
             <tbody>
-              {visible.map((p, i) => (
-                <tr
-                  key={p.id}
-                  onClick={() => setDrawer(p)}
-                  className={`cursor-pointer border-t border-border hover:bg-[oklch(0.95_0.03_250)] ${
-                    i % 2 ? "bg-[var(--surface-deep)]" : ""
-                  }`}
-                >
+              {visible.map((p, i) => {
+                const closedOut = isClosedOut(p);
+                const verified = p.verified;
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => setDrawer(p)}
+                    className={`cursor-pointer border-t border-border hover:bg-[oklch(0.95_0.03_250)] ${
+                      closedOut
+                        ? "bg-[oklch(0.92_0_0)]"
+                        : verified
+                          ? "bg-[oklch(0.95_0.05_145)]"
+                          : i % 2
+                            ? "bg-[var(--surface-deep)]"
+                            : ""
+                    }`}
+                  >
                   <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
@@ -1209,8 +1218,9 @@ function Catalog() {
                       />
                     </td>
                   )}
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {rows.length > visible.length && (
