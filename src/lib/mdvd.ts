@@ -25,6 +25,65 @@ export type Product = {
   updated_at?: string;
 };
 
+export type ProductHistory = {
+  id: string;
+  product_id: string;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  batch_id: string;
+  source: string;
+  changed_at: string;
+};
+
+export const FIELD_LABEL: Record<string, string> = {
+  name: "שם",
+  family: "משפחה",
+  width_cm: "רוחב",
+  height_cm: "גובה",
+  qty: "כמות",
+  senzey_exists: "קיים בסנזיי",
+  senzey_ids: "מזהי סנזיי",
+  senzey_price: "מחיר סנזיי",
+  senzey_dup_count: "כפילויות סנזיי",
+  site_exists: "קיים באתר",
+  site_url: "קישור",
+  site_price: "מחיר אתר",
+  final_price: "מחיר סופי",
+  senzey_status: "סטטוס סנזיי",
+  site_status: "סטטוס אתר",
+  anomaly: "חריגה",
+  notes: "הערות",
+  verified: "אומת",
+};
+
+const NUMERIC_FIELDS = new Set([
+  "width_cm",
+  "height_cm",
+  "qty",
+  "senzey_price",
+  "senzey_dup_count",
+  "site_price",
+  "final_price",
+]);
+const BOOL_FIELDS = new Set(["senzey_exists", "site_exists", "verified"]);
+
+/** Convert a stored history text value back to its column type. */
+export function parseFieldValue(field: string, value: string | null): unknown {
+  if (value === null) return null;
+  if (NUMERIC_FIELDS.has(field)) return Number(value);
+  if (BOOL_FIELDS.has(field)) return value === "true";
+  return value;
+}
+
+export function displayFieldValue(field: string, value: string | null): string {
+  if (value === null || value === "") return "—";
+  if (BOOL_FIELDS.has(field)) return value === "true" ? "כן" : "לא";
+  if (field === "senzey_status" || field === "site_status")
+    return STATUS_LABEL[value] ?? value;
+  return value;
+}
+
 export type QtyDiscount = { min: number; mult: number };
 
 export type Family = {
