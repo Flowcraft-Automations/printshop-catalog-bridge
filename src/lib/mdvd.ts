@@ -296,11 +296,12 @@ export function fitFamilyLine(anchors: Anchor[]): FamilyFit | null {
 
 const round5 = (n: number) => Math.round(n / 5) * 5;
 
-/** Price a requested size from the family's stored base + rate line. */
+/** Price a requested size from a line fitted live from the family's items. */
 export function priceFromLine(
   anchors: Anchor[],
   skipped: number,
   family: Family | undefined,
+  fit: FamilyFit | null,
   w: number,
   h: number,
   qty: number,
@@ -312,8 +313,8 @@ export function priceFromLine(
   const tier = tiers[0] ?? null;
   const mult = tier?.mult ?? 1;
   const min = family?.min_charge ?? 0;
-  const base = family?.base_price ?? 0;
-  const rate = family?.rate_m2 ?? 0;
+  const base = fit ? fit.base : 0;
+  const rate = fit ? fit.rate : (family?.rate_m2 ?? 0);
 
   const match = anchors.find((a) => Math.abs(a.area - area) <= a.area * 0.02);
   if (match && area) {
@@ -349,8 +350,8 @@ export function priceFromLine(
   return {
     unit,
     total: unit * qty,
-    basis: anchors.length ? "line" : "rate",
-    label: anchors.length ? "מחיר מחושב" : "חישוב לפי תעריף לסמ״ר",
+    basis: fit ? "line" : "rate",
+    label: fit ? "מחיר מחושב" : "חישוב לפי תעריף לסמ״ר",
     detail: `מחיר בסיס ${shekel(base)} + ${(rate / 10000).toFixed(4)}₪ לסמ״ר × ${Math.round(area * 10000).toLocaleString()} סמ״ר = ${shekel(Math.round(raw))}`,
     anchors: [],
     skipped,

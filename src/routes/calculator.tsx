@@ -74,8 +74,8 @@ function Calculator() {
   );
   const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
-    () => priceFromLine(anchors, skipped, fam, nw, nh, nq),
-    [anchors, skipped, fam, nw, nh, nq],
+    () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq),
+    [anchors, skipped, fam, fit, nw, nh, nq],
   );
 
   const similar = useMemo(() => {
