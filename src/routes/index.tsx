@@ -10,7 +10,7 @@ export const Route = createFileRoute("/")({
       { title: "לוח בקרה — קונסולת הגירת קטלוג MDVD" },
       { name: "description", content: "תמונת מצב של הקטלוג: פערים, חריגות והתקדמות ההגירה." },
       { property: "og:title", content: "לוח בקרה — קונסולת הגירת קטלוג MDVD" },
-      { property: "og:description", content: "תמונת מצב של הקטלוג והתקדמות ההגירה." },
+      { property: "og:description", content: "תמונת מצב של הקטלוג: פערים, חריגות והתקדמות ההגירה." },
     ],
   }),
   component: Dashboard,
