@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
+import { NoteIndicator } from "@/components/NoteIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { productsQuery } from "@/lib/queries";
 import { STATUS_LABEL, shekel, type Product } from "@/lib/mdvd";
