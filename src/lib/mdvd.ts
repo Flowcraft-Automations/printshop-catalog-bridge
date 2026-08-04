@@ -102,6 +102,7 @@ export type Family = {
   family: string;
   items_count: number | null;
   rate_m2: number | null;
+  base_price: number | null;
   min_charge: number | null;
   qty_discounts: QtyDiscount[] | null;
   notes: string | null;
