@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
+import { CurveChart } from "@/components/CurveChart";
 import { familiesQuery, productsQuery } from "@/lib/queries";
+
 import {
   buildAnchors,
   fitFamilyLine,
@@ -65,10 +67,14 @@ function Calculator() {
 
 
 
-  const { anchors, skipped } = useMemo(
-    () => (family ? buildAnchors(products, family) : { anchors: [], skipped: 0 }),
+  const { anchors, skipped, dropped } = useMemo(
+    () =>
+      family
+        ? buildAnchors(products, family)
+        : { anchors: [], skipped: 0, dropped: [] },
     [products, family],
   );
+
   const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
     () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq),
@@ -333,6 +339,18 @@ function Calculator() {
               )}
             </section>
           ) : null}
+
+          {family ? (
+            <CurveChart
+              anchors={anchors}
+              dropped={dropped}
+              fit={fit}
+              requestedArea={area}
+              requestedPrice={calc.unit}
+            />
+          ) : null}
+
+
 
           <h2 className="mb-3 text-lg font-black">מוצרים קיימים דומים (±25% שטח)</h2>
 
