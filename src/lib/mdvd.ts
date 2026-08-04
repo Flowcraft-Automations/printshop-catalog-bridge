@@ -304,8 +304,8 @@ export function priceFromAnchors(
     );
   }
 
-  const first = anchors[0];
-  const last = anchors[anchors.length - 1];
+  const first = anchors[0]!;
+  const last = anchors[anchors.length - 1]!;
 
   if (area < first.area) {
     return finish(
@@ -330,12 +330,14 @@ export function priceFromAnchors(
     );
   }
 
-  let lo = anchors[0];
-  let hi = anchors[anchors.length - 1];
+  let lo = first;
+  let hi = last;
   for (let i = 0; i < anchors.length - 1; i++) {
-    if (area >= anchors[i].area && area <= anchors[i + 1].area) {
-      lo = anchors[i];
-      hi = anchors[i + 1];
+    const a = anchors[i]!;
+    const b = anchors[i + 1]!;
+    if (area >= a.area && area <= b.area) {
+      lo = a;
+      hi = b;
       break;
     }
   }
