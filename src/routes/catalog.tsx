@@ -117,6 +117,7 @@ type ColKey =
   | "qty"
   | "senzey_price"
   | "site_price"
+  | "price_gap"
   | "final_price"
   | "competitor_price"
   | "proposed_price"
