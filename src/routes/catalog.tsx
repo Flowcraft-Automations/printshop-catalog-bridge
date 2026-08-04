@@ -247,7 +247,7 @@ function Catalog() {
     const out: Record<string, CurveSuggestion> = {};
     for (const fam of fams) {
       const { anchors } = buildAnchors(products, fam);
-      if (anchors.length < 2) continue;
+      if (anchors.length < 1) continue;
       const fit = fitFamilyLine(anchors);
       if (!fit) continue;
       for (const p of products) {
@@ -257,6 +257,11 @@ function Catalog() {
         if (!w || !h) continue;
         const cur = currentPrice(p);
         if (cur === null) continue;
+        // A pinned anchor defines the curve — it can never deviate from it.
+        if (p.is_anchor) {
+          out[p.id] = { suggested: cur, current: cur, dev: 0 };
+          continue;
+        }
         const suggested = round5(Math.max(fit.base + fit.rate * ((w * h) / 10000), 0));
         if (suggested <= 0) continue;
         out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
