@@ -110,6 +110,10 @@ export type Family = {
 
 export const STATUSES = [
   "exists",
+  "added",
+  "deleted",
+  "increased",
+  "decreased",
   "to_review",
   "to_add",
   "in_progress",
@@ -118,7 +122,11 @@ export const STATUSES = [
 ] as const;
 
 export const STATUS_LABEL: Record<string, string> = {
-  exists: "קיים",
+  exists: "ללא שינוי",
+  added: "נוסף",
+  deleted: "נמחק",
+  increased: "עלה",
+  decreased: "ירד",
   to_review: "לבחינה",
   to_add: "להוספה",
   in_progress: "בתהליך",
@@ -128,6 +136,10 @@ export const STATUS_LABEL: Record<string, string> = {
 
 export const STATUS_CLASS: Record<string, string> = {
   exists: "bg-[oklch(0.93_0.005_250)] text-[oklch(0.42_0.01_250)] border-[oklch(0.86_0.008_250)]",
+  added: "bg-[oklch(0.93_0.07_155)] text-[oklch(0.4_0.1_155)] border-[oklch(0.84_0.09_155)]",
+  deleted: "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)] border-[oklch(0.85_0.09_25)]",
+  increased: "bg-[oklch(0.94_0.08_50)] text-[oklch(0.45_0.15_45)] border-[oklch(0.86_0.1_50)]",
+  decreased: "bg-[oklch(0.93_0.06_200)] text-[oklch(0.42_0.12_215)] border-[oklch(0.85_0.08_205)]",
   to_review: "bg-[oklch(0.94_0.09_95)] text-[oklch(0.42_0.09_75)] border-[oklch(0.86_0.11_92)]",
   to_add: "bg-[oklch(0.93_0.05_250)] text-[oklch(0.42_0.11_255)] border-[oklch(0.85_0.07_252)]",
   in_progress: "bg-[oklch(0.93_0.08_60)] text-[oklch(0.47_0.14_50)] border-[oklch(0.85_0.11_58)]",
