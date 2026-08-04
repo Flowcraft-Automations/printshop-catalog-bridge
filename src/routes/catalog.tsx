@@ -194,6 +194,12 @@ function Catalog() {
       "אומת": p.verified ? "כן" : "לא",
       "חריגה": p.anomaly ?? "",
       "הערות": p.notes ?? "",
+      "קבוצה בסנזיי": p.senzey_group ?? "",
+      "קטגוריה באתר": p.site_category ?? "",
+      "מחיר מתחרה": p.competitor_price ?? "",
+      "מקור מחיר מתחרה": p.competitor_ref ?? "",
+      "מחיר מוצע": p.proposed_price ?? "",
+      "מקור": p.source ?? "",
     }));
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(data);
