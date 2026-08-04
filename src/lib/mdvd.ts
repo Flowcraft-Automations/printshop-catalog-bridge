@@ -230,26 +230,58 @@ const median = (nums: number[]) => {
 };
 
 /**
- * Build price anchors from qty=1 products of a family, dropping anomalies whose
- * price-per-m² deviates more than ×2.5 from the family median.
+ * Build price anchors for a family.
+ * When the user pinned items as עוגן, ONLY those define the curve (verbatim).
+ * Otherwise falls back to all qty=1 items, dropping anomalies whose price-per-m²
+ * deviates more than ×2.5 from the family median.
  */
 export function buildAnchors(
   products: Product[],
   family: string,
-): { anchors: Anchor[]; skipped: number; dropped: Anchor[] } {
-  const byArea = new Map<string, Anchor>();
-  for (const p of products) {
-    if (p.family !== family) continue;
-    if ((p.qty ?? 1) !== 1) continue;
+): { anchors: Anchor[]; skipped: number; dropped: Anchor[]; source: FitSource } {
+  const toAnchor = (p: Product): Anchor | null => {
     const w = Number(p.width_cm);
     const h = Number(p.height_cm);
-    if (!w || !h) continue;
+    if (!w || !h) return null;
     const fromFinal = p.final_price !== null && p.final_price !== undefined;
     const price = Number(fromFinal ? p.final_price : p.senzey_price);
-    if (!price || Number.isNaN(price) || price <= 0) continue;
-    const area = (w * h) / 10000;
-    const cand: Anchor = { area, price, w, h, fromFinal, name: p.name };
-    const key = area.toFixed(4);
+    if (!price || Number.isNaN(price) || price <= 0) return null;
+    return {
+      area: (w * h) / 10000,
+      price,
+      w,
+      h,
+      fromFinal,
+      name: p.name,
+      id: p.id,
+      pinned: !!p.is_anchor,
+    };
+  };
+
+  const fam = products.filter((p) => p.family === family);
+
+  // 1. Pinned anchors win outright.
+  const pinned = fam
+    .filter((p) => p.is_anchor)
+    .map(toAnchor)
+    .filter((a): a is Anchor => a !== null)
+    .sort((a, b) => a.area - b.area);
+  if (pinned.length > 0) {
+    return {
+      anchors: pinned,
+      skipped: 0,
+      dropped: [],
+      source: pinned.length === 1 ? "single-anchor" : "anchors",
+    };
+  }
+
+  // 2. Fallback: derive from the whole family.
+  const byArea = new Map<string, Anchor>();
+  for (const p of fam) {
+    if ((p.qty ?? 1) !== 1) continue;
+    const cand = toAnchor(p);
+    if (!cand) continue;
+    const key = cand.area.toFixed(4);
     const prev = byArea.get(key);
     if (
       !prev ||
@@ -260,7 +292,7 @@ export function buildAnchors(
     }
   }
   const all = [...byArea.values()].sort((a, b) => a.area - b.area);
-  if (all.length < 3) return { anchors: all, skipped: 0, dropped: [] };
+  if (all.length < 3) return { anchors: all, skipped: 0, dropped: [], source: "all-items" };
 
   const med = median(all.map((a) => a.price / a.area));
   const keep = (a: Anchor) => {
@@ -269,7 +301,7 @@ export function buildAnchors(
   };
   const anchors = all.filter(keep);
   const dropped = all.filter((a) => !keep(a));
-  return { anchors, skipped: dropped.length, dropped };
+  return { anchors, skipped: dropped.length, dropped, source: "all-items" };
 }
 
 
