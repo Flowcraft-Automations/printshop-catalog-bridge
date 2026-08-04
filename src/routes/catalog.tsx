@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
+import { Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
