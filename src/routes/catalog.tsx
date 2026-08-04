@@ -1330,6 +1330,66 @@ function Catalog() {
                       />
                     </td>
                   )}
+                  {visibleCols.curve_price && (
+                    <td
+                      style={{ width: scaledWidths.curve_price }}
+                      className="num truncate whitespace-nowrap px-2 py-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {(() => {
+                        const c = curveByProduct[p.id];
+                        if (!c) return <span className="text-muted-foreground">—</span>;
+                        const a = Math.abs(c.dev);
+                        const cls =
+                          a > 20
+                            ? "bg-[oklch(0.93_0.06_25)] text-[oklch(0.45_0.16_25)] font-bold"
+                            : a > 5
+                              ? "bg-[oklch(0.94_0.08_50)] text-[oklch(0.45_0.15_45)] font-semibold"
+                              : "text-muted-foreground";
+                        return (
+                          <>
+                            <span className={`px-1 ${cls}`} title={`נוכחי ${shekel(c.current)}`}>
+                              {shekel(c.suggested)}
+                            </span>
+                            {a > 5 && c.suggested !== (p.final_price ?? null) && (
+                              <button
+                                onClick={() =>
+                                  update.mutate({
+                                    ids: [p.id],
+                                    patch: { final_price: c.suggested },
+                                  })
+                                }
+                                className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                              >
+                                אמץ
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleCols.curve_dev && (
+                    <td
+                      style={{ width: scaledWidths.curve_dev }}
+                      className="num truncate whitespace-nowrap px-2 py-1"
+                    >
+                      {curveByProduct[p.id] ? (
+                        <span
+                          className={
+                            Math.abs(curveByProduct[p.id]!.dev) > 20
+                              ? "font-bold text-[oklch(0.45_0.16_25)]"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {curveByProduct[p.id]!.dev > 0 ? "+" : ""}
+                          {Math.round(curveByProduct[p.id]!.dev)}%
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   {visibleCols.competitor_price && (
                     <td style={{ width: scaledWidths.competitor_price }} className="num truncate whitespace-nowrap px-2 py-1">
                       {shekel(p.competitor_price)}
