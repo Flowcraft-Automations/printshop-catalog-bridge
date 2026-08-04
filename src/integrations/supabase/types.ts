@@ -79,6 +79,8 @@ export type Database = {
           site_url: string | null
           source: string | null
           updated_at: string | null
+          verified: boolean
+          verified_at: string | null
           width_cm: number | null
         }
         Insert: {
@@ -103,6 +105,8 @@ export type Database = {
           site_url?: string | null
           source?: string | null
           updated_at?: string | null
+          verified?: boolean
+          verified_at?: string | null
           width_cm?: number | null
         }
         Update: {
@@ -127,6 +131,8 @@ export type Database = {
           site_url?: string | null
           source?: string | null
           updated_at?: string | null
+          verified?: boolean
+          verified_at?: string | null
           width_cm?: number | null
         }
         Relationships: []

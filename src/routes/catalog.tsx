@@ -246,6 +246,7 @@ function Catalog() {
                 <th className="px-3 py-2 font-semibold">סט׳ אתר</th>
                 <th className="px-3 py-2 font-semibold">קישור</th>
                 <th className="px-3 py-2 font-semibold">סימונים</th>
+                <th className="px-3 py-2 text-center font-semibold">אומת</th>
               </tr>
             </thead>
             <tbody>
@@ -320,6 +321,23 @@ function Catalog() {
                         כפילות ×{p.senzey_dup_count}
                       </span>
                     )}
+                  </td>
+                  <td className="px-3 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={!!p.verified}
+                      title={p.verified_at ? new Date(p.verified_at).toLocaleString("he-IL") : "סמן כנבדק"}
+                      onChange={(e) =>
+                        update.mutate({
+                          ids: [p.id],
+                          patch: {
+                            verified: e.target.checked,
+                            verified_at: e.target.checked ? new Date().toISOString() : null,
+                          },
+                        })
+                      }
+                      className="size-4 accent-[var(--accent-raw)]"
+                    />
                   </td>
                 </tr>
               ))}
