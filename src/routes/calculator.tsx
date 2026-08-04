@@ -73,7 +73,7 @@ function Calculator() {
     [products, family],
   );
   const calc = useMemo(
-    () => priceFromAnchors(anchors, skipped, fam, nw, nh, nq),
+    () => priceFromLine(anchors, skipped, fam, nw, nh, nq),
     [anchors, skipped, fam, nw, nh, nq],
   );
 
