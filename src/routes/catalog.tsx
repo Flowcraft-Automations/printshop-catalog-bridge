@@ -5,8 +5,9 @@ import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucid
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
+import { NotesPanel } from "@/components/NotesPanel";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productHistoryQuery, productsQuery } from "@/lib/queries";
+import { familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import {
   FIELD_LABEL,
   STATUSES,
@@ -17,6 +18,7 @@ import {
   shekel,
   type Product,
   type ProductHistory,
+  type ProductNote,
 } from "@/lib/mdvd";
 
 type Search = {
@@ -136,6 +138,11 @@ export function priceGap(p: Product): number | null {
   return Number(p.site_price) - Number(p.senzey_price);
 }
 
+let NOTE_TEXT: Record<string, string> = {};
+function noteTextOf(id: string) {
+  return NOTE_TEXT[id] ?? "";
+}
+
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   name: (p) => p.name,
   family: (p) => p.family ?? "",
@@ -152,8 +159,8 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_status: (p) => p.senzey_status,
   site_status: (p) => p.site_status,
   site_url: (p) => p.site_url ?? "",
-  flags: (p) => `${p.anomaly ?? ""}${p.notes ?? ""}`,
-  notes: (p) => p.notes ?? "",
+  flags: (p) => `${p.anomaly ?? ""}${noteTextOf(p.id)}`,
+  notes: (p) => noteTextOf(p.id),
   verified: (p) => (p.verified ? 1 : 0),
 };
 
@@ -168,7 +175,21 @@ function Catalog() {
   } = Route.useSearch();
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
+  const { data: allNotes = [] } = useQuery(productNotesQuery());
   const { data: families = [] } = useQuery(familiesQuery());
+
+  const notesByProduct = useMemo(() => {
+    const map: Record<string, ProductNote[]> = {};
+    const text: Record<string, string> = {};
+    for (const n of allNotes) {
+      (map[n.product_id] ??= []).push(n);
+      text[n.product_id] = `${text[n.product_id] ?? ""} ${n.body}`.trim();
+    }
+    NOTE_TEXT = text;
+    return map;
+  }, [allNotes]);
+
+
 
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
@@ -298,7 +319,7 @@ function Catalog() {
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
       if (onlyAnomaly && !(p.anomaly ?? "").trim()) return false;
-      if (onlyGap && !(p.notes ?? "").includes("פער מחיר")) return false;
+      if (onlyGap && !`${p.anomaly ?? ""} ${noteTextOf(p.id)}`.includes("פער מחיר")) return false;
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
@@ -331,8 +352,8 @@ function Catalog() {
       if (colFilters.site_status && p.site_status !== colFilters.site_status) return false;
       if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
       if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
-      if (!matchText(`${p.anomaly ?? ""} ${p.notes ?? ""}`, colFilters.flags ?? "")) return false;
-      if (!matchText(p.notes, colFilters.notes ?? "")) return false;
+      if (!matchText(`${p.anomaly ?? ""} ${noteTextOf(p.id)}`, colFilters.flags ?? "")) return false;
+      if (!matchText(noteTextOf(p.id), colFilters.notes ?? "")) return false;
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
       return true;
@@ -354,6 +375,7 @@ function Catalog() {
     return out;
   }, [
     products,
+    notesByProduct,
     q,
     family,
     senzeyStatus,
@@ -407,7 +429,7 @@ function Catalog() {
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
       "חריגה": p.anomaly ?? "",
-      "הערות": p.notes ?? "",
+      "הערות": (notesByProduct[p.id] ?? []).map((n) => n.body).join(" | "),
       "קבוצה בסנזיי": p.senzey_group ?? "",
       "קטגוריה באתר": p.site_category ?? "",
       "מחיר מתחרה": p.competitor_price ?? "",
@@ -1137,7 +1159,7 @@ function Catalog() {
                       className="px-2 py-1 text-center"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <NoteIndicator note={p.notes} onClick={() => setDrawer(p)} />
+                      <NoteIndicator notes={(notesByProduct[p.id] ?? []).map((n) => n.body)} onClick={() => setDrawer(p)} />
                     </td>
                   )}
                   {visibleCols.verified && (
@@ -1301,13 +1323,6 @@ function EditDrawer({
               onChange={(e) => set("anomaly", e.target.value)}
             />
           </Field>
-          <Field label="הערות" full>
-            <textarea
-              className={`${inputCls} min-h-20 w-full`}
-              value={f.notes ?? ""}
-              onChange={(e) => set("notes", e.target.value)}
-            />
-          </Field>
           <Field label="קבוצה בסנזיי">
             <input
               className={inputCls}
@@ -1361,7 +1376,6 @@ function EditDrawer({
               site_status: f.site_status,
               site_url: f.site_url,
               anomaly: f.anomaly,
-              notes: f.notes,
               senzey_group: f.senzey_group ?? null,
               site_category: f.site_category ?? null,
               competitor_price: f.competitor_price ?? null,
@@ -1373,6 +1387,7 @@ function EditDrawer({
         >
           שמירה
         </button>
+        <NotesPanel productId={product.id} />
         <HistoryPanel productId={product.id} />
       </aside>
     </div>

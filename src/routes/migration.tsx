@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
+import { NotesPanel } from "@/components/NotesPanel";
 import { supabase } from "@/integrations/supabase/client";
-import { productsQuery } from "@/lib/queries";
+import { productNotesQuery, productsQuery } from "@/lib/queries";
 import { STATUS_LABEL, shekel, type Product } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/migration")({
@@ -32,27 +33,13 @@ const TABS: { key: TabKey; label: string }[] = [
 function MigrationBoard() {
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
+  const { data: allNotes = [] } = useQuery(productNotesQuery());
   const [tab, setTab] = useState<TabKey>("site");
   const [noteFor, setNoteFor] = useState<Product | null>(null);
 
   const system: "site" | "senzey" = tab.startsWith("site") ? "site" : "senzey";
   const field = system === "site" ? "site_status" : "senzey_status";
   const doneView = tab.endsWith("_done");
-
-  const saveNote = useMutation({
-    mutationFn: async ({ id, notes }: { id: string; notes: string | null }) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ notes, updated_at: new Date().toISOString() } as never)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["products"] });
-      toast.success("ההערה נשמרה");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const update = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -132,7 +119,10 @@ function MigrationBoard() {
                             </span>
                           )}
                           <span className="ms-2">
-                            <NoteIndicator note={p.notes} onClick={() => setNoteFor(p)} />
+                            <NoteIndicator
+                              notes={allNotes.filter((n) => n.product_id === p.id).map((n) => n.body)}
+                              onClick={() => setNoteFor(p)}
+                            />
                           </span>
                         </td>
                         <td className="num whitespace-nowrap px-3 py-2 text-muted-foreground">
@@ -192,62 +182,27 @@ function MigrationBoard() {
       )}
 
       {noteFor && (
-        <NoteDialog
-          product={noteFor}
-          onClose={() => setNoteFor(null)}
-          onSave={(notes) => {
-            saveNote.mutate({ id: noteFor.id, notes });
-            setNoteFor(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function NoteDialog({
-  product,
-  onClose,
-  onSave,
-}: {
-  product: Product;
-  onClose: () => void;
-  onSave: (v: string | null) => void;
-}) {
-  const [draft, setDraft] = useState(product.notes ?? "");
-  useEffect(() => setDraft(product.notes ?? ""), [product]);
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg border-2 border-[var(--ink)] bg-card p-4 shadow-[6px_6px_0_var(--ink)]"
-      >
-        <h3 className="mb-3 font-black">הערה — {product.name}</h3>
-        <textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={5}
-          className="w-full border-2 border-[var(--ink)] bg-transparent p-2 text-sm outline-none focus:border-[var(--accent-raw)]"
-        />
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={() => onSave(draft.trim() || null)}
-            className="border-2 border-[var(--ink)] bg-[var(--ink)] px-3 py-1 text-sm font-bold text-white"
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6"
+          onClick={() => setNoteFor(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg border-2 border-[var(--ink)] bg-card p-4 shadow-[6px_6px_0_var(--ink)]"
           >
-            שמור
-          </button>
-          <button
-            onClick={onClose}
-            className="border border-border px-3 py-1 text-sm text-muted-foreground"
-          >
-            ביטול
-          </button>
+            <div className="flex items-start gap-3">
+              <h3 className="font-black">{noteFor.name}</h3>
+              <button
+                onClick={() => setNoteFor(null)}
+                className="ms-auto text-sm text-muted-foreground underline"
+              >
+                סגור
+              </button>
+            </div>
+            <NotesPanel productId={noteFor.id} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
