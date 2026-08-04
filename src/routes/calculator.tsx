@@ -374,7 +374,7 @@ function Calculator() {
             </div>
           )}
 
-          <FamilyAdmin families={families} />
+          <FamilyAdmin families={families} products={products} />
         </div>
       </div>
     </div>
