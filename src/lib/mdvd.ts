@@ -80,7 +80,7 @@ const NUMERIC_FIELDS = new Set([
   "competitor_price",
   "proposed_price",
 ]);
-const BOOL_FIELDS = new Set(["senzey_exists", "site_exists", "verified"]);
+const BOOL_FIELDS = new Set(["senzey_exists", "site_exists", "verified", "is_anchor"]);
 
 /** Convert a stored history text value back to its column type. */
 export function parseFieldValue(field: string, value: string | null): unknown {
