@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
+import { NoteIndicator } from "@/components/NoteIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productHistoryQuery, productsQuery } from "@/lib/queries";
 import {
