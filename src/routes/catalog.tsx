@@ -127,6 +127,13 @@ type ColKey =
   | "flags"
   | "verified";
 
+/** Site price minus Senzey price; null when either side is missing. */
+export function priceGap(p: Product): number | null {
+  if (p.site_price === null || p.site_price === undefined) return null;
+  if (p.senzey_price === null || p.senzey_price === undefined) return null;
+  return Number(p.site_price) - Number(p.senzey_price);
+}
+
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   name: (p) => p.name,
   family: (p) => p.family ?? "",
@@ -136,6 +143,7 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   qty: (p) => p.qty ?? 0,
   senzey_price: (p) => p.senzey_price,
   site_price: (p) => p.site_price,
+  price_gap: (p) => priceGap(p),
   final_price: (p) => p.final_price,
   competitor_price: (p) => p.competitor_price ?? null,
   proposed_price: (p) => p.proposed_price ?? null,
