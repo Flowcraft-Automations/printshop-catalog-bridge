@@ -601,6 +601,14 @@ function Catalog() {
           />
           יש מחיר מוצע
         </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={showClosed}
+            onChange={(e) => setShowClosed(e.target.checked)}
+          />
+          הצג פריטים סגורים
+        </label>
       </div>
 
       {selected.size > 0 && (
