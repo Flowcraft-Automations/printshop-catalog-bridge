@@ -63,6 +63,7 @@ function Catalog() {
   const [siteStatus, setSiteStatus] = useState("");
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
+  const [onlyDup, setOnlyDup] = useState(false);
   const [presence, setPresence] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Product | null>(null);
@@ -91,12 +92,13 @@ function Catalog() {
       if (siteStatus && p.site_status !== siteStatus) return false;
       if (onlyAnomaly && !(p.anomaly ?? "").trim()) return false;
       if (onlyGap && !(p.notes ?? "").includes("פער מחיר")) return false;
+      if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
       return true;
     });
-  }, [products, q, family, senzeyStatus, siteStatus, onlyAnomaly, onlyGap, presence]);
+  }, [products, q, family, senzeyStatus, siteStatus, onlyAnomaly, onlyGap, onlyDup, presence]);
 
   const visible = rows.slice(0, limit);
 
@@ -177,6 +179,10 @@ function Catalog() {
         <label className="flex items-center gap-1 text-sm font-semibold">
           <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
           רק פערי מחיר
+        </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
+          רק כפילויות
         </label>
       </div>
 
@@ -430,6 +436,13 @@ function EditDrawer({
               onChange={(e) => set("senzey_ids", e.target.value)}
             />
           </Field>
+          <Field label="מספר כפילויות סנזיי">
+            <input
+              className={`${inputCls} num`}
+              value={f.senzey_dup_count ?? ""}
+              onChange={(e) => set("senzey_dup_count", num(e.target.value))}
+            />
+          </Field>
           <Field label="סטטוס סנזיי">
             <StatusSelect value={f.senzey_status} onChange={(v) => set("senzey_status", v)} />
           </Field>
@@ -470,6 +483,7 @@ function EditDrawer({
               site_price: f.site_price,
               final_price: f.final_price,
               senzey_ids: f.senzey_ids,
+              senzey_dup_count: f.senzey_dup_count,
               senzey_status: f.senzey_status,
               site_status: f.site_status,
               site_url: f.site_url,
