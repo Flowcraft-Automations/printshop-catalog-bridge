@@ -61,6 +61,7 @@ export const FIELD_LABEL: Record<string, string> = {
   anomaly: "חריגה",
   notes: "הערות",
   verified: "אומת",
+  is_anchor: "עוגן עקומה",
   senzey_group: "קבוצה בסנזיי",
   site_category: "קטגוריה באתר",
   competitor_price: "מחיר מתחרה",
