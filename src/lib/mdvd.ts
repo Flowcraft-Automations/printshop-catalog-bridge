@@ -191,6 +191,18 @@ export type Anchor = {
   h: number;
   fromFinal: boolean;
   name?: string;
+  /** true when the user explicitly pinned this item as the family's עוגן */
+  pinned?: boolean;
+  id?: string;
+};
+
+/** Where the family curve came from. */
+export type FitSource = "anchors" | "single-anchor" | "all-items";
+
+export const FIT_SOURCE_LABEL: Record<FitSource, string> = {
+  anchors: "עקומה מעוגנים שסימנת",
+  "single-anchor": "עקומה מעוגן יחיד (מחיר יחסי לשטח)",
+  "all-items": "עקומה מכל פריטי המשפחה",
 };
 
 
