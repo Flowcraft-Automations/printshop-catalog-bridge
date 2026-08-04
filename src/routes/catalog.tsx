@@ -510,6 +510,8 @@ function Catalog() {
     onlyDup,
     onlyNew,
     onlyProposed,
+    onlyCurveOut,
+    curveByProduct,
     showClosed,
     group,
     category,
