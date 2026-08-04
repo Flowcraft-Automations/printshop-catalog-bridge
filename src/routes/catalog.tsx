@@ -296,6 +296,8 @@ function Catalog() {
     site_price: 7,
     price_gap: 6,
     final_price: 7,
+    curve_price: 8,
+    curve_dev: 6,
     competitor_price: 7,
     proposed_price: 7,
     senzey_status: 6,
