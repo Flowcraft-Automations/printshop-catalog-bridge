@@ -682,6 +682,14 @@ function Catalog() {
                   <th className="px-2 pb-2">
                     <input
                       className={colInput}
+                      value={cf("price_gap")}
+                      onChange={(e) => setCf("price_gap", e.target.value)}
+                      placeholder=">0"
+                    />
+                  </th>
+                  <th className="px-2 pb-2">
+                    <input
+                      className={colInput}
                       value={cf("final_price")}
                       onChange={(e) => setCf("final_price", e.target.value)}
                       placeholder="-"
