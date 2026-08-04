@@ -340,6 +340,18 @@ function Calculator() {
             </section>
           ) : null}
 
+          {family ? (
+            <CurveChart
+              anchors={anchors}
+              dropped={dropped}
+              fit={fit}
+              requestedArea={area}
+              requestedPrice={calc.unit}
+            />
+          ) : null}
+
+
+
           <h2 className="mb-3 text-lg font-black">מוצרים קיימים דומים (±25% שטח)</h2>
 
           {!fam ? (
