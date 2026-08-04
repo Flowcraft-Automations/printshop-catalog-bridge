@@ -308,7 +308,19 @@ function Catalog() {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-1">
-...
+                    {p.anomaly && (
+                      <span
+                        title={p.anomaly}
+                        className="me-1 border border-destructive bg-[oklch(0.95_0.05_25)] px-1.5 py-0.5 text-[11px] font-bold text-destructive"
+                      >
+                        חריגה
+                      </span>
+                    )}
+                    {(p.senzey_dup_count ?? 0) > 1 && (
+                      <span className="border border-[oklch(0.6_0.14_50)] bg-[oklch(0.95_0.05_60)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.45_0.14_50)]">
+                        כפילות ×{p.senzey_dup_count}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                     <input
