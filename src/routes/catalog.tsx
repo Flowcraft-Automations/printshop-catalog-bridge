@@ -68,8 +68,14 @@ function StatusSelect({
   );
 }
 
+const EMPTY = "__empty__";
+
 function Catalog() {
-  const { family: familyParam } = Route.useSearch();
+  const {
+    family: familyParam,
+    senzey_group: groupParam,
+    site_category: categoryParam,
+  } = Route.useSearch();
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: families = [] } = useQuery(familiesQuery());
@@ -81,10 +87,23 @@ function Catalog() {
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+  const [onlyNew, setOnlyNew] = useState(false);
+  const [onlyProposed, setOnlyProposed] = useState(false);
+  const [group, setGroup] = useState(groupParam ?? "");
+  const [category, setCategory] = useState(categoryParam ?? "");
   const [presence, setPresence] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Product | null>(null);
   const [limit, setLimit] = useState(200);
+
+  const groupOptions = useMemo(
+    () => [...new Set(products.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
+    [products],
+  );
+  const categoryOptions = useMemo(
+    () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
+    [products],
+  );
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
@@ -104,6 +123,8 @@ function Catalog() {
 
   const rows = useMemo(() => {
     return products.filter((p) => {
+      const g = (p.senzey_group ?? "").trim();
+      const c = (p.site_category ?? "").trim();
       if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
       if (family && (p.family ?? "") !== family) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
@@ -111,12 +132,31 @@ function Catalog() {
       if (onlyAnomaly && !(p.anomaly ?? "").trim()) return false;
       if (onlyGap && !(p.notes ?? "").includes("פער מחיר")) return false;
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+      if (onlyNew && p.source !== "approved_new") return false;
+      if (onlyProposed && p.proposed_price == null) return false;
+      if (group && (group === EMPTY ? g !== "" : g !== group)) return false;
+      if (category && (category === EMPTY ? c !== "" : c !== category)) return false;
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
       return true;
     });
-  }, [products, q, family, senzeyStatus, siteStatus, onlyAnomaly, onlyGap, onlyDup, presence]);
+  }, [
+    products,
+    q,
+    family,
+    senzeyStatus,
+    siteStatus,
+    onlyAnomaly,
+    onlyGap,
+    onlyDup,
+    onlyNew,
+    onlyProposed,
+    group,
+    category,
+    presence,
+  ]);
+
 
   const visible = rows.slice(0, limit);
 
