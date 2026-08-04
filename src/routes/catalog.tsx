@@ -1890,6 +1890,7 @@ function ColumnChooser({
                     flags: true,
                     notes: true,
                     verified: true,
+                    is_anchor: true,
                   })
                 }
                 className="underline"
