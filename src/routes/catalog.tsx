@@ -226,7 +226,7 @@ function Catalog() {
     site_status: 6,
     site_url: 4,
     flags: 7,
-    notes: 10,
+    notes: 4,
     verified: 4,
   };
   const scaledWidths = useMemo(() => {
