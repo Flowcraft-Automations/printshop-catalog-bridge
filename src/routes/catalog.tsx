@@ -553,6 +553,8 @@ function Catalog() {
       "מחיר אתר": p.site_price ?? "",
       "פער אתר-סנזיי": priceGap(p) ?? "",
       "מחיר סופי": p.final_price ?? "",
+      "מחיר לפי עקומה": curveByProduct[p.id]?.suggested ?? "",
+      "סטייה מהעקומה %": curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : "",
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
