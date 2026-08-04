@@ -339,10 +339,27 @@ function Catalog() {
   });
 
   const rows = useMemo(() => {
+    const qNorm = q.trim().toLowerCase();
     const out = products.filter((p) => {
       const g = (p.senzey_group ?? "").trim();
       const c = (p.site_category ?? "").trim();
-      if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
+      if (qNorm) {
+        const haystack = [
+          p.name,
+          p.family,
+          p.senzey_group,
+          p.site_category,
+          p.site_url,
+          p.row_key,
+          p.senzey_ids,
+          noteTextOf(p.id),
+          STATUS_LABEL[p.senzey_status],
+          STATUS_LABEL[p.site_status],
+        ]
+          .map((v) => (v ?? "").toLowerCase())
+          .join(" ");
+        if (!haystack.includes(qNorm)) return false;
+      }
       if (family && (p.family ?? "") !== family) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
