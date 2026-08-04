@@ -307,6 +307,36 @@ function Catalog() {
           <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
           רק כפילויות
         </label>
+        <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
+          <option value="">קבוצה בסנזיי: הכל</option>
+          <option value={EMPTY}>— ללא קבוצה —</option>
+          {groupOptions.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+          <option value="">קטגוריה באתר: הכל</option>
+          <option value={EMPTY}>— ללא קטגוריה —</option>
+          {categoryOptions.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+          מוצרים חדשים מאושרים
+        </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={onlyProposed}
+            onChange={(e) => setOnlyProposed(e.target.checked)}
+          />
+          יש מחיר מוצע
+        </label>
       </div>
 
       {selected.size > 0 && (
