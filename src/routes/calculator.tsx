@@ -36,7 +36,9 @@ function Calculator() {
   const [family, setFamily] = useState("");
   const [familySearch, setFamilySearch] = useState("");
   const [familyOpen, setFamilyOpen] = useState(false);
+  const familyWrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState("100");
+
   const [h, setH] = useState("70");
   const [qty, setQty] = useState("1");
 
