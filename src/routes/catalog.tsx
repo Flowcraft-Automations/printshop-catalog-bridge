@@ -173,7 +173,7 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_status: (p) => p.senzey_status,
   site_status: (p) => p.site_status,
   site_url: (p) => p.site_url ?? "",
-  flags: (p) => `${p.anomaly ?? ""}${noteTextOf(p.id)}`,
+  flags: (p) => `${activeAnomaly(p)}${noteTextOf(p.id)}`,
   notes: (p) => noteTextOf(p.id),
   verified: (p) => (p.verified ? 1 : 0),
 };
@@ -332,8 +332,8 @@ function Catalog() {
       if (family && (p.family ?? "") !== family) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
-      if (onlyAnomaly && !(p.anomaly ?? "").trim()) return false;
-      if (onlyGap && !`${p.anomaly ?? ""} ${noteTextOf(p.id)}`.includes("פער מחיר")) return false;
+      if (onlyAnomaly && !activeAnomaly(p)) return false;
+      if (onlyGap && !`${activeAnomaly(p)} ${noteTextOf(p.id)}`.includes("פער מחיר")) return false;
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
@@ -366,7 +366,7 @@ function Catalog() {
       if (colFilters.site_status && p.site_status !== colFilters.site_status) return false;
       if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
       if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
-      if (!matchText(`${p.anomaly ?? ""} ${noteTextOf(p.id)}`, colFilters.flags ?? "")) return false;
+      if (!matchText(`${activeAnomaly(p)} ${noteTextOf(p.id)}`, colFilters.flags ?? "")) return false;
       if (!matchText(noteTextOf(p.id), colFilters.notes ?? "")) return false;
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
@@ -442,7 +442,7 @@ function Catalog() {
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
-      "חריגה": p.anomaly ?? "",
+      "חריגה": activeAnomaly(p),
       "הערות": (notesByProduct[p.id] ?? []).map((n) => n.body).join(" | "),
       "קבוצה בסנזיי": p.senzey_group ?? "",
       "קטגוריה באתר": p.site_category ?? "",
@@ -1152,9 +1152,9 @@ function Catalog() {
                   )}
                   {visibleCols.flags && (
                     <td style={{ width: scaledWidths.flags }} className="truncate whitespace-nowrap px-2 py-1">
-                      {p.anomaly && (
+                      {activeAnomaly(p) && (
                         <span
-                          title={p.anomaly}
+                          title={activeAnomaly(p)}
                           className="me-1 border border-destructive bg-[oklch(0.95_0.05_25)] px-1.5 py-0.5 text-[11px] font-bold text-destructive"
                         >
                           חריגה
