@@ -912,6 +912,16 @@ function Catalog() {
                     <SortHead k="final_price" label="מחיר סופי" />
                   </th>
                 )}
+                {visibleCols.curve_price && (
+                  <th style={{ width: scaledWidths.curve_price }} className="px-2 py-2">
+                    <SortHead k="curve_price" label="לפי עקומה" />
+                  </th>
+                )}
+                {visibleCols.curve_dev && (
+                  <th style={{ width: scaledWidths.curve_dev }} className="px-2 py-2">
+                    <SortHead k="curve_dev" label="סטייה %" />
+                  </th>
+                )}
                 {visibleCols.competitor_price && (
                   <th style={{ width: scaledWidths.competitor_price }} className="px-2 py-2">
                     <SortHead k="competitor_price" label="מחיר מתחרה" />
