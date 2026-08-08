@@ -481,6 +481,8 @@ CURVE = out;
   });
 
   const [deleteCandidate, setDeleteCandidate] = useState<Product | null>(null);
+
+  const rows = useMemo(() => {
     const qNorm = q.trim().toLowerCase();
     const out = products.filter((p) => {
       const g = (p.senzey_group ?? "").trim();
