@@ -125,7 +125,7 @@ export function CurveChart({
     <section className="mb-8">
       <h2 className="mb-1 text-lg font-black">עקומת התמחור</h2>
       <p className="mb-3 text-sm text-muted-foreground">
-        {anchors.length} עוגנים · {dropped.length} חריגות · {warnCount} סטיות מעל 20%
+        {anchors.length} עוגנים · {dropped.length} חריגות · {warnCount} סטיות מעל 20% · המחירים בגרף מוצגים לכמות של {qty.toLocaleString()} יח׳
       </p>
       <div className="border-2 border-[var(--ink)] bg-card p-3 shadow-[6px_6px_0_0_var(--ink)]">
         <div className="h-[320px] w-full" dir="ltr">
