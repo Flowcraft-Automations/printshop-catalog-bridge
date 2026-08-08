@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Anchor, Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
@@ -267,10 +267,11 @@ function Catalog() {
         out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
       }
     }
-    CURVE = out;
+CURVE = out;
     return out;
   }, [products]);
 
+  const navigate = useNavigate({ from: "/catalog" });
 
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
@@ -543,6 +544,30 @@ function Catalog() {
     });
   }
 
+  function resetFilters() {
+    setQ("");
+    setFamily("");
+    setFamilySearch("");
+    setFamilyOpen(false);
+    setSenzeyStatus("");
+    setSiteStatus("");
+    setOnlyAnomaly(false);
+    setOnlyGap(false);
+    setOnlyDup(false);
+    setOnlyNew(false);
+    setOnlyProposed(false);
+    setOnlyCurveOut(false);
+    setShowClosed(false);
+    setGroup("");
+    setCategory("");
+    setPresence("");
+    setColFilters({});
+    setSort(null);
+    setSelected(new Set());
+    setLimit(200);
+    navigate({ to: ".", search: {} });
+  }
+
   async function exportRows(kind: "xlsx" | "csv") {
     if (!rows.length) {
       toast.error("אין שורות לייצוא");
@@ -798,6 +823,14 @@ function Catalog() {
           />
           הצג גם נמחקים / לא רלוונטים
         </label>
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="flex items-center gap-1.5 bg-[var(--accent-raw)] px-3 py-2 text-sm font-bold text-white shadow-[2px_2px_0_0_var(--ink)] hover:brightness-110"
+        >
+          <RotateCcw className="size-4" />
+          איפוס סינון
+        </button>
       </div>
 
       {selected.size > 0 && (
