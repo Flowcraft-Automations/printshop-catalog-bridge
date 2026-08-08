@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
 import { NotesPanel } from "@/components/NotesPanel";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
