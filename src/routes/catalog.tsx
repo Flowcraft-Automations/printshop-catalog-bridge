@@ -475,7 +475,13 @@ CURVE = out;
       qc.invalidateQueries({ queryKey: ["product-notes"] });
       qc.invalidateQueries({ queryKey: ["product-history"] });
       toast.success("המוצר נמחק");
-      if (selected?.id === deleteCandidate?.id) setSelected(null);
+      if (deleteCandidate?.id) {
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(deleteCandidate.id);
+          return next;
+        });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
