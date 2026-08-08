@@ -1054,6 +1054,7 @@ CURVE = out;
                     <SortHead k="is_anchor" label="עוגן" className="mx-auto" />
                   </th>
                 )}
+                <th className="w-10 px-2 py-2"></th>
               </tr>
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
