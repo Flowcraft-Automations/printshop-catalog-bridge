@@ -128,6 +128,7 @@ export const STATUS_LABEL: Record<string, string> = {
   exists: "ללא שינוי",
   added: "נוסף",
   deleted: "נמחק",
+  dup_deleted: "כפילות נמחקה",
   increased: "עלה",
   decreased: "ירד",
   to_review: "לבחינה",
