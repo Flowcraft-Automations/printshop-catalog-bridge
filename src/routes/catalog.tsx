@@ -514,7 +514,11 @@ CURVE = out;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
       if (onlyAnomaly && !activeAnomaly(p)) return false;
-      if (onlyGap && !`${activeAnomaly(p)} ${noteTextOf(p.id)}`.includes("פער מחיר")) return false;
+      if (onlyGap) {
+        const g = priceGap(p);
+        const flagged = `${activeAnomaly(p)} ${noteTextOf(p.id)}`.includes("פער מחיר");
+        if (!flagged && !(g !== null && Math.abs(g) > 0.009)) return false;
+      }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
