@@ -1694,14 +1694,18 @@ function EditDrawer({
         className="h-full w-full max-w-lg overflow-y-auto border-s-2 border-[var(--ink)] bg-card p-6"
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-xl font-black">{product.name}</h2>
+          <h2 className="text-xl font-black break-words whitespace-normal">{product.name}</h2>
           <button onClick={onClose}>
             <X className="size-5" />
           </button>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <Field label="שם" full>
-            <input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} />
+            <AutoTextArea
+              className={inputCls}
+              value={f.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
           </Field>
           <Field label="משפחה">
             <input
