@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Anchor, Columns, Copy, Download, ExternalLink, Info, MoreHorizontal, RotateCcw, X } from "lucide-react";
+import { Anchor, Columns, Copy, Download, ExternalLink, Info, MoreHorizontal, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
@@ -460,6 +460,33 @@ CURVE = out;
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const deleteProduct = useMutation({
+    mutationFn: async (product: Product) => {
+      const { error: notesError } = await supabase.from("product_notes").delete().eq("product_id", product.id);
+      if (notesError) throw notesError;
+      const { error: historyError } = await supabase.from("product_history").delete().eq("product_id", product.id);
+      if (historyError) throw historyError;
+      const { error } = await supabase.from("products").delete().eq("id", product.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-notes"] });
+      qc.invalidateQueries({ queryKey: ["product-history"] });
+      toast.success("המוצר נמחק");
+      if (deleteCandidate?.id) {
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(deleteCandidate.id);
+          return next;
+        });
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [deleteCandidate, setDeleteCandidate] = useState<Product | null>(null);
 
   const rows = useMemo(() => {
     const qNorm = q.trim().toLowerCase();
@@ -1640,6 +1667,21 @@ CURVE = out;
                         >
                           <Copy className="size-4" />
                           שכפל שורה
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setDeleteCandidate(p);
+                            const ok = window.confirm(`למחוק את המוצר "${p.name}"?\nפעולה זו אינה הפיכה ותמחק גם את ההערות וההיסטוריה שלו.`);
+                            if (ok) {
+                              deleteProduct.mutate(p);
+                            } else {
+                              setDeleteCandidate(null);
+                            }
+                          }}
+                          className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                        >
+                          <Trash2 className="size-4" />
+                          מחק פריט
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
