@@ -91,9 +91,9 @@ function Calculator() {
   const { anchors, skipped, dropped, source } = useMemo(
     () =>
       family
-        ? buildAnchors(products, family)
+        ? buildAnchors(products, family, c)
         : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
-    [products, family],
+    [products, family, c],
   );
 
   const qc = useQueryClient();
@@ -113,10 +113,26 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveExponent = useMutation({
+    mutationFn: async (value: number) => {
+      const { error } = await supabase
+        .from("families")
+        .update({ qty_exponent: value })
+        .eq("family", family);
+      if (error) throw error;
+      return value;
+    },
+    onSuccess: (v) => {
+      qc.invalidateQueries({ queryKey: ["families"] });
+      toast.success(`מקדם הכמות נשמר (${v})`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
-    () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq),
-    [anchors, skipped, fam, fit, nw, nh, nq],
+    () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq, c),
+    [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
 
   const similar = useMemo(() => {
