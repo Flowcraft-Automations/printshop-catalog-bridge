@@ -1621,6 +1621,27 @@ CURVE = out;
                       </button>
                     </td>
                   )}
+                  <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          title="פעולות"
+                          className="inline-flex items-center text-muted-foreground/60 hover:text-[var(--accent-raw)]"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => duplicate.mutate(p)}
+                          className="cursor-pointer"
+                        >
+                          <Copy className="size-4" />
+                          שכפל שורה
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
                   </tr>
                 );
               })}
