@@ -10,8 +10,12 @@ import { familiesQuery, productsQuery } from "@/lib/queries";
 import {
   buildAnchors,
   fitFamilyLine,
+  fitQtyExponent,
   priceFromLine,
+  qtyFactor,
   shekel,
+  DEFAULT_QTY_EXPONENT,
+  QTY_REF,
   type Product,
 } from "@/lib/mdvd";
 
