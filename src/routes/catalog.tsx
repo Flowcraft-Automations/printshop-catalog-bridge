@@ -544,6 +544,30 @@ CURVE = out;
     });
   }
 
+  function resetFilters() {
+    setQ("");
+    setFamily("");
+    setFamilySearch("");
+    setFamilyOpen(false);
+    setSenzeyStatus("");
+    setSiteStatus("");
+    setOnlyAnomaly(false);
+    setOnlyGap(false);
+    setOnlyDup(false);
+    setOnlyNew(false);
+    setOnlyProposed(false);
+    setOnlyCurveOut(false);
+    setShowClosed(false);
+    setGroup("");
+    setCategory("");
+    setPresence("");
+    setColFilters({});
+    setSort(null);
+    setSelected(new Set());
+    setLimit(200);
+    navigate({ to: ".", search: {} });
+  }
+
   async function exportRows(kind: "xlsx" | "csv") {
     if (!rows.length) {
       toast.error("אין שורות לייצוא");
