@@ -331,7 +331,7 @@ CURVE = out;
   });
 
   const baseWidths: Record<ColKey, number> = {
-    name: 16,
+    name: 22,
     family: 9,
     senzey_group: 8,
     site_category: 8,
