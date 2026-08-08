@@ -332,23 +332,64 @@ function Calculator() {
               <input className={`${inputCls} num`} value={h} onChange={(e) => setH(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold text-muted-foreground">כמות</label>
+              <label className="mb-1 block text-xs font-bold text-muted-foreground">
+                כמות בחבילה
+              </label>
               <input className={`${inputCls} num`} value={qty} onChange={(e) => setQty(e.target.value)} />
             </div>
           </div>
+
+          {family ? (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">
+                  מקדם כמות (c)
+                </label>
+                <input
+                  className={`${inputCls} num w-28`}
+                  value={cInput}
+                  onChange={(e) => setCInput(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => setCInput(String(qtyFit.c))}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+                disabled={qtyFit.groups === 0}
+              >
+                חשב מהנתונים ({qtyFit.c})
+              </button>
+              <button
+                onClick={() => saveExponent.mutate(c)}
+                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור למשפחה
+              </button>
+              <p className="text-[11px] text-muted-foreground">
+                המחיר גדל לפי (כמות / {QTY_REF.toLocaleString()})^c. c=1 מחיר יחסי לכמות, c נמוך יותר =
+                הנחת כמות חזקה יותר.
+                {qtyFit.groups > 0
+                  ? ` נמדד מ־${qtyFit.groups} קבוצות מידה עם כמויות שונות.`
+                  : " אין מספיק נתונים במשפחה למדידה — ערך ברירת מחדל."}
+              </p>
+            </div>
+          ) : null}
 
           {fam ? (
             <>
               <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-[var(--ink)] pt-4">
                 <div>
-                  <div className="text-xs font-bold text-muted-foreground">מחיר ליחידה</div>
+                  <div className="text-xs font-bold text-muted-foreground">
+                    מחיר לעבודה ({nq.toLocaleString()} יח׳)
+                  </div>
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
-                    {shekel(calc.unit)}
+                    {shekel(calc.total)}
                   </div>
                 </div>
                 <div className="text-left">
-                  <div className="text-xs font-bold text-muted-foreground">סה״כ</div>
-                  <div className="num text-2xl font-black">{shekel(calc.total)}</div>
+                  <div className="text-xs font-bold text-muted-foreground">ליחידה</div>
+                  <div className="num text-2xl font-black">
+                    ₪{(calc.total / nq).toFixed(3)}
+                  </div>
                 </div>
               </div>
               <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
@@ -367,11 +408,6 @@ function Calculator() {
                 {calc.minApplied ? (
                   <div className="text-muted-foreground">
                     הופעל מחיר מינימום של המשפחה ({shekel(fam.min_charge ?? 0)}).
-                  </div>
-                ) : null}
-                {calc.tier ? (
-                  <div className="text-muted-foreground">
-                    הנחת כמות ×{calc.mult} (מ־{calc.tier.min} יח׳).
                   </div>
                 ) : null}
                 {calc.basis !== "catalog" ? (
