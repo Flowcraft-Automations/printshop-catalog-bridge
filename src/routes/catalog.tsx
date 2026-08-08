@@ -7,6 +7,12 @@ import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
 import { NotesPanel } from "@/components/NotesPanel";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import {
@@ -21,6 +27,7 @@ import {
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
   shekel,
+  slugify,
   type Product,
   type ProductHistory,
   type ProductNote,
