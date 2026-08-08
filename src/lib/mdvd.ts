@@ -114,6 +114,7 @@ export const STATUSES = [
   "exists",
   "added",
   "deleted",
+  "dup_deleted",
   "increased",
   "decreased",
   "to_review",
