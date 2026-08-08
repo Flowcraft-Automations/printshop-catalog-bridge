@@ -62,19 +62,28 @@ export function CurveChart({
   fit,
   requestedArea,
   requestedPrice,
+  qty,
+  factor,
 }: {
   anchors: Anchor[];
   dropped: Anchor[];
   fit: FamilyFit | null;
   requestedArea: number;
   requestedPrice: number;
+  /** bundle quantity the chart is drawn for */
+  qty: number;
+  /** (qty / 1000)^c — scales reference prices to that quantity */
+  factor: number;
 }) {
   const { ok, warn, out, line, warnCount } = useMemo(() => {
     const toPoint = (a: Anchor, isDropped: boolean): Point => {
-      const f = fit ? fit.base + fit.rate * a.area : a.price;
-      const dev = (Math.abs(f - a.price) / a.price) * 100;
+      const shown = a.refPrice * factor;
+      const f = fit ? (fit.base + fit.rate * a.area) * factor : shown;
+      const dev = (Math.abs(f - shown) / shown) * 100;
       return {
         ...a,
+        price: shown,
+        rawPrice: a.price,
         fit: f,
         dev,
         kind: isDropped ? "dropped" : dev > 20 ? "warn" : "ok",
@@ -87,8 +96,8 @@ export function CurveChart({
     const maxA = areas.length ? Math.max(...areas, requestedArea || 0) : 1;
     const ln = fit
       ? [
-          { area: minA, lineY: fit.base + fit.rate * minA },
-          { area: maxA, lineY: fit.base + fit.rate * maxA },
+          { area: minA, lineY: (fit.base + fit.rate * minA) * factor },
+          { area: maxA, lineY: (fit.base + fit.rate * maxA) * factor },
         ]
       : [];
     return {
@@ -98,7 +107,7 @@ export function CurveChart({
       line: ln,
       warnCount: pts.filter((p) => p.kind === "warn").length,
     };
-  }, [anchors, dropped, fit, requestedArea]);
+  }, [anchors, dropped, fit, requestedArea, factor]);
 
   if (anchors.length === 0 && dropped.length === 0) return null;
 
