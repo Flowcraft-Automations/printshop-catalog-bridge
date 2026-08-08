@@ -10,8 +10,12 @@ import { familiesQuery, productsQuery } from "@/lib/queries";
 import {
   buildAnchors,
   fitFamilyLine,
+  fitQtyExponent,
   priceFromLine,
+  qtyFactor,
   shekel,
+  DEFAULT_QTY_EXPONENT,
+  QTY_REF,
   type Product,
 } from "@/lib/mdvd";
 
@@ -43,13 +47,28 @@ function Calculator() {
   const [w, setW] = useState("");
 
   const [h, setH] = useState("");
-  const [qty, setQty] = useState("1");
+  const [qty, setQty] = useState("1000");
+  const [cInput, setCInput] = useState("");
 
   const fam = families.find((f) => f.family === family);
   const nw = Number(w) || 0;
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
   const area = (nw * nh) / 10000;
+
+  // volume-discount exponent for the family (editable, persisted)
+  useEffect(() => {
+    setCInput(String(fam?.qty_exponent ?? DEFAULT_QTY_EXPONENT));
+  }, [family, fam?.qty_exponent]);
+  const c = (() => {
+    const n = Number(cInput);
+    return Number.isFinite(n) && n > 0 ? Math.min(1.5, Math.max(0.2, n)) : DEFAULT_QTY_EXPONENT;
+  })();
+  const qtyFit = useMemo(
+    () => (family ? fitQtyExponent(products, family) : { c: DEFAULT_QTY_EXPONENT, groups: 0 }),
+    [products, family],
+  );
+
 
   const filteredFamilies = useMemo(() => {
     const q = familySearch.trim().toLowerCase();
@@ -72,9 +91,9 @@ function Calculator() {
   const { anchors, skipped, dropped, source } = useMemo(
     () =>
       family
-        ? buildAnchors(products, family)
+        ? buildAnchors(products, family, c)
         : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
-    [products, family],
+    [products, family, c],
   );
 
   const qc = useQueryClient();
@@ -94,10 +113,26 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveExponent = useMutation({
+    mutationFn: async (value: number) => {
+      const { error } = await supabase
+        .from("families")
+        .update({ qty_exponent: value })
+        .eq("family", family);
+      if (error) throw error;
+      return value;
+    },
+    onSuccess: (v) => {
+      qc.invalidateQueries({ queryKey: ["families"] });
+      toast.success(`מקדם הכמות נשמר (${v})`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
   const calc = useMemo(
-    () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq),
-    [anchors, skipped, fam, fit, nw, nh, nq],
+    () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq, c),
+    [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
 
   const similar = useMemo(() => {
@@ -166,15 +201,15 @@ function Calculator() {
   const simBuild = useMemo(
     () =>
       family && simOn
-        ? buildAnchors(simProducts, family)
+        ? buildAnchors(simProducts, family, c)
         : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
-    [simProducts, family, simOn],
+    [simProducts, family, simOn, c],
   );
   const simFit = useMemo(() => fitFamilyLine(simBuild.anchors), [simBuild.anchors]);
   const simCalc = useMemo(
     () =>
-      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq),
-    [simBuild, fam, simFit, nw, nh, nq],
+      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq, c),
+    [simBuild, fam, simFit, nw, nh, nq, c],
   );
 
   /** suggested price per family item under the experimental curve */
@@ -183,6 +218,7 @@ function Calculator() {
     return filteredFamItems
       .filter((x) => x.w && x.h)
       .map((x) => {
+        const itemQty = Math.max(1, Number(x.p.qty) || 1);
         const res = priceFromLine(
           simBuild.anchors,
           simBuild.skipped,
@@ -190,13 +226,14 @@ function Calculator() {
           simFit,
           x.w,
           x.h,
-          1,
+          itemQty,
+          c,
         );
         const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
         const diff = current ? ((res.unit - current) / current) * 100 : null;
         return { ...x, suggested: res.unit, current, diff };
       });
-  }, [simOn, fam, simFit, simBuild, filteredFamItems]);
+  }, [simOn, fam, simFit, simBuild, filteredFamItems, c]);
 
 
 
@@ -295,23 +332,64 @@ function Calculator() {
               <input className={`${inputCls} num`} value={h} onChange={(e) => setH(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold text-muted-foreground">כמות</label>
+              <label className="mb-1 block text-xs font-bold text-muted-foreground">
+                כמות בחבילה
+              </label>
               <input className={`${inputCls} num`} value={qty} onChange={(e) => setQty(e.target.value)} />
             </div>
           </div>
+
+          {family ? (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">
+                  מקדם כמות (c)
+                </label>
+                <input
+                  className={`${inputCls} num w-28`}
+                  value={cInput}
+                  onChange={(e) => setCInput(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => setCInput(String(qtyFit.c))}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+                disabled={qtyFit.groups === 0}
+              >
+                חשב מהנתונים ({qtyFit.c})
+              </button>
+              <button
+                onClick={() => saveExponent.mutate(c)}
+                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור למשפחה
+              </button>
+              <p className="text-[11px] text-muted-foreground">
+                המחיר גדל לפי (כמות / {QTY_REF.toLocaleString()})^c. c=1 מחיר יחסי לכמות, c נמוך יותר =
+                הנחת כמות חזקה יותר.
+                {qtyFit.groups > 0
+                  ? ` נמדד מ־${qtyFit.groups} קבוצות מידה עם כמויות שונות.`
+                  : " אין מספיק נתונים במשפחה למדידה — ערך ברירת מחדל."}
+              </p>
+            </div>
+          ) : null}
 
           {fam ? (
             <>
               <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-[var(--ink)] pt-4">
                 <div>
-                  <div className="text-xs font-bold text-muted-foreground">מחיר ליחידה</div>
+                  <div className="text-xs font-bold text-muted-foreground">
+                    מחיר לעבודה ({nq.toLocaleString()} יח׳)
+                  </div>
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
-                    {shekel(calc.unit)}
+                    {shekel(calc.total)}
                   </div>
                 </div>
                 <div className="text-left">
-                  <div className="text-xs font-bold text-muted-foreground">סה״כ</div>
-                  <div className="num text-2xl font-black">{shekel(calc.total)}</div>
+                  <div className="text-xs font-bold text-muted-foreground">ליחידה</div>
+                  <div className="num text-2xl font-black">
+                    ₪{(calc.total / nq).toFixed(3)}
+                  </div>
                 </div>
               </div>
               <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
@@ -330,11 +408,6 @@ function Calculator() {
                 {calc.minApplied ? (
                   <div className="text-muted-foreground">
                     הופעל מחיר מינימום של המשפחה ({shekel(fam.min_charge ?? 0)}).
-                  </div>
-                ) : null}
-                {calc.tier ? (
-                  <div className="text-muted-foreground">
-                    הנחת כמות ×{calc.mult} (מ־{calc.tier.min} יח׳).
                   </div>
                 ) : null}
                 {calc.basis !== "catalog" ? (
@@ -590,6 +663,8 @@ function Calculator() {
               fit={simOn ? simFit : fit}
               requestedArea={area}
               requestedPrice={simOn ? simCalc.unit : calc.unit}
+              qty={nq}
+              factor={qtyFactor(nq, c)}
             />
           ) : null}
 

@@ -107,6 +107,7 @@ export type Family = {
   base_price: number | null;
   min_charge: number | null;
   qty_discounts: QtyDiscount[] | null;
+  qty_exponent?: number | null;
   notes: string | null;
 };
 
@@ -189,9 +190,19 @@ export function computePrice(
   };
 }
 
+/** Reference bundle size all anchor prices are normalised to. */
+export const QTY_REF = 1000;
+
+export const DEFAULT_QTY_EXPONENT = 0.85;
+
 export type Anchor = {
   area: number;
+  /** the real catalog price, for the bundle quantity below */
   price: number;
+  /** bundle quantity this price is for */
+  qty: number;
+  /** price normalised to QTY_REF units */
+  refPrice: number;
   w: number;
   h: number;
   fromFinal: boolean;
@@ -214,7 +225,7 @@ export const FIT_SOURCE_LABEL: Record<FitSource, string> = {
 export type AnchorPricing = {
   unit: number;
   total: number;
-  basis: "catalog" | "line" | "rate";
+  basis: "catalog" | "catalog-scaled" | "line" | "rate";
   label: string;
   detail: string | null;
   anchors: Anchor[];
@@ -234,26 +245,90 @@ const median = (nums: number[]) => {
   return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 };
 
+/** quantity scaling factor relative to the 1000-unit reference */
+export const qtyFactor = (qty: number, c: number) =>
+  Math.pow(Math.max(1, qty) / QTY_REF, c);
+
+export type QtyExponentFit = {
+  c: number;
+  /** number of same-size groups that contributed a slope */
+  groups: number;
+};
+
 /**
- * Build price anchors for a family.
+ * Fit the family's volume-discount exponent: log(price) vs log(qty) inside
+ * groups of identical size, median of the per-group slopes, clamped to 0.3–1.
+ */
+export function fitQtyExponent(products: Product[], family: string): QtyExponentFit {
+  const groups = new Map<string, { qty: number; price: number }[]>();
+  for (const p of products) {
+    if (p.family !== family) continue;
+    const w = Number(p.width_cm);
+    const h = Number(p.height_cm);
+    const qty = Number(p.qty);
+    const price = Number(p.final_price ?? p.senzey_price);
+    if (!w || !h || !qty || qty < 1 || !price || price <= 0) continue;
+    const key = `${w}x${h}`;
+    const arr = groups.get(key) ?? [];
+    arr.push({ qty, price });
+    groups.set(key, arr);
+  }
+  const slopes: number[] = [];
+  for (const arr of groups.values()) {
+    const uniq = new Map<number, number>();
+    for (const it of arr) {
+      const prev = uniq.get(it.qty);
+      if (prev === undefined || it.price < prev) uniq.set(it.qty, it.price);
+    }
+    const pts = [...uniq.entries()].map(([qty, price]) => ({
+      x: Math.log(qty),
+      y: Math.log(price),
+    }));
+    if (pts.length < 2) continue;
+    const n = pts.length;
+    const mx = pts.reduce((s, p) => s + p.x, 0) / n;
+    const my = pts.reduce((s, p) => s + p.y, 0) / n;
+    let num = 0;
+    let den = 0;
+    for (const p of pts) {
+      num += (p.x - mx) * (p.y - my);
+      den += (p.x - mx) ** 2;
+    }
+    if (den === 0) continue;
+    const slope = num / den;
+    if (!Number.isFinite(slope)) continue;
+    slopes.push(slope);
+  }
+  if (slopes.length === 0) return { c: DEFAULT_QTY_EXPONENT, groups: 0 };
+  const c = Math.min(1, Math.max(0.3, median(slopes)));
+  return { c: Math.round(c * 100) / 100, groups: slopes.length };
+}
+
+/**
+ * Build price anchors for a family, normalised to QTY_REF units.
  * When the user pinned items as עוגן, ONLY those define the curve (verbatim).
- * Otherwise falls back to all qty=1 items, dropping anomalies whose price-per-m²
- * deviates more than ×2.5 from the family median.
+ * Otherwise falls back to all sized+priced items, dropping anomalies whose
+ * normalised price-per-m² deviates more than ×2.5 from the family median.
  */
 export function buildAnchors(
   products: Product[],
   family: string,
+  c: number = DEFAULT_QTY_EXPONENT,
 ): { anchors: Anchor[]; skipped: number; dropped: Anchor[]; source: FitSource } {
   const toAnchor = (p: Product): Anchor | null => {
     const w = Number(p.width_cm);
     const h = Number(p.height_cm);
     if (!w || !h) return null;
+    const qty = Math.max(1, Number(p.qty) || 0);
+    if (!Number(p.qty)) return null;
     const fromFinal = p.final_price !== null && p.final_price !== undefined;
     const price = Number(fromFinal ? p.final_price : p.senzey_price);
     if (!price || Number.isNaN(price) || price <= 0) return null;
     return {
       area: (w * h) / 10000,
       price,
+      qty,
+      refPrice: price / qtyFactor(qty, c),
       w,
       h,
       fromFinal,
@@ -280,28 +355,27 @@ export function buildAnchors(
     };
   }
 
-  // 2. Fallback: derive from the whole family.
-  const byArea = new Map<string, Anchor>();
+  // 2. Fallback: derive from the whole family (any bundle quantity).
+  const byKey = new Map<string, Anchor>();
   for (const p of fam) {
-    if ((p.qty ?? 1) !== 1) continue;
     const cand = toAnchor(p);
     if (!cand) continue;
-    const key = cand.area.toFixed(4);
-    const prev = byArea.get(key);
+    const key = `${cand.area.toFixed(4)}|${cand.qty}`;
+    const prev = byKey.get(key);
     if (
       !prev ||
       (cand.fromFinal && !prev.fromFinal) ||
       (cand.fromFinal === prev.fromFinal && cand.price < prev.price)
     ) {
-      byArea.set(key, cand);
+      byKey.set(key, cand);
     }
   }
-  const all = [...byArea.values()].sort((a, b) => a.area - b.area);
+  const all = [...byKey.values()].sort((a, b) => a.area - b.area);
   if (all.length < 3) return { anchors: all, skipped: 0, dropped: [], source: "all-items" };
 
-  const med = median(all.map((a) => a.price / a.area));
+  const med = median(all.map((a) => a.refPrice / a.area));
   const keep = (a: Anchor) => {
-    const ppm = a.price / a.area;
+    const ppm = a.refPrice / a.area;
     return ppm <= med * 2.5 && ppm >= med / 2.5;
   };
   const anchors = all.filter(keep);
@@ -318,21 +392,24 @@ export type FamilyFit = {
   count: number;
 };
 
-/** Least-squares fit of price = base + rate × area, with base clamped to >= 0. */
+/**
+ * Least-squares fit of refPrice (price at QTY_REF units) = base + rate × area,
+ * with base clamped to >= 0.
+ */
 export function fitFamilyLine(anchors: Anchor[]): FamilyFit | null {
   const n = anchors.length;
   if (n === 0) return null;
   let base = 0;
   let rate = 0;
   if (n === 1) {
-    rate = anchors[0]!.price / anchors[0]!.area;
+    rate = anchors[0]!.refPrice / anchors[0]!.area;
   } else {
     const mx = anchors.reduce((s, a) => s + a.area, 0) / n;
-    const my = anchors.reduce((s, a) => s + a.price, 0) / n;
+    const my = anchors.reduce((s, a) => s + a.refPrice, 0) / n;
     let num = 0;
     let den = 0;
     for (const a of anchors) {
-      num += (a.area - mx) * (a.price - my);
+      num += (a.area - mx) * (a.refPrice - my);
       den += (a.area - mx) ** 2;
     }
     rate = den === 0 ? my / (mx || 1) : num / den;
@@ -341,14 +418,14 @@ export function fitFamilyLine(anchors: Anchor[]): FamilyFit | null {
       // refit through the origin
       base = 0;
       const sxx = anchors.reduce((s, a) => s + a.area * a.area, 0);
-      const sxy = anchors.reduce((s, a) => s + a.area * a.price, 0);
+      const sxy = anchors.reduce((s, a) => s + a.area * a.refPrice, 0);
       rate = sxx === 0 ? 0 : sxy / sxx;
     }
   }
   const deviation =
     anchors.reduce((s, a) => {
       const fit = base + rate * a.area;
-      return s + Math.abs(fit - a.price) / a.price;
+      return s + Math.abs(fit - a.refPrice) / a.refPrice;
     }, 0) /
     n *
     100;
@@ -362,7 +439,10 @@ export function fitFamilyLine(anchors: Anchor[]): FamilyFit | null {
 
 const round5 = (n: number) => Math.round(n / 5) * 5;
 
-/** Price a requested size from a line fitted live from the family's items. */
+/**
+ * Price a requested size + bundle quantity from the fitted family curve:
+ * price = (base + rate × area) × (qty / 1000)^c
+ */
 export function priceFromLine(
   anchors: Anchor[],
   skipped: number,
@@ -371,58 +451,81 @@ export function priceFromLine(
   w: number,
   h: number,
   qty: number,
+  c: number = DEFAULT_QTY_EXPONENT,
 ): AnchorPricing {
   const area = (w * h) / 10000;
-  const tiers = (family?.qty_discounts ?? [])
-    .filter((t) => qty >= t.min)
-    .sort((a, b) => b.min - a.min);
-  const tier = tiers[0] ?? null;
-  const mult = tier?.mult ?? 1;
   const min = family?.min_charge ?? 0;
   const base = fit ? fit.base : 0;
   const rate = fit ? fit.rate : (family?.rate_m2 ?? 0);
+  const f = qtyFactor(qty, c);
+  const sameSize = anchors.filter((a) => Math.abs(a.area - area) <= a.area * 0.02);
 
-  const match = anchors.find((a) => Math.abs(a.area - area) <= a.area * 0.02);
-  if (match && area) {
-    const minApplied = match.price < min;
-    const floored = Math.max(match.price, min);
-    const unit = minApplied || mult !== 1 ? round5(floored * mult) : floored;
+  // exact catalog hit: same size AND same quantity
+  const exact = sameSize.find((a) => a.qty === qty);
+  if (exact && area) {
+    const minApplied = exact.price < min;
+    const unit = minApplied ? round5(Math.max(exact.price, min)) : exact.price;
     return {
       unit,
-      total: unit * qty,
+      total: unit,
       basis: "catalog",
       label: "מחיר קטלוג",
-      detail: `נמצאה מידה זהה במחירון: ${sizeLabel(match)} = ${shekel(match.price)}`,
-      anchors: [match],
+      detail: `נמצאה מידה וכמות זהות במחירון: ${sizeLabel(exact)} · ${exact.qty.toLocaleString()} יח׳ = ${shekel(exact.price)}`,
+      anchors: [exact],
       skipped,
-      mult,
-      tier,
+      mult: 1,
+      tier: null,
       minApplied,
       floorApplied: false,
-      base: match.price,
+      base: exact.price,
     };
   }
 
-  const raw = base + rate * area;
+  // same size, different quantity: scale the catalog price by the volume curve
+  const near = sameSize.sort(
+    (a, b) => Math.abs(Math.log(a.qty / qty)) - Math.abs(Math.log(b.qty / qty)),
+  )[0];
+  if (near && area) {
+    const scaled = near.price * (qtyFactor(qty, c) / qtyFactor(near.qty, c));
+    const minApplied = scaled < min;
+    const unit = round5(Math.max(scaled, min));
+    return {
+      unit,
+      total: unit,
+      basis: "catalog-scaled",
+      label: "מחיר קטלוג מותאם לכמות",
+      detail: `${sizeLabel(near)} · ${near.qty.toLocaleString()} יח׳ = ${shekel(near.price)} → מותאם ל־${qty.toLocaleString()} יח׳ (מקדם כמות ${c})`,
+      anchors: [near],
+      skipped,
+      mult: 1,
+      tier: null,
+      minApplied,
+      floorApplied: false,
+      base: scaled,
+    };
+  }
+
+  const refPrice = base + rate * area;
+  const raw = refPrice * f;
   const cheapest = anchors.length
-    ? anchors.reduce((m, a) => Math.min(m, a.price), Infinity)
+    ? anchors.reduce((m, a) => Math.min(m, a.refPrice), Infinity) * f
     : 0;
   const floorApplied = cheapest > 0 && raw < cheapest;
   const afterFloor = Math.max(raw, cheapest);
   const minApplied = afterFloor < min;
-  const beforeDiscount = Math.max(afterFloor, min);
-  const unit = round5(beforeDiscount * mult);
+  const beforeMin = Math.max(afterFloor, min);
+  const unit = round5(beforeMin);
 
   return {
     unit,
-    total: unit * qty,
+    total: unit,
     basis: fit ? "line" : "rate",
     label: fit ? "מחיר מחושב" : "חישוב לפי תעריף לסמ״ר",
-    detail: `מחיר בסיס ${shekel(base)} + ${(rate / 10000).toFixed(4)}₪ לסמ״ר × ${Math.round(area * 10000).toLocaleString()} סמ״ר = ${shekel(Math.round(raw))}`,
+    detail: `מחיר ל־${QTY_REF.toLocaleString()} יח׳: בסיס ${shekel(base)} + ${(rate / 10000).toFixed(4)}₪ לסמ״ר × ${Math.round(area * 10000).toLocaleString()} סמ״ר = ${shekel(Math.round(refPrice))} → מותאם ל־${qty.toLocaleString()} יח׳ (מקדם ${c}) = ${shekel(Math.round(raw))}`,
     anchors: [],
     skipped,
-    mult,
-    tier,
+    mult: 1,
+    tier: null,
     minApplied,
     floorApplied,
     base: raw,

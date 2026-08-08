@@ -11,7 +11,15 @@ import {
 } from "recharts";
 import { shekel, type Anchor, type FamilyFit } from "@/lib/mdvd";
 
-type Point = Anchor & { fit: number; dev: number; kind: "ok" | "warn" | "dropped" };
+type Point = Anchor & {
+  /** price rescaled to the requested bundle quantity (what the chart plots) */
+  price: number;
+  /** the real catalog price at the item's own quantity */
+  rawPrice: number;
+  fit: number;
+  dev: number;
+  kind: "ok" | "warn" | "dropped";
+};
 
 function PointTooltip({ active, payload }: { active?: boolean; payload?: unknown }) {
   const items = (payload as { payload?: Partial<Point> }[] | undefined) ?? [];
@@ -30,6 +38,11 @@ function PointTooltip({ active, payload }: { active?: boolean; payload?: unknown
         <div className="num text-muted-foreground">{p.area.toFixed(3)} מ״ר</div>
       )}
       <div className="num">מחיר: {shekel(p.price)}</div>
+      {typeof p.rawPrice === "number" && typeof p.qty === "number" ? (
+        <div className="num text-muted-foreground">
+          במחירון: {shekel(p.rawPrice)} ל־{p.qty.toLocaleString()} יח׳
+        </div>
+      ) : null}
       {!isPoint ? null : p.kind === "dropped" ? (
         <div className="font-bold text-muted-foreground">חריגה — לא נכללת בהתאמה</div>
       ) : (
@@ -54,19 +67,28 @@ export function CurveChart({
   fit,
   requestedArea,
   requestedPrice,
+  qty,
+  factor,
 }: {
   anchors: Anchor[];
   dropped: Anchor[];
   fit: FamilyFit | null;
   requestedArea: number;
   requestedPrice: number;
+  /** bundle quantity the chart is drawn for */
+  qty: number;
+  /** (qty / 1000)^c — scales reference prices to that quantity */
+  factor: number;
 }) {
   const { ok, warn, out, line, warnCount } = useMemo(() => {
     const toPoint = (a: Anchor, isDropped: boolean): Point => {
-      const f = fit ? fit.base + fit.rate * a.area : a.price;
-      const dev = (Math.abs(f - a.price) / a.price) * 100;
+      const shown = a.refPrice * factor;
+      const f = fit ? (fit.base + fit.rate * a.area) * factor : shown;
+      const dev = (Math.abs(f - shown) / shown) * 100;
       return {
         ...a,
+        price: shown,
+        rawPrice: a.price,
         fit: f,
         dev,
         kind: isDropped ? "dropped" : dev > 20 ? "warn" : "ok",
@@ -79,8 +101,8 @@ export function CurveChart({
     const maxA = areas.length ? Math.max(...areas, requestedArea || 0) : 1;
     const ln = fit
       ? [
-          { area: minA, lineY: fit.base + fit.rate * minA },
-          { area: maxA, lineY: fit.base + fit.rate * maxA },
+          { area: minA, lineY: (fit.base + fit.rate * minA) * factor },
+          { area: maxA, lineY: (fit.base + fit.rate * maxA) * factor },
         ]
       : [];
     return {
@@ -90,7 +112,7 @@ export function CurveChart({
       line: ln,
       warnCount: pts.filter((p) => p.kind === "warn").length,
     };
-  }, [anchors, dropped, fit, requestedArea]);
+  }, [anchors, dropped, fit, requestedArea, factor]);
 
   if (anchors.length === 0 && dropped.length === 0) return null;
 
@@ -103,7 +125,7 @@ export function CurveChart({
     <section className="mb-8">
       <h2 className="mb-1 text-lg font-black">עקומת התמחור</h2>
       <p className="mb-3 text-sm text-muted-foreground">
-        {anchors.length} עוגנים · {dropped.length} חריגות · {warnCount} סטיות מעל 20%
+        {anchors.length} עוגנים · {dropped.length} חריגות · {warnCount} סטיות מעל 20% · המחירים בגרף מוצגים לכמות של {qty.toLocaleString()} יח׳
       </p>
       <div className="border-2 border-[var(--ink)] bg-card p-3 shadow-[6px_6px_0_0_var(--ink)]">
         <div className="h-[320px] w-full" dir="ltr">

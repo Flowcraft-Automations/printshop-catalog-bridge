@@ -18,6 +18,8 @@ import {
   displayFieldValue,
   fitFamilyLine,
   parseFieldValue,
+  qtyFactor,
+  DEFAULT_QTY_EXPONENT,
   shekel,
   type Product,
   type ProductHistory,
@@ -240,13 +242,17 @@ function Catalog() {
     return map;
   }, [allNotes]);
 
-  // Per-family fitted curve → a suggested price for every sized item.
+  // Per-family fitted curve → a suggested price for every sized item,
+  // at that item's own bundle quantity.
   const curveByProduct = useMemo(() => {
     const round5 = (n: number) => Math.round(n / 5) * 5;
     const fams = [...new Set(products.map((p) => (p.family ?? "").trim()).filter(Boolean))];
     const out: Record<string, CurveSuggestion> = {};
     for (const fam of fams) {
-      const { anchors } = buildAnchors(products, fam);
+      const c =
+        Number(families.find((f) => f.family === fam)?.qty_exponent) ||
+        DEFAULT_QTY_EXPONENT;
+      const { anchors } = buildAnchors(products, fam, c);
       if (anchors.length < 1) continue;
       const fit = fitFamilyLine(anchors);
       if (!fit) continue;
@@ -262,14 +268,18 @@ function Catalog() {
           out[p.id] = { suggested: cur, current: cur, dev: 0 };
           continue;
         }
-        const suggested = round5(Math.max(fit.base + fit.rate * ((w * h) / 10000), 0));
+        const qty = Math.max(1, Number(p.qty) || 1);
+        const suggested = round5(
+          Math.max((fit.base + fit.rate * ((w * h) / 10000)) * qtyFactor(qty, c), 0),
+        );
         if (suggested <= 0) continue;
         out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
       }
     }
 CURVE = out;
     return out;
-  }, [products]);
+  }, [products, families]);
+
 
   const navigate = useNavigate({ from: "/catalog" });
 
