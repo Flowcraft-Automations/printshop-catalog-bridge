@@ -627,6 +627,8 @@ function Calculator() {
               fit={simOn ? simFit : fit}
               requestedArea={area}
               requestedPrice={simOn ? simCalc.unit : calc.unit}
+              qty={nq}
+              factor={qtyFactor(nq, c)}
             />
           ) : null}
 
