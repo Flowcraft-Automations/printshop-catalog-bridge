@@ -47,13 +47,28 @@ function Calculator() {
   const [w, setW] = useState("");
 
   const [h, setH] = useState("");
-  const [qty, setQty] = useState("1");
+  const [qty, setQty] = useState("1000");
+  const [cInput, setCInput] = useState("");
 
   const fam = families.find((f) => f.family === family);
   const nw = Number(w) || 0;
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
   const area = (nw * nh) / 10000;
+
+  // volume-discount exponent for the family (editable, persisted)
+  useEffect(() => {
+    setCInput(String(fam?.qty_exponent ?? DEFAULT_QTY_EXPONENT));
+  }, [family, fam?.qty_exponent]);
+  const c = (() => {
+    const n = Number(cInput);
+    return Number.isFinite(n) && n > 0 ? Math.min(1.5, Math.max(0.2, n)) : DEFAULT_QTY_EXPONENT;
+  })();
+  const qtyFit = useMemo(
+    () => (family ? fitQtyExponent(products, family) : { c: DEFAULT_QTY_EXPONENT, groups: 0 }),
+    [products, family],
+  );
+
 
   const filteredFamilies = useMemo(() => {
     const q = familySearch.trim().toLowerCase();
