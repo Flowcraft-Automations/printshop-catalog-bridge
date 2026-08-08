@@ -435,6 +435,31 @@ CURVE = out;
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const duplicate = useMutation({
+    mutationFn: async (product: Product) => {
+      const { id, row_key, created_at, updated_at, ...rest } = product;
+      const timestamp = Date.now();
+      const newRowKey = `${slugify(product.name)}-${timestamp}`;
+      const newName = `${product.name} (עותק)`;
+      const { error } = await supabase.from("products").insert({
+        ...rest,
+        row_key: newRowKey,
+        name: newName,
+        source: "manual",
+        senzey_status: "to_add",
+        site_status: "to_add",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast.success("המוצר שוכפל וסומן להוספה בשתי המערכות");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const rows = useMemo(() => {
     const qNorm = q.trim().toLowerCase();
     const out = products.filter((p) => {
