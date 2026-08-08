@@ -11,7 +11,15 @@ import {
 } from "recharts";
 import { shekel, type Anchor, type FamilyFit } from "@/lib/mdvd";
 
-type Point = Anchor & { fit: number; dev: number; kind: "ok" | "warn" | "dropped" };
+type Point = Anchor & {
+  /** price rescaled to the requested bundle quantity (what the chart plots) */
+  price: number;
+  /** the real catalog price at the item's own quantity */
+  rawPrice: number;
+  fit: number;
+  dev: number;
+  kind: "ok" | "warn" | "dropped";
+};
 
 function PointTooltip({ active, payload }: { active?: boolean; payload?: unknown }) {
   const items = (payload as { payload?: Partial<Point> }[] | undefined) ?? [];
