@@ -1309,6 +1309,7 @@ CURVE = out;
                       </select>
                     </th>
                   )}
+                  <th className="w-10 px-2 pb-2"></th>
                 </tr>
               )}
             </thead>
