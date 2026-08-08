@@ -1,0 +1,1 @@
+ALTER TABLE public.families ADD COLUMN IF NOT EXISTS qty_exponent numeric NOT NULL DEFAULT 0.85;

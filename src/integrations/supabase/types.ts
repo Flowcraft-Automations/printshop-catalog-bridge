@@ -37,6 +37,7 @@ export type Database = {
           min_charge: number | null
           notes: string | null
           qty_discounts: Json | null
+          qty_exponent: number
           rate_m2: number | null
         }
         Insert: {
@@ -46,6 +47,7 @@ export type Database = {
           min_charge?: number | null
           notes?: string | null
           qty_discounts?: Json | null
+          qty_exponent?: number
           rate_m2?: number | null
         }
         Update: {
@@ -55,6 +57,7 @@ export type Database = {
           min_charge?: number | null
           notes?: string | null
           qty_discounts?: Json | null
+          qty_exponent?: number
           rate_m2?: number | null
         }
         Relationships: []
