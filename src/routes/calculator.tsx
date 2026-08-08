@@ -201,15 +201,15 @@ function Calculator() {
   const simBuild = useMemo(
     () =>
       family && simOn
-        ? buildAnchors(simProducts, family)
+        ? buildAnchors(simProducts, family, c)
         : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
-    [simProducts, family, simOn],
+    [simProducts, family, simOn, c],
   );
   const simFit = useMemo(() => fitFamilyLine(simBuild.anchors), [simBuild.anchors]);
   const simCalc = useMemo(
     () =>
-      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq),
-    [simBuild, fam, simFit, nw, nh, nq],
+      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq, c),
+    [simBuild, fam, simFit, nw, nh, nq, c],
   );
 
   /** suggested price per family item under the experimental curve */
@@ -218,6 +218,7 @@ function Calculator() {
     return filteredFamItems
       .filter((x) => x.w && x.h)
       .map((x) => {
+        const itemQty = Math.max(1, Number(x.p.qty) || 1);
         const res = priceFromLine(
           simBuild.anchors,
           simBuild.skipped,
@@ -225,13 +226,14 @@ function Calculator() {
           simFit,
           x.w,
           x.h,
-          1,
+          itemQty,
+          c,
         );
         const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
         const diff = current ? ((res.unit - current) / current) * 100 : null;
         return { ...x, suggested: res.unit, current, diff };
       });
-  }, [simOn, fam, simFit, simBuild, filteredFamItems]);
+  }, [simOn, fam, simFit, simBuild, filteredFamItems, c]);
 
 
 
