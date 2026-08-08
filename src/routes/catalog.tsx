@@ -823,6 +823,14 @@ CURVE = out;
           />
           הצג גם נמחקים / לא רלוונטים
         </label>
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="flex items-center gap-1.5 bg-[var(--accent-raw)] px-3 py-2 text-sm font-bold text-white shadow-[2px_2px_0_0_var(--ink)] hover:brightness-110"
+        >
+          <RotateCcw className="size-4" />
+          איפוס סינון
+        </button>
       </div>
 
       {selected.size > 0 && (
