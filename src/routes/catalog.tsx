@@ -144,7 +144,7 @@ export function priceGap(p: Product): number | null {
   return Number(p.site_price) - Number(p.senzey_price);
 }
 
-const CLOSED_STATUSES = new Set(["deleted", "not_relevant"]);
+const CLOSED_STATUSES = new Set(["deleted", "dup_deleted", "not_relevant"]);
 
 /** Both platforms are closed out (deleted / not relevant) — nothing left to flag. */
 export function isClosedOut(p: Product): boolean {
