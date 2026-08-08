@@ -1950,6 +1950,35 @@ function HistoryPanel({ productId }: { productId: string }) {
 }
 
 
+function AutoTextArea({
+  className,
+  value,
+  onChange,
+  rows = 1,
+}: {
+  className?: string;
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLTextAreaElement>;
+  rows?: number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      className={cn("resize-none overflow-hidden", className)}
+      value={value}
+      rows={rows}
+      onChange={onChange}
+    />
+  );
+}
+
 function Field({
   label,
   children,
