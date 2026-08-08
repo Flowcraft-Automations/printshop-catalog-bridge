@@ -38,6 +38,11 @@ function PointTooltip({ active, payload }: { active?: boolean; payload?: unknown
         <div className="num text-muted-foreground">{p.area.toFixed(3)} מ״ר</div>
       )}
       <div className="num">מחיר: {shekel(p.price)}</div>
+      {typeof p.rawPrice === "number" && typeof p.qty === "number" ? (
+        <div className="num text-muted-foreground">
+          במחירון: {shekel(p.rawPrice)} ל־{p.qty.toLocaleString()} יח׳
+        </div>
+      ) : null}
       {!isPoint ? null : p.kind === "dropped" ? (
         <div className="font-bold text-muted-foreground">חריגה — לא נכללת בהתאמה</div>
       ) : (
