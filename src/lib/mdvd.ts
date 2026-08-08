@@ -107,6 +107,7 @@ export type Family = {
   base_price: number | null;
   min_charge: number | null;
   qty_discounts: QtyDiscount[] | null;
+  qty_exponent?: number | null;
   notes: string | null;
 };
 
