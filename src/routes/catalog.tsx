@@ -1,12 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Anchor, Columns, Copy, Download, ExternalLink, Info, RotateCcw, X } from "lucide-react";
+import { Anchor, Columns, Copy, Download, ExternalLink, Info, MoreHorizontal, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
 import { NotesPanel } from "@/components/NotesPanel";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import {
@@ -21,6 +27,7 @@ import {
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
   shekel,
+  slugify,
   type Product,
   type ProductHistory,
   type ProductNote,
@@ -424,6 +431,31 @@ CURVE = out;
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product-history"] });
       toast.success("עודכן");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const duplicate = useMutation({
+    mutationFn: async (product: Product) => {
+      const { id, row_key, created_at, updated_at, ...rest } = product;
+      const timestamp = Date.now();
+      const newRowKey = `${slugify(product.name)}-${timestamp}`;
+      const newName = `${product.name} (עותק)`;
+      const { error } = await supabase.from("products").insert({
+        ...rest,
+        row_key: newRowKey,
+        name: newName,
+        source: "manual",
+        senzey_status: "to_add",
+        site_status: "to_add",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast.success("המוצר שוכפל וסומן להוספה בשתי המערכות");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1022,6 +1054,7 @@ CURVE = out;
                     <SortHead k="is_anchor" label="עוגן" className="mx-auto" />
                   </th>
                 )}
+                <th className="w-10 px-2 py-2"></th>
               </tr>
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
@@ -1277,6 +1310,7 @@ CURVE = out;
                       </select>
                     </th>
                   )}
+                  <th className="w-10 px-2 pb-2"></th>
                 </tr>
               )}
             </thead>
@@ -1588,6 +1622,27 @@ CURVE = out;
                       </button>
                     </td>
                   )}
+                  <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          title="פעולות"
+                          className="inline-flex items-center text-muted-foreground/60 hover:text-[var(--accent-raw)]"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => duplicate.mutate(p)}
+                          className="cursor-pointer"
+                        >
+                          <Copy className="size-4" />
+                          שכפל שורה
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
                   </tr>
                 );
               })}
