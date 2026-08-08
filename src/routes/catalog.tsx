@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/AppShell";
 import { NoteIndicator } from "@/components/NoteIndicator";
 import { NotesPanel } from "@/components/NotesPanel";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1694,14 +1695,18 @@ function EditDrawer({
         className="h-full w-full max-w-lg overflow-y-auto border-s-2 border-[var(--ink)] bg-card p-6"
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-xl font-black">{product.name}</h2>
+          <h2 className="text-xl font-black break-words whitespace-normal">{product.name}</h2>
           <button onClick={onClose}>
             <X className="size-5" />
           </button>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <Field label="שם" full>
-            <input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} />
+            <AutoTextArea
+              className={inputCls}
+              value={f.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
           </Field>
           <Field label="משפחה">
             <input
@@ -1945,6 +1950,35 @@ function HistoryPanel({ productId }: { productId: string }) {
   );
 }
 
+
+function AutoTextArea({
+  className,
+  value,
+  onChange,
+  rows = 1,
+}: {
+  className?: string;
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLTextAreaElement>;
+  rows?: number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      className={cn("resize-none overflow-hidden", className)}
+      value={value}
+      rows={rows}
+      onChange={onChange}
+    />
+  );
+}
 
 function Field({
   label,
