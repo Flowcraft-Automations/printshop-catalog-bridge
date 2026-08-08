@@ -461,7 +461,26 @@ CURVE = out;
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const rows = useMemo(() => {
+  const deleteProduct = useMutation({
+    mutationFn: async (product: Product) => {
+      const { error: notesError } = await supabase.from("product_notes").delete().eq("product_id", product.id);
+      if (notesError) throw notesError;
+      const { error: historyError } = await supabase.from("product_history").delete().eq("product_id", product.id);
+      if (historyError) throw historyError;
+      const { error } = await supabase.from("products").delete().eq("id", product.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product-notes"] });
+      qc.invalidateQueries({ queryKey: ["product-history"] });
+      toast.success("המוצר נמחק");
+      if (selected?.id === deleteCandidate?.id) setSelected(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [deleteCandidate, setDeleteCandidate] = useState<Product | null>(null);
     const qNorm = q.trim().toLowerCase();
     const out = products.filter((p) => {
       const g = (p.senzey_group ?? "").trim();
