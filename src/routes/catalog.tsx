@@ -1306,9 +1306,9 @@ CURVE = out;
                     />
                   </td>
                   {visibleCols.name && (
-                    <td style={{ width: scaledWidths.name }} className="truncate px-2 py-1 font-semibold" dir="rtl">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="truncate">{p.name}</span>
+                    <td style={{ width: scaledWidths.name }} className="whitespace-normal break-words px-2 py-1 font-semibold" dir="rtl">
+                      <span className="inline-flex items-start gap-1.5">
+                        <span className="whitespace-normal break-words leading-tight" title={p.name}>{p.name}</span>
                         <button
                           title="העתק שם"
                           onClick={(e) => {
