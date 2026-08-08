@@ -267,10 +267,11 @@ function Catalog() {
         out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
       }
     }
-    CURVE = out;
+CURVE = out;
     return out;
   }, [products]);
 
+  const navigate = useNavigate({ from: "/catalog" });
 
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
