@@ -18,6 +18,8 @@ import {
   displayFieldValue,
   fitFamilyLine,
   parseFieldValue,
+  qtyFactor,
+  DEFAULT_QTY_EXPONENT,
   shekel,
   type Product,
   type ProductHistory,
