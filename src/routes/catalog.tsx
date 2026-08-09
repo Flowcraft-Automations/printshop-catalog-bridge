@@ -1380,9 +1380,9 @@ CURVE = out;
                     key={p.id}
                     onClick={() => setDrawer(p)}
                     className={`cursor-pointer border-t border-border hover:bg-[oklch(0.95_0.03_250)] ${
-                      closedOut
+                      colorRows && closedOut
                         ? "bg-[oklch(0.92_0_0)]"
-                        : verified
+                        : colorRows && verified
                           ? "bg-[oklch(0.95_0.05_145)]"
                           : i % 2
                             ? "bg-[var(--surface-deep)]"
