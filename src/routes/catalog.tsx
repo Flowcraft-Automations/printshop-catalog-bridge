@@ -2092,6 +2092,7 @@ function ColumnChooser({
               <button
                 onClick={() =>
                   onChange({
+                    senzey_ids: true,
                     name: true,
                     family: true,
                     senzey_group: false,
