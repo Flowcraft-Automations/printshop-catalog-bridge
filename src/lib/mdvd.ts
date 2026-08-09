@@ -153,6 +153,16 @@ export const STATUS_CLASS: Record<string, string> = {
   not_relevant: "bg-[oklch(0.95_0_0)] text-[oklch(0.6_0_0)] border-[oklch(0.9_0_0)]",
 };
 
+export const CLOSED_STATUSES = new Set(["deleted", "dup_deleted", "not_relevant"]);
+
+/** Both platforms are closed out (deleted / not relevant) — nothing left to price or flag. */
+export function isClosedOut(p: Product): boolean {
+  return (
+    CLOSED_STATUSES.has(p.senzey_status ?? "") &&
+    CLOSED_STATUSES.has(p.site_status ?? "")
+  );
+}
+
 export function shekel(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return "₪" + Number(n).toLocaleString("he-IL", { maximumFractionDigits: 2 });
@@ -262,7 +272,7 @@ export type QtyExponentFit = {
 export function fitQtyExponent(products: Product[], family: string): QtyExponentFit {
   const groups = new Map<string, { qty: number; price: number }[]>();
   for (const p of products) {
-    if (p.family !== family) continue;
+    if (p.family !== family || isClosedOut(p)) continue;
     const w = Number(p.width_cm);
     const h = Number(p.height_cm);
     const qty = Number(p.qty);
@@ -338,7 +348,7 @@ export function buildAnchors(
     };
   };
 
-  const fam = products.filter((p) => p.family === family);
+  const fam = products.filter((p) => p.family === family && !isClosedOut(p));
 
   // 1. Pinned anchors win outright.
   const pinned = fam

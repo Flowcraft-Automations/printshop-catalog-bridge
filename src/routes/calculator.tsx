@@ -12,6 +12,7 @@ import {
   buildAnchors,
   fitFamilyLine,
   fitQtyExponent,
+  isClosedOut,
   priceFromLine,
   qtyFactor,
   shekel,
@@ -279,7 +280,7 @@ function Calculator() {
   const similar = useMemo(() => {
     if (!fam || !area) return [];
     return products
-      .filter((p) => p.family === family && p.width_cm && p.height_cm)
+      .filter((p) => p.family === family && !isClosedOut(p) && p.width_cm && p.height_cm)
       .map((p) => ({ p, area: (Number(p.width_cm) * Number(p.height_cm)) / 10000 }))
       .filter((x) => x.area >= area * 0.75 && x.area <= area * 1.25)
       .sort((a, b) => Math.abs(a.area - area) - Math.abs(b.area - area))
@@ -289,7 +290,7 @@ function Calculator() {
   const famItems = useMemo(() => {
     if (!family) return [];
     return products
-      .filter((p) => p.family === family)
+      .filter((p) => p.family === family && !isClosedOut(p))
       .map((p) => {
         const w = Number(p.width_cm) || 0;
         const h = Number(p.height_cm) || 0;
