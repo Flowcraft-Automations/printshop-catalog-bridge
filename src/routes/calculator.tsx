@@ -770,22 +770,20 @@ function Calculator() {
 
                       </thead>
                       <tbody>
-                        {filteredFamItems.map(({ p, w: iw, h: ih }, i) => {
-                          const sug = simSuggestions.find((s) => s.p.id === p.id);
+                        {simSuggestions.map(({ p, w: iw, h: ih, suggested, current, diff }, i) => {
                           const pinned = simPin[p.id] ?? !!p.is_anchor;
-                          const cur = p.final_price ?? p.senzey_price;
                           return (
                             <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
                               <td className="px-3 py-1.5">{p.name}</td>
                               <td className="num px-3 py-1.5">
                                 {iw && ih ? `${iw}×${ih}` : "—"}
                               </td>
-                              <td className="num px-3 py-1.5">{shekel(cur)}</td>
+                              <td className="num px-3 py-1.5">{shekel(current)}</td>
                               <td className="px-3 py-1.5">
                                 <input
                                   className="num w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 py-0.5 outline-none focus:border-[var(--accent-raw)]"
                                   value={simPrice[p.id] ?? ""}
-                                  placeholder={cur != null ? String(cur) : "—"}
+                                  placeholder={current != null ? String(current) : "—"}
                                   onChange={(e) =>
                                     setSimPrice((s) => ({ ...s, [p.id]: e.target.value }))
                                   }
@@ -806,25 +804,26 @@ function Calculator() {
                                 </button>
                               </td>
                               <td className="num px-3 py-1.5 font-bold">
-                                {sug ? shekel(sug.suggested) : "—"}
+                                {iw && ih ? shekel(suggested) : "—"}
                               </td>
                               <td
                                 className={`num px-3 py-1.5 font-bold ${
-                                  sug?.diff == null
+                                  diff == null
                                     ? ""
-                                    : Math.abs(sug.diff) > 20
+                                    : Math.abs(diff) > 20
                                       ? "text-[oklch(0.5_0.2_25)]"
-                                      : Math.abs(sug.diff) > 5
+                                      : Math.abs(diff) > 5
                                         ? "text-[oklch(0.55_0.16_70)]"
                                         : "text-muted-foreground"
                                 }`}
                               >
-                                {sug?.diff == null ? "—" : `${sug.diff > 0 ? "+" : ""}${sug.diff.toFixed(0)}%`}
+                                {diff == null ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(0)}%`}
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
+
                     </table>
                   </div>
                 </>
