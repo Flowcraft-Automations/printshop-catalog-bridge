@@ -1382,6 +1382,29 @@ CURVE = out;
                       onChange={() => toggle(p.id)}
                     />
                   </td>
+                  {visibleCols.senzey_ids && (
+                    <td
+                      style={{ width: scaledWidths.senzey_ids }}
+                      className="truncate px-2 py-1 font-mono text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {p.senzey_ids?.trim() ? (
+                        <button
+                          title="העתק מספר סנזיי"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(p.senzey_ids!).then(() => toast.success("מספר סנזיי הועתק"));
+                          }}
+                          className="flex w-full items-center gap-1 text-[var(--accent-raw)] hover:underline"
+                        >
+                          <span className="truncate">{p.senzey_ids}</span>
+                          <Copy className="size-3 shrink-0" />
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   {visibleCols.name && (
                     <td style={{ width: scaledWidths.name }} className="min-w-0 whitespace-normal break-words px-2 py-1 font-semibold" dir="rtl">
                       <span className="flex w-full items-start gap-1.5">
