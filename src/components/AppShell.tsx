@@ -3,13 +3,8 @@ import type { ReactNode } from "react";
 import { useLogout } from "./AuthGate";
 
 const NAV = [
-  { to: "/", label: "לוח בקרה" },
   { to: "/catalog", label: "קטלוג" },
-  { to: "/migration", label: "רשימת הגירה" },
   { to: "/calculator", label: "מחשבון מידות" },
-  { to: "/categories", label: "מיפוי קטגוריות" },
-  { to: "/new-product", label: "מוצר חדש" },
-  { to: "/import", label: "ייבוא נתונים" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
