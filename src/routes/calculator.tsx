@@ -300,9 +300,10 @@ function Calculator() {
 
   const filteredFamItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
-    if (!q) return famItems;
-    return famItems.filter(({ p }) => p.name.toLowerCase().includes(q));
-  }, [famItems, itemSearch]);
+    const filtered = q ? famItems.filter(({ p }) => p.name.toLowerCase().includes(q)) : famItems;
+    return sortFamilyItems(filtered, famSort);
+  }, [famItems, itemSearch, famSort]);
+
 
   const anchorKeys = useMemo(
     () => new Set(anchors.map((a) => `${a.w}x${a.h}`)),
