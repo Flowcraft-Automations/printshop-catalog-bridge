@@ -290,7 +290,7 @@ function Calculator() {
   const famItems = useMemo(() => {
     if (!family) return [];
     return products
-      .filter((p) => p.family === family)
+      .filter((p) => p.family === family && !isClosedOut(p))
       .map((p) => {
         const w = Number(p.width_cm) || 0;
         const h = Number(p.height_cm) || 0;
