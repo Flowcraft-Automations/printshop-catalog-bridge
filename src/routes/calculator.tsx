@@ -12,6 +12,7 @@ import {
   buildAnchors,
   fitFamilyLine,
   fitQtyExponent,
+  isClosedOut,
   priceFromLine,
   qtyFactor,
   shekel,
