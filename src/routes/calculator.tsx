@@ -733,7 +733,7 @@ function Calculator() {
                       <div className="text-[11px] font-bold text-muted-foreground">עקומת הניסוי</div>
                       <div className="num text-sm font-bold">
                         {simFit
-                          ? `בסיס ${shekel(simFit.base)} + ${(simFit.rate / 10000).toFixed(4)}₪/סמ״ר`
+                          ? `${shekel(simFit.a)} למ״ר ^ ${simFit.b.toFixed(2)}`
                           : "אין מספיק עוגנים"}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
