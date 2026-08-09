@@ -348,7 +348,7 @@ export function buildAnchors(
     };
   };
 
-  const fam = products.filter((p) => p.family === family);
+  const fam = products.filter((p) => p.family === family && !isClosedOut(p));
 
   // 1. Pinned anchors win outright.
   const pinned = fam
