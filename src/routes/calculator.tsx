@@ -745,14 +745,29 @@ function Calculator() {
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-[var(--ink)] text-white">
                         <tr className="text-right">
-                          <th className="px-3 py-2 font-semibold">שם</th>
-                          <th className="px-3 py-2 font-semibold">מידה</th>
-                          <th className="px-3 py-2 font-semibold">מחיר נוכחי</th>
-                          <th className="px-3 py-2 font-semibold">מחיר ניסוי</th>
-                          <th className="px-3 py-2 font-semibold">עוגן ניסיוני</th>
-                          <th className="px-3 py-2 font-semibold">הצעה מהעקומה</th>
-                          <th className="px-3 py-2 font-semibold">פער %</th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="שם" sortKey="name" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="מידה" sortKey="size" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="מחיר נוכחי" sortKey="current" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="מחיר ניסוי" sortKey="trial" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="עוגן ניסיוני" sortKey="pin" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="הצעה מהעקומה" sortKey="suggested" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="פער %" sortKey="diff" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
                         </tr>
+
                       </thead>
                       <tbody>
                         {filteredFamItems.map(({ p, w: iw, h: ih }, i) => {
