@@ -2178,3 +2178,65 @@ function ColumnChooser({
     </div>
   );
 }
+
+function InlineEdit({
+  value,
+  onSave,
+  numeric,
+  placeholder = "—",
+  className = "",
+}: {
+  value: string | number | null | undefined;
+  onSave: (v: string) => void;
+  numeric?: boolean;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const initial = value == null || value === "" ? "" : String(value);
+  const [draft, setDraft] = useState(initial);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDraft(initial);
+          setEditing(true);
+        }}
+        title="לחץ לעריכה"
+        className={`w-full cursor-text truncate border-b border-dashed border-transparent text-start hover:border-muted-foreground ${className}`}
+      >
+        {initial || <span className="text-muted-foreground">{placeholder}</span>}
+      </button>
+    );
+  }
+
+  const commit = () => {
+    setEditing(false);
+    if (draft.trim() !== initial.trim()) onSave(draft.trim());
+  };
+
+  return (
+    <input
+      autoFocus
+      value={draft}
+      inputMode={numeric ? "decimal" : undefined}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          (e.target as HTMLInputElement).blur();
+        }
+        if (e.key === "Escape") {
+          setDraft(initial);
+          setEditing(false);
+        }
+      }}
+      className={`w-full border-b border-[var(--accent-raw)] bg-transparent px-1 outline-none ${className}`}
+    />
+  );
+}
