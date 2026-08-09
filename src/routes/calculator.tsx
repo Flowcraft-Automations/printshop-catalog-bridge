@@ -621,14 +621,29 @@ function Calculator() {
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[var(--ink)] text-white">
                       <tr className="text-right">
-                        <th className="px-3 py-2 font-semibold">שם</th>
-                        <th className="px-3 py-2 font-semibold">מידה</th>
-                        <th className="px-3 py-2 font-semibold">מ״ר</th>
-                        <th className="px-3 py-2 font-semibold">כמות</th>
-                        <th className="px-3 py-2 font-semibold">סנזיי</th>
-                        <th className="px-3 py-2 font-semibold">סופי</th>
-                        <th className="px-3 py-2 font-semibold">עוגן</th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="שם" sortKey="name" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="מידה" sortKey="size" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="מ״ר" sortKey="area" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="כמות" sortKey="qty" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="סנזיי" sortKey="senzey" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="סופי" sortKey="final" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="עוגן" sortKey="anchor" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
                       </tr>
+
                     </thead>
                     <tbody>
                       {filteredFamItems.map(({ p, w, h, area: a }, i) => (
