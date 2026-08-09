@@ -1092,6 +1092,16 @@ CURVE = out;
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
                   <th className="px-2 pb-2"></th>
+                  {visibleCols.senzey_ids && (
+                    <th style={{ width: scaledWidths.senzey_ids }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("senzey_ids")}
+                        onChange={(e) => setCf("senzey_ids", e.target.value)}
+                        placeholder="מספר…"
+                      />
+                    </th>
+                  )}
                   {visibleCols.name && (
                     <th style={{ width: scaledWidths.name }} className="px-2 pb-2">
                       <input
