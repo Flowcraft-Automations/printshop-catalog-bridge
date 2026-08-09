@@ -195,6 +195,7 @@ export function currentPrice(p: Product): number | null {
 }
 
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
+  senzey_ids: (p) => p.senzey_ids ?? "",
   name: (p) => p.name,
   family: (p) => p.family ?? "",
   senzey_group: (p) => p.senzey_group ?? "",
@@ -308,6 +309,7 @@ CURVE = out;
   const [showColFilters, setShowColFilters] = useState(true);
   const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
+    senzey_ids: true,
     name: true,
     family: true,
     senzey_group: false,
@@ -332,6 +334,7 @@ CURVE = out;
   });
 
   const baseWidths: Record<ColKey, number> = {
+    senzey_ids: 7,
     name: 22,
     family: 9,
     senzey_group: 8,
