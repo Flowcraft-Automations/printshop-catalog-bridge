@@ -977,6 +977,11 @@ CURVE = out;
             <thead className="bg-[var(--ink)] text-white">
               <tr className="text-right">
                 <th className="w-[32px] px-2 py-2"></th>
+                {visibleCols.senzey_ids && (
+                  <th style={{ width: scaledWidths.senzey_ids }} className="px-2 py-2">
+                    <SortHead k="senzey_ids" label="מס׳ סנזיי" />
+                  </th>
+                )}
                 {visibleCols.name && (
                   <th style={{ width: scaledWidths.name }} className="px-2 py-2">
                     <SortHead k="name" label="שם" />
