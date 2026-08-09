@@ -303,6 +303,7 @@ CURVE = out;
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
+  const [colorRows, setColorRows] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
   const [category, setCategory] = useState(categoryParam ?? "");
   const [presence, setPresence] = useState("");
@@ -898,6 +899,14 @@ CURVE = out;
           />
           הצג גם נמחקים / לא רלוונטים
         </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+          <Switch
+            checked={colorRows}
+            onCheckedChange={(v) => setColorRows(v)}
+            aria-label="צביעת שורות"
+          />
+          צביעת שורות
+        </label>
         <button
           type="button"
           onClick={resetFilters}
@@ -1371,9 +1380,9 @@ CURVE = out;
                     key={p.id}
                     onClick={() => setDrawer(p)}
                     className={`cursor-pointer border-t border-border hover:bg-[oklch(0.95_0.03_250)] ${
-                      closedOut
+                      colorRows && closedOut
                         ? "bg-[oklch(0.92_0_0)]"
-                        : verified
+                        : colorRows && verified
                           ? "bg-[oklch(0.95_0.05_145)]"
                           : i % 2
                             ? "bg-[var(--surface-deep)]"
