@@ -542,6 +542,214 @@ export function priceFromLine(
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * Power curve: price = a × area^b  (b < 1 → sub-linear, print-typical)
+ * ------------------------------------------------------------------ */
+
+export const DEFAULT_CURVE_EXPONENT = 0.6;
+
+export type FamilyCurve = {
+  /** price at 1 m² for QTY_REF units */
+  a: number;
+  /** area exponent */
+  b: number;
+  /** average absolute % deviation of anchors from the curve */
+  deviation: number;
+  count: number;
+};
+
+/** Least-squares fit of log(refPrice) = log a + b·log(area), b clamped to 0.3–1. */
+export function fitPowerCurve(anchors: Anchor[]): FamilyCurve | null {
+  const pts = anchors.filter((x) => x.area > 0 && x.refPrice > 0);
+  const n = pts.length;
+  if (n === 0) return null;
+  let b = DEFAULT_CURVE_EXPONENT;
+  let a: number;
+  if (n === 1) {
+    a = pts[0]!.refPrice / Math.pow(pts[0]!.area, b);
+  } else {
+    const xs = pts.map((p) => Math.log(p.area));
+    const ys = pts.map((p) => Math.log(p.refPrice));
+    const mx = xs.reduce((s, v) => s + v, 0) / n;
+    const my = ys.reduce((s, v) => s + v, 0) / n;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < n; i++) {
+      num += (xs[i]! - mx) * (ys[i]! - my);
+      den += (xs[i]! - mx) ** 2;
+    }
+    const slope = den === 0 ? DEFAULT_CURVE_EXPONENT : num / den;
+    b = Math.min(1, Math.max(0.3, Number.isFinite(slope) ? slope : DEFAULT_CURVE_EXPONENT));
+    a = Math.exp(my - b * mx);
+  }
+  const deviation =
+    (pts.reduce((s, p) => {
+      const fitv = a * Math.pow(p.area, b);
+      return s + Math.abs(fitv - p.refPrice) / p.refPrice;
+    }, 0) /
+      n) *
+    100;
+  return { a: Math.round(a * 100) / 100, b: Math.round(b * 1000) / 1000, deviation, count: n };
+}
+
+/** Evaluate the piecewise curve (exact through anchors) at a given area. */
+export function curveRefPrice(
+  anchors: Anchor[],
+  curve: FamilyCurve | null,
+  area: number,
+): { ref: number; lo: Anchor | null; hi: Anchor | null; b: number } {
+  const fallbackB = curve?.b ?? DEFAULT_CURVE_EXPONENT;
+  if (area <= 0) return { ref: 0, lo: null, hi: null, b: fallbackB };
+  const pts = anchors
+    .filter((x) => x.area > 0 && x.refPrice > 0)
+    .sort((x, y) => x.area - y.area);
+  if (pts.length === 0) {
+    return { ref: curve ? curve.a * Math.pow(area, curve.b) : 0, lo: null, hi: null, b: fallbackB };
+  }
+  if (pts.length === 1) {
+    const p = pts[0]!;
+    return {
+      ref: p.refPrice * Math.pow(area / p.area, fallbackB),
+      lo: p,
+      hi: null,
+      b: fallbackB,
+    };
+  }
+  const seg = (lo: Anchor, hi: Anchor) => {
+    const b =
+      lo.area === hi.area
+        ? fallbackB
+        : Math.log(hi.refPrice / lo.refPrice) / Math.log(hi.area / lo.area);
+    const bb = Number.isFinite(b) ? b : fallbackB;
+    return { ref: lo.refPrice * Math.pow(area / lo.area, bb), lo, hi, b: bb };
+  };
+  if (area <= pts[0]!.area) return seg(pts[0]!, pts[1]!);
+  if (area >= pts[pts.length - 1]!.area) return seg(pts[pts.length - 2]!, pts[pts.length - 1]!);
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (area >= pts[i]!.area && area <= pts[i + 1]!.area) return seg(pts[i]!, pts[i + 1]!);
+  }
+  return seg(pts[0]!, pts[1]!);
+}
+
+/**
+ * Price a requested size + bundle quantity from the family's power curve:
+ * refPrice interpolated geometrically between neighbouring anchors,
+ * then scaled by the volume factor (qty / QTY_REF)^c.
+ */
+export function priceFromCurve(
+  anchors: Anchor[],
+  skipped: number,
+  family: Family | undefined,
+  curve: FamilyCurve | null,
+  w: number,
+  h: number,
+  qty: number,
+  c: number = DEFAULT_QTY_EXPONENT,
+): AnchorPricing {
+  const area = (w * h) / 10000;
+  const min = family?.min_charge ?? 0;
+  const f = qtyFactor(qty, c);
+  const sameSize = anchors.filter((a) => Math.abs(a.area - area) <= a.area * 0.02);
+
+  const exact = sameSize.find((a) => a.qty === qty);
+  if (exact && area) {
+    const minApplied = exact.price < min;
+    const unit = minApplied ? round5(Math.max(exact.price, min)) : exact.price;
+    return {
+      unit,
+      total: unit,
+      basis: "catalog",
+      label: "מחיר קטלוג",
+      detail: `נמצאה מידה וכמות זהות במחירון: ${sizeLabel(exact)} · ${exact.qty.toLocaleString()} יח׳ = ${shekel(exact.price)}`,
+      anchors: [exact],
+      skipped,
+      mult: 1,
+      tier: null,
+      minApplied,
+      floorApplied: false,
+      base: exact.price,
+    };
+  }
+
+  const near = sameSize.sort(
+    (a, b) => Math.abs(Math.log(a.qty / qty)) - Math.abs(Math.log(b.qty / qty)),
+  )[0];
+  if (near && area) {
+    const scaled = near.price * (qtyFactor(qty, c) / qtyFactor(near.qty, c));
+    const minApplied = scaled < min;
+    const unit = round5(Math.max(scaled, min));
+    return {
+      unit,
+      total: unit,
+      basis: "catalog-scaled",
+      label: "מחיר קטלוג מותאם לכמות",
+      detail: `${sizeLabel(near)} · ${near.qty.toLocaleString()} יח׳ = ${shekel(near.price)} → מותאם ל־${qty.toLocaleString()} יח׳ (מקדם כמות ${c})`,
+      anchors: [near],
+      skipped,
+      mult: 1,
+      tier: null,
+      minApplied,
+      floorApplied: false,
+      base: scaled,
+    };
+  }
+
+  if (anchors.length === 0 && !curve) {
+    // no curve at all — legacy flat rate per m²
+    const rate = family?.rate_m2 ?? 0;
+    const raw = rate * area * f;
+    const minApplied = raw < min;
+    const unit = round5(Math.max(raw, min));
+    return {
+      unit,
+      total: unit,
+      basis: "rate",
+      label: "חישוב לפי תעריף לסמ״ר",
+      detail: `${(rate / 10000).toFixed(4)}₪ לסמ״ר × ${Math.round(area * 10000).toLocaleString()} סמ״ר`,
+      anchors: [],
+      skipped,
+      mult: 1,
+      tier: null,
+      minApplied,
+      floorApplied: false,
+      base: raw,
+    };
+  }
+
+  const { ref, lo, hi, b } = curveRefPrice(anchors, curve, area);
+  const raw = ref * f;
+  const cheapest = anchors.length
+    ? anchors.reduce((m, a) => Math.min(m, a.refPrice), Infinity) * f
+    : 0;
+  const floorApplied = cheapest > 0 && raw < cheapest;
+  const afterFloor = Math.max(raw, cheapest);
+  const minApplied = afterFloor < min;
+  const unit = round5(Math.max(afterFloor, min));
+
+  const between =
+    lo && hi
+      ? `בין ${sizeLabel(lo)} (${shekel(Math.round(lo.refPrice * f))}) לבין ${sizeLabel(hi)} (${shekel(Math.round(hi.refPrice * f))})`
+      : lo
+        ? `מעוגן ${sizeLabel(lo)} (${shekel(Math.round(lo.refPrice * f))})`
+        : `עקומה כללית`;
+
+  return {
+    unit,
+    total: unit,
+    basis: "line",
+    label: "מחיר לפי עקומת חזקה",
+    detail: `${between} · מעריך שטח ${b.toFixed(2)} · שטח מבוקש ${area.toFixed(3)} מ״ר${qty !== QTY_REF ? ` · מותאם ל־${qty.toLocaleString()} יח׳ (מקדם ${c})` : ""} = ${shekel(Math.round(raw))}`,
+    anchors: [lo, hi].filter((x): x is Anchor => !!x),
+    skipped,
+    mult: 1,
+    tier: null,
+    minApplied,
+    floorApplied,
+    base: raw,
+  };
+}
+
+
 export type ProductNote = {
   id: string;
   product_id: string;
