@@ -126,6 +126,7 @@ function matchNum(value: number | null | undefined, expr: string) {
 }
 
 type ColKey =
+  | "senzey_ids"
   | "name"
   | "family"
   | "senzey_group"
@@ -194,6 +195,7 @@ export function currentPrice(p: Product): number | null {
 }
 
 const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
+  senzey_ids: (p) => p.senzey_ids ?? "",
   name: (p) => p.name,
   family: (p) => p.family ?? "",
   senzey_group: (p) => p.senzey_group ?? "",
@@ -307,6 +309,7 @@ CURVE = out;
   const [showColFilters, setShowColFilters] = useState(true);
   const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
+    senzey_ids: true,
     name: true,
     family: true,
     senzey_group: false,
@@ -331,6 +334,7 @@ CURVE = out;
   });
 
   const baseWidths: Record<ColKey, number> = {
+    senzey_ids: 7,
     name: 22,
     family: 9,
     senzey_group: 8,
@@ -523,6 +527,7 @@ CURVE = out;
       if (!showClosed && isClosedOut(p)) return false;
 
       // per-column filters (Zoho-style)
+      if (!matchText(p.senzey_ids, colFilters.senzey_ids ?? "")) return false;
       if (!matchText(p.name, colFilters.name ?? "")) return false;
       if (!matchText(p.family, colFilters.family ?? "")) return false;
       if (!matchText(p.senzey_group, colFilters.senzey_group ?? "")) return false;
@@ -973,6 +978,11 @@ CURVE = out;
             <thead className="bg-[var(--ink)] text-white">
               <tr className="text-right">
                 <th className="w-[32px] px-2 py-2"></th>
+                {visibleCols.senzey_ids && (
+                  <th style={{ width: scaledWidths.senzey_ids }} className="px-2 py-2">
+                    <SortHead k="senzey_ids" label="מס׳ סנזיי" />
+                  </th>
+                )}
                 {visibleCols.name && (
                   <th style={{ width: scaledWidths.name }} className="px-2 py-2">
                     <SortHead k="name" label="שם" />
@@ -1083,6 +1093,16 @@ CURVE = out;
               {showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
                   <th className="px-2 pb-2"></th>
+                  {visibleCols.senzey_ids && (
+                    <th style={{ width: scaledWidths.senzey_ids }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("senzey_ids")}
+                        onChange={(e) => setCf("senzey_ids", e.target.value)}
+                        placeholder="מספר…"
+                      />
+                    </th>
+                  )}
                   {visibleCols.name && (
                     <th style={{ width: scaledWidths.name }} className="px-2 pb-2">
                       <input
@@ -1363,6 +1383,29 @@ CURVE = out;
                       onChange={() => toggle(p.id)}
                     />
                   </td>
+                  {visibleCols.senzey_ids && (
+                    <td
+                      style={{ width: scaledWidths.senzey_ids }}
+                      className="truncate px-2 py-1 font-mono text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {p.senzey_ids?.trim() ? (
+                        <button
+                          title="העתק מספר סנזיי"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(p.senzey_ids!).then(() => toast.success("מספר סנזיי הועתק"));
+                          }}
+                          className="flex w-full items-center gap-1 text-[var(--accent-raw)] hover:underline"
+                        >
+                          <span className="truncate">{p.senzey_ids}</span>
+                          <Copy className="size-3 shrink-0" />
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   {visibleCols.name && (
                     <td style={{ width: scaledWidths.name }} className="min-w-0 whitespace-normal break-words px-2 py-1 font-semibold" dir="rtl">
                       <span className="flex w-full items-start gap-1.5">
@@ -2036,6 +2079,7 @@ function Field({
 }
 
 const COLUMN_LABEL: Record<ColKey, string> = {
+  senzey_ids: "מספר סנזיי",
   name: "שם",
   family: "משפחה",
   senzey_group: "קבוצה בסנזיי",
@@ -2087,6 +2131,7 @@ function ColumnChooser({
               <button
                 onClick={() =>
                   onChange({
+                    senzey_ids: true,
                     name: true,
                     family: true,
                     senzey_group: false,
