@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ArrowUpDown } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
 import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,23 @@ import {
   type Product,
 } from "@/lib/mdvd";
 
+type SortKey =
+  | "name"
+  | "size"
+  | "area"
+  | "qty"
+  | "senzey"
+  | "final"
+  | "anchor"
+  | "current"
+  | "trial"
+  | "pin"
+  | "suggested"
+  | "diff";
+
+type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
+
+
 export const Route = createFileRoute("/calculator")({
   head: () => ({
     meta: [
@@ -33,6 +51,126 @@ export const Route = createFileRoute("/calculator")({
 
 const inputCls =
   "w-full border-b-2 border-[var(--ink)] bg-transparent px-2 py-2 outline-none focus:border-[var(--accent-raw)]";
+
+function SortHeader({
+  label,
+  sortKey,
+  current,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  current: SortState;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = current?.key === sortKey;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className={`flex w-full items-center justify-end gap-1 px-3 py-2 font-semibold text-white hover:bg-white/10 ${active ? "underline underline-offset-4" : ""}`}
+    >
+      {label}
+      <ArrowUpDown className={`size-3 ${active ? "opacity-100" : "opacity-60"}`} />
+    </button>
+  );
+}
+
+function sortFamilyItems(
+  items: { p: Product; w: number; h: number; area: number }[],
+  sort: SortState,
+) {
+  if (!sort) return items;
+  const dir = sort.dir === "asc" ? 1 : -1;
+  return [...items].sort((a, b) => {
+    let cmp = 0;
+    switch (sort.key) {
+      case "name":
+        cmp = a.p.name.localeCompare(b.p.name, "he");
+        break;
+      case "size":
+        cmp = a.area - b.area;
+        break;
+      case "area":
+        cmp = a.area - b.area;
+        break;
+      case "qty":
+        cmp = (a.p.qty ?? 1) - (b.p.qty ?? 1);
+        break;
+      case "senzey":
+        cmp = (a.p.senzey_price ?? 0) - (b.p.senzey_price ?? 0);
+        break;
+      case "final":
+        cmp = (a.p.final_price ?? 0) - (b.p.final_price ?? 0);
+        break;
+      case "anchor":
+        cmp = Number(!!a.p.is_anchor) - Number(!!b.p.is_anchor);
+        break;
+    }
+    return cmp * dir;
+  });
+}
+
+function sortSimItems(
+  items: {
+    p: Product;
+    w: number;
+    h: number;
+    area: number;
+    suggested: number;
+    current: number;
+    diff: number | null;
+  }[],
+  simPrice: Record<string, string>,
+  simPin: Record<string, boolean>,
+  sort: SortState,
+) {
+  if (!sort) return items;
+  const dir = sort.dir === "asc" ? 1 : -1;
+  return [...items].sort((a, b) => {
+    let cmp = 0;
+    switch (sort.key) {
+      case "name":
+        cmp = a.p.name.localeCompare(b.p.name, "he");
+        break;
+      case "size":
+        cmp = a.area - b.area;
+        break;
+      case "current":
+        cmp = a.current - b.current;
+        break;
+      case "trial": {
+        const av = simPrice[a.p.id] !== undefined ? Number(simPrice[a.p.id]) : a.current;
+        const bv = simPrice[b.p.id] !== undefined ? Number(simPrice[b.p.id]) : b.current;
+        cmp = av - bv;
+        break;
+      }
+      case "pin":
+        cmp = Number(!!(simPin[a.p.id] ?? a.p.is_anchor)) - Number(!!(simPin[b.p.id] ?? b.p.is_anchor));
+        break;
+      case "suggested":
+        cmp = a.suggested - b.suggested;
+        break;
+      case "diff":
+        cmp = (a.diff ?? Infinity) - (b.diff ?? Infinity);
+        break;
+    }
+    return cmp * dir;
+  });
+}
+
+function handleSortClick(
+  current: SortState,
+  setSort: (s: SortState) => void,
+  key: SortKey,
+) {
+  if (current?.key === key) {
+    setSort(current.dir === "asc" ? { key, dir: "desc" } : null);
+  } else {
+    setSort({ key, dir: "asc" });
+  }
+}
+
 
 function Calculator() {
   const nav = useNavigate();
@@ -49,6 +187,9 @@ function Calculator() {
   const [h, setH] = useState("");
   const [qty, setQty] = useState("1000");
   const [cInput, setCInput] = useState("");
+  const [famSort, setFamSort] = useState<SortState>(null);
+  const [simSort, setSimSort] = useState<SortState>(null);
+
 
   const fam = families.find((f) => f.family === family);
   const nw = Number(w) || 0;
@@ -159,9 +300,10 @@ function Calculator() {
 
   const filteredFamItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
-    if (!q) return famItems;
-    return famItems.filter(({ p }) => p.name.toLowerCase().includes(q));
-  }, [famItems, itemSearch]);
+    const filtered = q ? famItems.filter(({ p }) => p.name.toLowerCase().includes(q)) : famItems;
+    return sortFamilyItems(filtered, famSort);
+  }, [famItems, itemSearch, famSort]);
+
 
   const anchorKeys = useMemo(
     () => new Set(anchors.map((a) => `${a.w}x${a.h}`)),
@@ -215,9 +357,9 @@ function Calculator() {
   /** suggested price per family item under the experimental curve */
   const simSuggestions = useMemo(() => {
     if (!simOn || !fam || !simFit) return [];
-    return filteredFamItems
-      .filter((x) => x.w && x.h)
-      .map((x) => {
+    const items = filteredFamItems.map((x) => {
+      const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
+      if (x.w && x.h) {
         const itemQty = Math.max(1, Number(x.p.qty) || 1);
         const res = priceFromLine(
           simBuild.anchors,
@@ -229,11 +371,15 @@ function Calculator() {
           itemQty,
           c,
         );
-        const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
         const diff = current ? ((res.unit - current) / current) * 100 : null;
         return { ...x, suggested: res.unit, current, diff };
-      });
-  }, [simOn, fam, simFit, simBuild, filteredFamItems, c]);
+      }
+      return { ...x, suggested: 0, current, diff: null };
+    });
+    return sortSimItems(items, simPrice, simPin, simSort);
+  }, [simOn, fam, simFit, simBuild, filteredFamItems, c, simPrice, simPin, simSort]);
+
+
 
 
 
@@ -477,14 +623,29 @@ function Calculator() {
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[var(--ink)] text-white">
                       <tr className="text-right">
-                        <th className="px-3 py-2 font-semibold">שם</th>
-                        <th className="px-3 py-2 font-semibold">מידה</th>
-                        <th className="px-3 py-2 font-semibold">מ״ר</th>
-                        <th className="px-3 py-2 font-semibold">כמות</th>
-                        <th className="px-3 py-2 font-semibold">סנזיי</th>
-                        <th className="px-3 py-2 font-semibold">סופי</th>
-                        <th className="px-3 py-2 font-semibold">עוגן</th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="שם" sortKey="name" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="מידה" sortKey="size" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="מ״ר" sortKey="area" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="כמות" sortKey="qty" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="סנזיי" sortKey="senzey" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="סופי" sortKey="final" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
+                        <th className="px-0 py-0 font-semibold">
+                          <SortHeader label="עוגן" sortKey="anchor" current={famSort} onSort={(k) => handleSortClick(famSort, setFamSort, k)} />
+                        </th>
                       </tr>
+
                     </thead>
                     <tbody>
                       {filteredFamItems.map(({ p, w, h, area: a }, i) => (
@@ -584,32 +745,45 @@ function Calculator() {
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-[var(--ink)] text-white">
                         <tr className="text-right">
-                          <th className="px-3 py-2 font-semibold">שם</th>
-                          <th className="px-3 py-2 font-semibold">מידה</th>
-                          <th className="px-3 py-2 font-semibold">מחיר נוכחי</th>
-                          <th className="px-3 py-2 font-semibold">מחיר ניסוי</th>
-                          <th className="px-3 py-2 font-semibold">עוגן ניסיוני</th>
-                          <th className="px-3 py-2 font-semibold">הצעה מהעקומה</th>
-                          <th className="px-3 py-2 font-semibold">פער %</th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="שם" sortKey="name" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="מידה" sortKey="size" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="מחיר נוכחי" sortKey="current" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="מחיר ניסוי" sortKey="trial" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="עוגן ניסיוני" sortKey="pin" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="הצעה מהעקומה" sortKey="suggested" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
+                          <th className="px-0 py-0 font-semibold">
+                            <SortHeader label="פער %" sortKey="diff" current={simSort} onSort={(k) => handleSortClick(simSort, setSimSort, k)} />
+                          </th>
                         </tr>
+
                       </thead>
                       <tbody>
-                        {filteredFamItems.map(({ p, w: iw, h: ih }, i) => {
-                          const sug = simSuggestions.find((s) => s.p.id === p.id);
+                        {simSuggestions.map(({ p, w: iw, h: ih, suggested, current, diff }, i) => {
                           const pinned = simPin[p.id] ?? !!p.is_anchor;
-                          const cur = p.final_price ?? p.senzey_price;
                           return (
                             <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
                               <td className="px-3 py-1.5">{p.name}</td>
                               <td className="num px-3 py-1.5">
                                 {iw && ih ? `${iw}×${ih}` : "—"}
                               </td>
-                              <td className="num px-3 py-1.5">{shekel(cur)}</td>
+                              <td className="num px-3 py-1.5">{shekel(current)}</td>
                               <td className="px-3 py-1.5">
                                 <input
                                   className="num w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 py-0.5 outline-none focus:border-[var(--accent-raw)]"
                                   value={simPrice[p.id] ?? ""}
-                                  placeholder={cur != null ? String(cur) : "—"}
+                                  placeholder={current != null ? String(current) : "—"}
                                   onChange={(e) =>
                                     setSimPrice((s) => ({ ...s, [p.id]: e.target.value }))
                                   }
@@ -630,25 +804,26 @@ function Calculator() {
                                 </button>
                               </td>
                               <td className="num px-3 py-1.5 font-bold">
-                                {sug ? shekel(sug.suggested) : "—"}
+                                {iw && ih ? shekel(suggested) : "—"}
                               </td>
                               <td
                                 className={`num px-3 py-1.5 font-bold ${
-                                  sug?.diff == null
+                                  diff == null
                                     ? ""
-                                    : Math.abs(sug.diff) > 20
+                                    : Math.abs(diff) > 20
                                       ? "text-[oklch(0.5_0.2_25)]"
-                                      : Math.abs(sug.diff) > 5
+                                      : Math.abs(diff) > 5
                                         ? "text-[oklch(0.55_0.16_70)]"
                                         : "text-muted-foreground"
                                 }`}
                               >
-                                {sug?.diff == null ? "—" : `${sug.diff > 0 ? "+" : ""}${sug.diff.toFixed(0)}%`}
+                                {diff == null ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(0)}%`}
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
+
                     </table>
                   </div>
                 </>
