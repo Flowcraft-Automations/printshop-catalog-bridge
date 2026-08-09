@@ -1407,9 +1407,16 @@ CURVE = out;
                     </td>
                   )}
                   {visibleCols.name && (
-                    <td style={{ width: scaledWidths.name }} className="min-w-0 whitespace-normal break-words px-2 py-1 font-semibold" dir="rtl">
+                    <td style={{ width: scaledWidths.name }} className="min-w-0 whitespace-normal break-words px-2 py-1 font-semibold" dir="rtl" onClick={(e) => e.stopPropagation()}>
                       <span className="flex w-full items-start gap-1.5">
-                        <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight" title={p.name}>{p.name}</span>
+                        <span className="min-w-0 flex-1">
+                          <InlineEdit
+                            key={`nm-${p.id}-${p.name}`}
+                            value={p.name}
+                            className="whitespace-normal break-words leading-tight"
+                            onSave={(v) => v && update.mutate({ ids: [p.id], patch: { name: v } })}
+                          />
+                        </span>
                         <button
                           title="העתק שם"
                           onClick={(e) => {
@@ -1424,8 +1431,12 @@ CURVE = out;
                     </td>
                   )}
                   {visibleCols.family && (
-                    <td style={{ width: scaledWidths.family }} className="truncate px-2 py-1 text-muted-foreground">
-                      {p.family ?? "—"}
+                    <td style={{ width: scaledWidths.family }} className="truncate px-2 py-1 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                      <InlineEdit
+                        key={`fam-${p.id}-${p.family ?? ""}`}
+                        value={p.family}
+                        onSave={(v) => update.mutate({ ids: [p.id], patch: { family: v || null } })}
+                      />
                     </td>
                   )}
                   {visibleCols.senzey_group && (
@@ -1447,23 +1458,65 @@ CURVE = out;
                     </td>
                   )}
                   {visibleCols.size && (
-                    <td style={{ width: scaledWidths.size }} className="num truncate px-2 py-1">
-                      {p.width_cm && p.height_cm ? `${p.width_cm}×${p.height_cm}` : "—"}
+                    <td style={{ width: scaledWidths.size }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <span className="flex items-center gap-0.5" dir="ltr">
+                        <InlineEdit
+                          key={`w-${p.id}-${p.width_cm ?? ""}`}
+                          value={p.width_cm}
+                          numeric
+                          className="num"
+                          onSave={(v) =>
+                            update.mutate({ ids: [p.id], patch: { width_cm: v === "" ? null : Number(v) } })
+                          }
+                        />
+                        <span className="text-muted-foreground">×</span>
+                        <InlineEdit
+                          key={`h-${p.id}-${p.height_cm ?? ""}`}
+                          value={p.height_cm}
+                          numeric
+                          className="num"
+                          onSave={(v) =>
+                            update.mutate({ ids: [p.id], patch: { height_cm: v === "" ? null : Number(v) } })
+                          }
+                        />
+                      </span>
                     </td>
                   )}
                   {visibleCols.qty && (
-                    <td style={{ width: scaledWidths.qty }} className="num truncate px-2 py-1">
-                      {p.qty ?? 1}
+                    <td style={{ width: scaledWidths.qty }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <InlineEdit
+                        key={`q-${p.id}-${p.qty ?? ""}`}
+                        value={p.qty ?? 1}
+                        numeric
+                        className="num"
+                        onSave={(v) => update.mutate({ ids: [p.id], patch: { qty: v === "" ? null : Number(v) } })}
+                      />
                     </td>
                   )}
                   {visibleCols.senzey_price && (
-                    <td style={{ width: scaledWidths.senzey_price }} className="num truncate px-2 py-1">
-                      {shekel(p.senzey_price)}
+                    <td style={{ width: scaledWidths.senzey_price }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <InlineEdit
+                        key={`sp-${p.id}-${p.senzey_price ?? ""}`}
+                        value={p.senzey_price}
+                        numeric
+                        className="num"
+                        onSave={(v) =>
+                          update.mutate({ ids: [p.id], patch: { senzey_price: v === "" ? null : Number(v) } })
+                        }
+                      />
                     </td>
                   )}
                   {visibleCols.site_price && (
-                    <td style={{ width: scaledWidths.site_price }} className="num truncate px-2 py-1">
-                      {shekel(p.site_price)}
+                    <td style={{ width: scaledWidths.site_price }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      <InlineEdit
+                        key={`wp-${p.id}-${p.site_price ?? ""}`}
+                        value={p.site_price}
+                        numeric
+                        className="num"
+                        onSave={(v) =>
+                          update.mutate({ ids: [p.id], patch: { site_price: v === "" ? null : Number(v) } })
+                        }
+                      />
                     </td>
                   )}
                   {visibleCols.price_gap && (
