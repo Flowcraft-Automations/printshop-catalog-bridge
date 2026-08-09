@@ -357,9 +357,9 @@ function Calculator() {
   /** suggested price per family item under the experimental curve */
   const simSuggestions = useMemo(() => {
     if (!simOn || !fam || !simFit) return [];
-    const items = filteredFamItems
-      .filter((x) => x.w && x.h)
-      .map((x) => {
+    const items = filteredFamItems.map((x) => {
+      const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
+      if (x.w && x.h) {
         const itemQty = Math.max(1, Number(x.p.qty) || 1);
         const res = priceFromLine(
           simBuild.anchors,
@@ -371,12 +371,14 @@ function Calculator() {
           itemQty,
           c,
         );
-        const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
         const diff = current ? ((res.unit - current) / current) * 100 : null;
         return { ...x, suggested: res.unit, current, diff };
-      });
+      }
+      return { ...x, suggested: 0, current, diff: null };
+    });
     return sortSimItems(items, simPrice, simPin, simSort);
   }, [simOn, fam, simFit, simBuild, filteredFamItems, c, simPrice, simPin, simSort]);
+
 
 
 
