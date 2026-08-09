@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ArrowUpDown } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
 import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +19,23 @@ import {
   QTY_REF,
   type Product,
 } from "@/lib/mdvd";
+
+type SortKey =
+  | "name"
+  | "size"
+  | "area"
+  | "qty"
+  | "senzey"
+  | "final"
+  | "anchor"
+  | "current"
+  | "trial"
+  | "pin"
+  | "suggested"
+  | "diff";
+
+type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
+
 
 export const Route = createFileRoute("/calculator")({
   head: () => ({
