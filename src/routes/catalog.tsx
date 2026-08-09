@@ -527,6 +527,7 @@ CURVE = out;
       if (!showClosed && isClosedOut(p)) return false;
 
       // per-column filters (Zoho-style)
+      if (!matchText(p.senzey_ids, colFilters.senzey_ids ?? "")) return false;
       if (!matchText(p.name, colFilters.name ?? "")) return false;
       if (!matchText(p.family, colFilters.family ?? "")) return false;
       if (!matchText(p.senzey_group, colFilters.senzey_group ?? "")) return false;
