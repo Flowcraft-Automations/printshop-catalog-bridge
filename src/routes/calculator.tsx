@@ -10,10 +10,10 @@ import { familiesQuery, productsQuery } from "@/lib/queries";
 
 import {
   buildAnchors,
-  fitFamilyLine,
+  fitPowerCurve,
   fitQtyExponent,
   isClosedOut,
-  priceFromLine,
+  priceFromCurve,
   qtyFactor,
   shekel,
   DEFAULT_QTY_EXPONENT,
@@ -271,9 +271,9 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const fit = useMemo(() => fitFamilyLine(anchors), [anchors]);
+  const fit = useMemo(() => fitPowerCurve(anchors), [anchors]);
   const calc = useMemo(
-    () => priceFromLine(anchors, skipped, fam, fit, nw, nh, nq, c),
+    () => priceFromCurve(anchors, skipped, fam, fit, nw, nh, nq, c),
     [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
 
@@ -348,10 +348,10 @@ function Calculator() {
         : { anchors: [], skipped: 0, dropped: [], source: "all-items" as const },
     [simProducts, family, simOn, c],
   );
-  const simFit = useMemo(() => fitFamilyLine(simBuild.anchors), [simBuild.anchors]);
+  const simFit = useMemo(() => fitPowerCurve(simBuild.anchors), [simBuild.anchors]);
   const simCalc = useMemo(
     () =>
-      priceFromLine(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq, c),
+      priceFromCurve(simBuild.anchors, simBuild.skipped, fam, simFit, nw, nh, nq, c),
     [simBuild, fam, simFit, nw, nh, nq, c],
   );
 
@@ -362,7 +362,7 @@ function Calculator() {
       const current = Number(x.p.final_price ?? x.p.senzey_price ?? 0) || 0;
       if (x.w && x.h) {
         const itemQty = Math.max(1, Number(x.p.qty) || 1);
-        const res = priceFromLine(
+        const res = priceFromCurve(
           simBuild.anchors,
           simBuild.skipped,
           fam,
@@ -566,7 +566,7 @@ function Calculator() {
                       ? `העקומה נבנתה מ־${fit.count} עוגנים שסימנת`
                       : source === "single-anchor"
                         ? "העקומה נבנתה מעוגן יחיד שסימנת (הרחבה יחסית לשטח)"
-                        : `התאמה מ־${fit.count} עוגנים · סטייה ממוצעת ${fit.deviation.toFixed(0)}%`}
+                        : `התאמה מ־${fit.count} פריטים · מעריך ${fit.b.toFixed(2)} · סטייה ממוצעת ${fit.deviation.toFixed(0)}%`}
                     {calc.skipped > 0 ? ` · דילגנו על ${calc.skipped} חריגות` : ""}
                   </div>
                 ) : null}

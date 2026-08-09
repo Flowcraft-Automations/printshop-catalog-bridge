@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { shekel, type Anchor, type FamilyFit } from "@/lib/mdvd";
+import { curveRefPrice, shekel, type Anchor, type FamilyCurve } from "@/lib/mdvd";
 
 type Point = Anchor & {
   /** price rescaled to the requested bundle quantity (what the chart plots) */
@@ -72,7 +72,7 @@ export function CurveChart({
 }: {
   anchors: Anchor[];
   dropped: Anchor[];
-  fit: FamilyFit | null;
+  fit: FamilyCurve | null;
   requestedArea: number;
   requestedPrice: number;
   /** bundle quantity the chart is drawn for */
@@ -83,7 +83,10 @@ export function CurveChart({
   const { ok, warn, out, line, warnCount } = useMemo(() => {
     const toPoint = (a: Anchor, isDropped: boolean): Point => {
       const shown = a.refPrice * factor;
-      const f = fit ? (fit.base + fit.rate * a.area) * factor : shown;
+      const f =
+        fit || anchors.length
+          ? curveRefPrice(anchors, fit, a.area).ref * factor
+          : shown;
       const dev = (Math.abs(f - shown) / shown) * 100;
       return {
         ...a,
@@ -99,12 +102,15 @@ export function CurveChart({
     const areas = [...anchors, ...dropped].map((a) => a.area);
     const minA = areas.length ? Math.min(...areas) : 0;
     const maxA = areas.length ? Math.max(...areas, requestedArea || 0) : 1;
-    const ln = fit
-      ? [
-          { area: minA, lineY: (fit.base + fit.rate * minA) * factor },
-          { area: maxA, lineY: (fit.base + fit.rate * maxA) * factor },
-        ]
-      : [];
+    const ln =
+      fit || anchors.length
+        ? Array.from({ length: 41 }, (_, i) => {
+            const lo = Math.max(minA, 1e-4);
+            const hi = Math.max(maxA, lo * 1.001);
+            const area = lo * Math.pow(hi / lo, i / 40);
+            return { area, lineY: curveRefPrice(anchors, fit, area).ref * factor };
+          })
+        : [];
     return {
       ok: pts.filter((p) => p.kind === "ok"),
       warn: pts.filter((p) => p.kind === "warn"),
