@@ -126,6 +126,7 @@ function matchNum(value: number | null | undefined, expr: string) {
 }
 
 type ColKey =
+  | "senzey_ids"
   | "name"
   | "family"
   | "senzey_group"
