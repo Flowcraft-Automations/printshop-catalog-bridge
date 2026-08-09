@@ -185,7 +185,7 @@ function Calculator() {
   const [w, setW] = useState("");
 
   const [h, setH] = useState("");
-  const [qty, setQty] = useState("1000");
+  const [qty, setQty] = useState("1");
   const [cInput, setCInput] = useState("");
   const [famSort, setFamSort] = useState<SortState>(null);
   const [simSort, setSimSort] = useState<SortState>(null);
