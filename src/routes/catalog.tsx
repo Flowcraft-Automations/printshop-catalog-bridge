@@ -303,6 +303,7 @@ CURVE = out;
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
+  const [colorRows, setColorRows] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
   const [category, setCategory] = useState(categoryParam ?? "");
   const [presence, setPresence] = useState("");
