@@ -2040,6 +2040,7 @@ function Field({
 }
 
 const COLUMN_LABEL: Record<ColKey, string> = {
+  senzey_ids: "מספר סנזיי",
   name: "שם",
   family: "משפחה",
   senzey_group: "קבוצה בסנזיי",
