@@ -272,7 +272,7 @@ export type QtyExponentFit = {
 export function fitQtyExponent(products: Product[], family: string): QtyExponentFit {
   const groups = new Map<string, { qty: number; price: number }[]>();
   for (const p of products) {
-    if (p.family !== family) continue;
+    if (p.family !== family || isClosedOut(p)) continue;
     const w = Number(p.width_cm);
     const h = Number(p.height_cm);
     const qty = Number(p.qty);
