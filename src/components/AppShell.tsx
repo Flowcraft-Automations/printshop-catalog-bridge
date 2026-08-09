@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={n.to}
                 to={n.to}
-                activeOptions={{ exact: n.to === "/" }}
+                activeOptions={{ exact: false }}
                 className="px-3 py-1.5 text-sm font-semibold text-white/70 transition-colors hover:text-white"
                 activeProps={{ className: "!text-white bg-white/15" }}
               >
