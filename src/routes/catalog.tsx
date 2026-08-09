@@ -24,6 +24,7 @@ import {
   buildAnchors,
   displayFieldValue,
   fitFamilyLine,
+  isClosedOut,
   parseFieldValue,
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
