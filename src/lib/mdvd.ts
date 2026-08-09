@@ -153,6 +153,16 @@ export const STATUS_CLASS: Record<string, string> = {
   not_relevant: "bg-[oklch(0.95_0_0)] text-[oklch(0.6_0_0)] border-[oklch(0.9_0_0)]",
 };
 
+export const CLOSED_STATUSES = new Set(["deleted", "dup_deleted", "not_relevant"]);
+
+/** Both platforms are closed out (deleted / not relevant) — nothing left to price or flag. */
+export function isClosedOut(p: Product): boolean {
+  return (
+    CLOSED_STATUSES.has(p.senzey_status ?? "") &&
+    CLOSED_STATUSES.has(p.site_status ?? "")
+  );
+}
+
 export function shekel(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return "₪" + Number(n).toLocaleString("he-IL", { maximumFractionDigits: 2 });
