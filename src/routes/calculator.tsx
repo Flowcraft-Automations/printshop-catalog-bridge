@@ -67,6 +67,9 @@ function Calculator() {
   const [h, setH] = useState("");
   const [qty, setQty] = useState("1000");
   const [cInput, setCInput] = useState("");
+  const [famSort, setFamSort] = useState<SortState>(null);
+  const [simSort, setSimSort] = useState<SortState>(null);
+
 
   const fam = families.find((f) => f.family === family);
   const nw = Number(w) || 0;
