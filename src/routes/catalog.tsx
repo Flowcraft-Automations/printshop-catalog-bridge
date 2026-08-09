@@ -23,7 +23,8 @@ import {
   STATUS_LABEL,
   buildAnchors,
   displayFieldValue,
-  fitFamilyLine,
+  fitPowerCurve,
+  curveRefPrice,
   isClosedOut,
   parseFieldValue,
   qtyFactor,
@@ -256,7 +257,7 @@ function Catalog() {
         DEFAULT_QTY_EXPONENT;
       const { anchors } = buildAnchors(products, fam, c);
       if (anchors.length < 1) continue;
-      const fit = fitFamilyLine(anchors);
+      const fit = fitPowerCurve(anchors);
       if (!fit) continue;
       for (const p of products) {
         if ((p.family ?? "").trim() !== fam) continue;
@@ -272,7 +273,10 @@ function Catalog() {
         }
         const qty = Math.max(1, Number(p.qty) || 1);
         const suggested = round5(
-          Math.max((fit.base + fit.rate * ((w * h) / 10000)) * qtyFactor(qty, c), 0),
+          Math.max(
+            curveRefPrice(anchors, fit, (w * h) / 10000).ref * qtyFactor(qty, c),
+            0,
+          ),
         );
         if (suggested <= 0) continue;
         out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
