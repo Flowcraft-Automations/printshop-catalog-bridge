@@ -898,6 +898,14 @@ CURVE = out;
           />
           הצג גם נמחקים / לא רלוונטים
         </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+          <Switch
+            checked={colorRows}
+            onCheckedChange={(v) => setColorRows(v)}
+            aria-label="צביעת שורות"
+          />
+          צביעת שורות
+        </label>
         <button
           type="button"
           onClick={resetFilters}
