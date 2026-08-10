@@ -237,6 +237,8 @@ function Catalog() {
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: allNotes = [] } = useQuery(productNotesQuery());
   const { data: families = [] } = useQuery(familiesQuery());
+  const { data: bizCfg } = useQuery(businessConfigQuery());
+
 
   const notesByProduct = useMemo(() => {
     const map: Record<string, ProductNote[]> = {};
