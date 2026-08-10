@@ -98,7 +98,7 @@ export function CurveChart({
   overheadFactor?: number;
 }) {
 
-  const { ok, warn, out, line, costLine, warnCount } = useMemo(() => {
+  const { ok, warn, out, line, costLine, warnCount, thresholdArea } = useMemo(() => {
     const toPoint = (a: Anchor, isDropped: boolean): Point => {
       const shown = a.refPrice * factor;
       const f =
