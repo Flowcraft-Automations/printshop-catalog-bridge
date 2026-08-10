@@ -711,19 +711,17 @@ CURVE = out;
       return true;
     });
 
-    if (sort) {
-      const get = SORT_VALUE[sort.key];
-      const dir = sort.dir === "asc" ? 1 : -1;
-      out.sort((a, b) => {
-        const va = get(a);
-        const vb = get(b);
-        if (va == null && vb == null) return 0;
-        if (va == null) return 1;
-        if (vb == null) return -1;
-        if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
-        return String(va).localeCompare(String(vb), "he") * dir;
-      });
-    }
+    const get = SORT_VALUE[sort.key];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    out.sort((a, b) => {
+      const va = get(a);
+      const vb = get(b);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), "he") * dir;
+    });
     return out;
   }, [
     products,
