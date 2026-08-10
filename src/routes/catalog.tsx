@@ -779,7 +779,7 @@ CURVE = out;
     setCategory("");
     setPresence("");
     setColFilters({});
-    setSort(null);
+    setSort({ key: "size", dir: "asc" });
     setSelected(new Set());
     setLimit(200);
     navigate({ to: ".", search: {} });
