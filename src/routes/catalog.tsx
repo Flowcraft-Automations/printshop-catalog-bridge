@@ -1063,11 +1063,11 @@ CURVE = out;
             {activeColFilters > 0 && ` (${activeColFilters})`}
           </button>
           <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
-          {(activeColFilters > 0 || sort) && (
+          {(activeColFilters > 0 || sort.key !== "size" || sort.dir !== "asc") && (
             <button
               onClick={() => {
                 setColFilters({});
-                setSort(null);
+                setSort({ key: "size", dir: "asc" });
               }}
               className="underline"
             >
