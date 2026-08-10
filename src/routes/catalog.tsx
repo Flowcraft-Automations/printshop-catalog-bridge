@@ -344,7 +344,7 @@ const colInput =
 
 function Catalog() {
   const {
-    family: familyParam,
+    families: familiesParam,
     senzey_group: groupParam,
     site_category: categoryParam,
   } = Route.useSearch();
