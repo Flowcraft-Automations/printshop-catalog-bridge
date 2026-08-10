@@ -593,6 +593,74 @@ function Calculator() {
             </div>
           ) : null}
 
+          {family ? (
+            <div className="mt-4 border-2 border-dashed border-[var(--ink)] p-3">
+              <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    ₪ למ״ר
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={costInput}
+                    onChange={(e) => setCostInput(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    סף מיקור חוץ (מ״ר)
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={outAreaInput}
+                    onChange={(e) => setOutAreaInput(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    ₪ למ״ר במיקור חוץ
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={outCostInput}
+                    onChange={(e) => setOutCostInput(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    מקדם תקורה (×)
+                  </label>
+                  <input
+                    className={`${inputCls} num w-24`}
+                    value={ovhInput}
+                    onChange={(e) => setOvhInput(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={() => saveCosts.mutate()}
+                  className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
+                >
+                  שמור עלויות
+                </button>
+                <button
+                  onClick={() => saveOverhead.mutate(overhead)}
+                  className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+                >
+                  שמור תקורה
+                </button>
+                <p className="text-[11px] text-muted-foreground">
+                  תקורה ×{overhead} — מחיר חייב לכסות פי {overhead} מהעלות הישירה כדי לשאת עבודה
+                  והוצאות (₪{Number(bizCfg?.monthly_cost ?? 200000).toLocaleString()} חודשי מול ₪
+                  {Number(bizCfg?.monthly_revenue ?? 175000).toLocaleString()} מחזור).
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+
           {fam ? (
             <>
               <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-[var(--ink)] pt-4">
