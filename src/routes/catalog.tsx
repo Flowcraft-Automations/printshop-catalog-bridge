@@ -530,9 +530,7 @@ CURVE = out;
   const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
   const activeColFilters = Object.values(colFilters).filter((v) => (v ?? "").trim()).length;
   function toggleSort(k: ColKey) {
-    setSort((s) =>
-      s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : null,
-    );
+    setSort((s) => (s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : { key: k, dir: "asc" }));
   }
   function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
     const active = sort?.key === k;
