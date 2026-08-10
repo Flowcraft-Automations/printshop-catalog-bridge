@@ -774,7 +774,7 @@ CURVE = out;
 
   function resetFilters() {
     setQ("");
-    setFamily("");
+    setSelectedFamilies(new Set());
     setSenzeyStatus("");
     setSiteStatus("");
     setOnlyGap(false);
