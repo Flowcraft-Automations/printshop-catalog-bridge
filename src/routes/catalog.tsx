@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
 import {
   DEFAULT_OVERHEAD_FACTOR,
   FIELD_LABEL,
