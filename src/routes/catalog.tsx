@@ -19,6 +19,7 @@ import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQu
 import { useAuth } from "@/lib/auth";
 import {
   DEFAULT_OVERHEAD_FACTOR,
+  autoStatusFromPrice,
   FIELD_LABEL,
   STATUSES,
   STATUS_CLASS,
@@ -595,16 +596,43 @@ CURVE = out;
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
+      const stamp = new Date().toISOString();
+      const has = (k: string) => Object.prototype.hasOwnProperty.call(patch, k);
+      const priceChanged = has("final_price") || has("senzey_price") || has("site_price");
+      const statusGiven = has("senzey_status") || has("site_status");
+
+      // Changing prices re-derives each system's status (עלה / ירד / ללא שינוי),
+      // unless the caller explicitly set a status itself.
+      if (priceChanged && !statusGiven) {
+        let autoCount = 0;
+        for (const id of ids) {
+          const p = products.find((x) => x.id === id);
+          const merged = p ? ({ ...p, ...patch } as Product) : null;
+          const auto = merged
+            ? autoStatusFromPrice(merged, (merged.final_price ?? null) as number | null)
+            : {};
+          if (Object.keys(auto).length) autoCount++;
+          const { error } = await supabase
+            .from("products")
+            .update({ ...patch, ...auto, updated_at: stamp })
+            .eq("id", id);
+          if (error) throw error;
+        }
+        return { autoCount };
+      }
+
       const { error } = await supabase
         .from("products")
-        .update({ ...patch, updated_at: new Date().toISOString() })
+        .update({ ...patch, updated_at: stamp })
         .in("id", ids);
       if (error) throw error;
+      return { autoCount: 0 };
     },
-    onSuccess: () => {
+
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product-history"] });
-      toast.success("עודכן");
+      toast.success(res?.autoCount ? "עודכן — הסטטוסים חושבו מחדש לפי המחיר" : "עודכן");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2197,8 +2225,12 @@ function EditDrawer({
               final_price: f.final_price,
               senzey_ids: f.senzey_ids,
               senzey_dup_count: f.senzey_dup_count,
-              senzey_status: f.senzey_status,
-              site_status: f.site_status,
+              // Only send statuses that were actually touched, so a price-only
+              // save lets the system derive them automatically.
+              ...(f.senzey_status !== product.senzey_status
+                ? { senzey_status: f.senzey_status }
+                : {}),
+              ...(f.site_status !== product.site_status ? { site_status: f.site_status } : {}),
               site_url: f.site_url,
               senzey_group: f.senzey_group ?? null,
               site_category: f.site_category ?? null,

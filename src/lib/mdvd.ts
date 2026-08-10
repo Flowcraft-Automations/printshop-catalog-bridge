@@ -257,6 +257,38 @@ export function priceGap(p: Product): number | null {
   return Number(p.site_price) - Number(p.senzey_price);
 }
 
+/**
+ * When the final price changes, derive the per-system status automatically:
+ * higher than that system's current price → "עלה", lower → "ירד", equal → "ללא שינוי".
+ * Systems that are closed out (נמחק / לא רלוונטי / כפילות נמחקה) or have no price are left alone.
+ */
+export function autoStatusFromPrice(
+  p: Product,
+  newFinal: number | null,
+): { senzey_status?: string; site_status?: string } {
+  const patch: { senzey_status?: string; site_status?: string } = {};
+  if (newFinal === null || newFinal === undefined || Number.isNaN(newFinal)) return patch;
+
+  const decide = (ref: unknown): string | null => {
+    if (ref === null || ref === undefined || ref === "") return null;
+    const r = Number(ref);
+    if (!Number.isFinite(r)) return null;
+    const d = newFinal - r;
+    if (Math.abs(d) < 0.01) return "exists";
+    return d > 0 ? "increased" : "decreased";
+  };
+
+  if (!CLOSED_STATUSES.has(p.senzey_status ?? "")) {
+    const s = decide(p.senzey_price);
+    if (s && s !== p.senzey_status) patch.senzey_status = s;
+  }
+  if (!CLOSED_STATUSES.has(p.site_status ?? "")) {
+    const s = decide(p.site_price);
+    if (s && s !== p.site_status) patch.site_status = s;
+  }
+  return patch;
+}
+
 export function shekel(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return "₪" + Number(n).toLocaleString("he-IL", { maximumFractionDigits: 2 });
