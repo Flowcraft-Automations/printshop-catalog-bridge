@@ -15,17 +15,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
+import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import {
+  DEFAULT_OVERHEAD_FACTOR,
   FIELD_LABEL,
   STATUSES,
   STATUS_CLASS,
   STATUS_LABEL,
   buildAnchors,
+  costFloor,
   displayFieldValue,
   fitPowerCurve,
   curveRefPrice,
   isClosedOut,
+  jobCost,
+
   parseFieldValue,
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
