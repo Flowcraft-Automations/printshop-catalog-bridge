@@ -37,9 +37,9 @@ const PRODUCT_COLS = [
   "final_price",
   "senzey_status",
   "site_status",
-  "anomaly",
   "notes",
   "source",
+
   "senzey_group",
   "site_category",
   "competitor_price",
@@ -75,9 +75,9 @@ function normalizeProduct(r: Row) {
     final_price: num(r['final_price']),
     senzey_status: str(r['senzey_status']) ?? "to_review",
     site_status: str(r['site_status']) ?? "to_review",
-    anomaly: str(r['anomaly']),
     notes: str(r['notes']),
     source: str(r['source']) ?? "import",
+
     senzey_group: text(r['senzey_group']),
     site_category: text(r['site_category']),
     competitor_price: num(r['competitor_price']),
