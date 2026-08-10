@@ -1607,12 +1607,13 @@ CURVE = out;
                     </td>
                   )}
                   {visibleCols.size && (
-                    <td style={{ width: scaledWidths.size }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                    <td style={{ width: scaledWidths.size }} className="num px-2 py-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <span className="flex items-center gap-0.5" dir="ltr">
                         <InlineEdit
                           key={`w-${p.id}-${p.width_cm ?? ""}`}
                           value={p.width_cm}
                           numeric
+                          fit
                           className="num"
                           onSave={(v) =>
                             update.mutate({ ids: [p.id], patch: { width_cm: v === "" ? null : Number(v) } })
@@ -1623,6 +1624,7 @@ CURVE = out;
                           key={`h-${p.id}-${p.height_cm ?? ""}`}
                           value={p.height_cm}
                           numeric
+                          fit
                           className="num"
                           onSave={(v) =>
                             update.mutate({ ids: [p.id], patch: { height_cm: v === "" ? null : Number(v) } })
