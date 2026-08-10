@@ -410,7 +410,7 @@ CURVE = out;
     family: 9,
     senzey_group: 8,
     site_category: 8,
-    size: 6,
+    size: 8,
     qty: 4,
     senzey_price: 7,
     site_price: 7,
@@ -1607,12 +1607,13 @@ CURVE = out;
                     </td>
                   )}
                   {visibleCols.size && (
-                    <td style={{ width: scaledWidths.size }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                    <td style={{ width: scaledWidths.size }} className="num px-2 py-1 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <span className="flex items-center gap-0.5" dir="ltr">
                         <InlineEdit
                           key={`w-${p.id}-${p.width_cm ?? ""}`}
                           value={p.width_cm}
                           numeric
+                          fit
                           className="num"
                           onSave={(v) =>
                             update.mutate({ ids: [p.id], patch: { width_cm: v === "" ? null : Number(v) } })
@@ -1623,6 +1624,7 @@ CURVE = out;
                           key={`h-${p.id}-${p.height_cm ?? ""}`}
                           value={p.height_cm}
                           numeric
+                          fit
                           className="num"
                           onSave={(v) =>
                             update.mutate({ ids: [p.id], patch: { height_cm: v === "" ? null : Number(v) } })
@@ -2444,12 +2446,15 @@ function InlineEdit({
   numeric,
   placeholder = "—",
   className = "",
+  fit,
 }: {
   value: string | number | null | undefined;
   onSave: (v: string) => void;
   numeric?: boolean;
   placeholder?: string;
   className?: string;
+  /** size to content instead of filling the cell (used by the size column) */
+  fit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const initial = value == null || value === "" ? "" : String(value);
@@ -2465,7 +2470,7 @@ function InlineEdit({
           setEditing(true);
         }}
         title="לחץ לעריכה"
-        className={`w-full cursor-text truncate border-b border-dashed border-transparent text-start hover:border-muted-foreground ${className}`}
+        className={`${fit ? "w-auto shrink-0 whitespace-nowrap" : "w-full truncate"} cursor-text border-b border-dashed border-transparent text-start hover:border-muted-foreground ${className}`}
       >
         {initial || <span className="text-muted-foreground">{placeholder}</span>}
       </button>
