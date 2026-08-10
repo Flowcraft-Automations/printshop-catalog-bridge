@@ -154,10 +154,10 @@ type ColKey =
   | "senzey_status"
   | "site_status"
   | "site_url"
-  | "flags"
   | "notes"
   | "verified"
   | "is_anchor";
+
 
 let NOTE_TEXT: Record<string, string> = {};
 function noteTextOf(id: string) {
