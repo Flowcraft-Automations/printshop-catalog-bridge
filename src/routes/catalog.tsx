@@ -46,14 +46,22 @@ import {
 
 
 type Search = {
-  family?: string | undefined;
+  families?: string | undefined;
   senzey_group?: string | undefined;
   site_category?: string | undefined;
 };
 
+function parseSearchFamilies(s: Record<string, unknown>): string[] {
+  const raw = s['families'] ?? s['family'];
+  if (typeof raw === "string" && raw.trim()) {
+    return raw.split(",").map((x) => x.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export const Route = createFileRoute("/catalog")({
   validateSearch: (s: Record<string, unknown>): Search => ({
-    family: typeof s['family'] === "string" ? (s['family'] as string) : undefined,
+    families: parseSearchFamilies(s).join(",") || undefined,
     senzey_group: typeof s['senzey_group'] === "string" ? (s['senzey_group'] as string) : undefined,
     site_category:
       typeof s['site_category'] === "string" ? (s['site_category'] as string) : undefined,
@@ -97,19 +105,18 @@ function StatusSelect({
 
 const EMPTY = "__empty__";
 
-function FamilyPicker({
-  value,
+function FamilyMultiPicker({
+  selected,
   families,
   onChange,
 }: {
-  value: string;
+  selected: Set<string>;
   families: { family: string }[];
-  onChange: (f: string) => void;
+  onChange: (s: Set<string>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
-  const selected = families.find((f) => f.family === value);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -125,6 +132,29 @@ function FamilyPicker({
     return families.filter((f) => f.family.toLowerCase().includes(qf));
   }, [families, q]);
 
+  const allSelected = families.length > 0 && families.every((f) => selected.has(f.family));
+
+  function toggle(family: string) {
+    const next = new Set(selected);
+    if (next.has(family)) next.delete(family);
+    else next.add(family);
+    onChange(next);
+  }
+
+  function selectAll() {
+    onChange(new Set(families.map((f) => f.family)));
+  }
+
+  function clearAll() {
+    onChange(new Set());
+  }
+
+  const label = selected.size === 0
+    ? "כל המשפחות"
+    : selected.size === 1
+      ? [...selected][0]
+      : `${selected.size} משפחות נבחרו`;
+
   return (
     <div ref={wrapRef} className="relative">
       <button
@@ -132,18 +162,26 @@ function FamilyPicker({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-bold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]"
       >
-        {selected ? (
+        {selected.size === 1 ? (
           <span
             className="inline-block size-3 shrink-0 rounded-full"
-            style={{ background: familyColor(selected.family) }}
+            style={{ background: familyColor([...selected][0]!) }}
           />
         ) : (
-          <span className="inline-block size-3 shrink-0 rounded-full bg-muted-foreground" />
+          <span className="inline-flex -space-x-1">
+            {[...selected].slice(0, 3).map((f) => (
+              <span
+                key={f}
+                className="inline-block size-3 rounded-full border border-card"
+                style={{ background: familyColor(f) }}
+              />
+            ))}
+          </span>
         )}
-        <span className="truncate">{value || "כל המשפחות"}</span>
+        <span className="truncate">{label}</span>
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 w-64 border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]">
+        <div className="absolute z-30 mt-1 w-72 border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]">
           <div className="border-b border-[var(--ink)] p-2">
             <input
               autoFocus
@@ -153,32 +191,31 @@ function FamilyPicker({
               className="w-full border-b-2 border-[var(--ink)] bg-transparent px-1 py-1 text-sm outline-none focus:border-[var(--accent-raw)]"
             />
           </div>
-          <div className="max-h-60 overflow-y-auto p-1">
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setQ("");
-                setOpen(false);
-              }}
-              className={`flex w-full items-center gap-2 px-2 py-1.5 text-right text-sm hover:bg-[var(--surface-deep)] ${value === "" ? "bg-[var(--surface-deep)] font-bold" : ""}`}
-            >
-              <span className="inline-block size-3 shrink-0 rounded-full bg-muted-foreground" />
-              כל המשפחות
+          <div className="flex items-center justify-between border-b border-[var(--ink)] px-2 py-1.5 text-xs">
+            <button type="button" onClick={selectAll} className="font-bold hover:underline">
+              בחר הכל
             </button>
+            <button type="button" onClick={clearAll} className="font-bold hover:underline">
+              נקה הכל
+            </button>
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1">
             {filtered.map((f) => {
               const color = familyColor(f.family);
+              const isSelected = selected.has(f.family);
               return (
                 <button
                   key={f.family}
                   type="button"
-                  onClick={() => {
-                    onChange(f.family);
-                    setQ("");
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-right text-sm hover:bg-[var(--surface-deep)] ${value === f.family ? "bg-[var(--surface-deep)] font-bold" : ""}`}
+                  onClick={() => toggle(f.family)}
+                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-right text-sm hover:bg-[var(--surface-deep)] ${isSelected ? "bg-[var(--surface-deep)] font-bold" : ""}`}
                 >
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={isSelected}
+                    className="pointer-events-none size-4 accent-[var(--accent-raw)]"
+                  />
                   <span
                     className="inline-block size-3 shrink-0 rounded-full"
                     style={{ background: color }}
@@ -336,7 +373,7 @@ const colInput =
 
 function Catalog() {
   const {
-    family: familyParam,
+    families: familiesParam,
     senzey_group: groupParam,
     site_category: categoryParam,
   } = Route.useSearch();
@@ -435,7 +472,9 @@ CURVE = out;
   const navigate = useNavigate({ from: "/catalog" });
 
   const [q, setQ] = useState("");
-  const [family, setFamily] = useState(familyParam ?? "");
+  const [selectedFamilies, setSelectedFamilies] = useState<Set<string>>(
+    new Set(familiesParam ? familiesParam.split(",").map((x: string) => x.trim()).filter(Boolean) : []),
+  );
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [onlyGap, setOnlyGap] = useState(false);
@@ -644,7 +683,7 @@ CURVE = out;
           .join(" ");
         if (!haystack.includes(qNorm)) return false;
       }
-      if (family && (p.family ?? "") !== family) return false;
+      if (selectedFamilies.size > 0 && !selectedFamilies.has(p.family ?? "")) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
       if (onlyGap) {
@@ -727,7 +766,7 @@ CURVE = out;
     products,
     notesByProduct,
     q,
-    family,
+    selectedFamilies,
     senzeyStatus,
     siteStatus,
     onlyGap,
@@ -764,7 +803,7 @@ CURVE = out;
 
   function resetFilters() {
     setQ("");
-    setFamily("");
+    setSelectedFamilies(new Set());
     setSenzeyStatus("");
     setSiteStatus("");
     setOnlyGap(false);
@@ -877,7 +916,15 @@ CURVE = out;
             className={`${inputCls} min-w-[260px] flex-1`}
           />
           <div className="min-w-[220px] flex-1">
-            <FamilyPicker value={family} families={families} onChange={setFamily} />
+            <FamilyMultiPicker
+              selected={selectedFamilies}
+              families={families}
+              onChange={(next) => {
+                setSelectedFamilies(next);
+                const qs = [...next].join(",");
+                navigate({ to: ".", search: { families: qs || undefined, senzey_group: groupParam, site_category: categoryParam } });
+              }}
+            />
           </div>
           <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
             <Switch
