@@ -2223,8 +2223,12 @@ function EditDrawer({
               final_price: f.final_price,
               senzey_ids: f.senzey_ids,
               senzey_dup_count: f.senzey_dup_count,
-              senzey_status: f.senzey_status,
-              site_status: f.site_status,
+              // Only send statuses that were actually touched, so a price-only
+              // save lets the system derive them automatically.
+              ...(f.senzey_status !== product.senzey_status
+                ? { senzey_status: f.senzey_status }
+                : {}),
+              ...(f.site_status !== product.site_status ? { site_status: f.site_status } : {}),
               site_url: f.site_url,
               senzey_group: f.senzey_group ?? null,
               site_category: f.site_category ?? null,
