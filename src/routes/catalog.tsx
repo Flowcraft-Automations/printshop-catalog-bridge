@@ -923,7 +923,7 @@ CURVE = out;
               onChange={(next) => {
                 setSelectedFamilies(next);
                 const qs = [...next].join(",");
-                navigate({ to: ".", search: (s) => ({ ...s, families: qs || undefined }) });
+                navigate({ to: ".", search: { families: qs || undefined, senzey_group: groupParam, site_category: categoryParam } });
               }}
             />
           </div>
