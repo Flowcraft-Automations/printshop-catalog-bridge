@@ -109,7 +109,8 @@ export type Family = {
   qty_discounts: QtyDiscount[] | null;
   qty_exponent?: number | null;
   cost_per_m2?: number | null;
-  outsource_area_m2?: number | null;
+  outsource_width_cm?: number | null;
+  outsource_height_cm?: number | null;
   outsource_cost_per_m2?: number | null;
   notes: string | null;
 };
@@ -128,23 +129,35 @@ export type JobCost = {
   ratePerM2: number;
   directCost: number;
   outsourced: boolean;
-  threshold: number | null;
+  thresholdW: number | null;
+  thresholdH: number | null;
   hasCost: boolean;
 };
 
-/** Direct material + print cost of a job, switching to the outsourcing rate above the family threshold. */
+/** Direct material + print cost of a job, switching to the outsourcing rate when both dimensions pass the family threshold. */
 export function jobCost(
   family: Family | undefined,
-  area: number,
+  w: number,
+  h: number,
   qty: number,
 ): JobCost {
   const base = Number(family?.cost_per_m2 ?? 0) || 0;
-  const threshold =
-    family?.outsource_area_m2 != null && Number(family.outsource_area_m2) > 0
-      ? Number(family.outsource_area_m2)
+  const thresholdW =
+    family?.outsource_width_cm != null && Number(family.outsource_width_cm) > 0
+      ? Number(family.outsource_width_cm)
+      : null;
+  const thresholdH =
+    family?.outsource_height_cm != null && Number(family.outsource_height_cm) > 0
+      ? Number(family.outsource_height_cm)
       : null;
   const outRate = Number(family?.outsource_cost_per_m2 ?? 0) || 0;
-  const outsourced = threshold != null && area > threshold && outRate > 0;
+  const area = (w * h) / 10000;
+  const outsourced =
+    thresholdW != null &&
+    thresholdH != null &&
+    w >= thresholdW &&
+    h >= thresholdH &&
+    outRate > 0;
   const ratePerM2 = outsourced ? outRate : base;
   const units = qty > 0 ? qty : 1;
   return {
@@ -152,7 +165,8 @@ export function jobCost(
     ratePerM2,
     directCost: area * ratePerM2 * units,
     outsourced,
-    threshold,
+    thresholdW,
+    thresholdH,
     hasCost: ratePerM2 > 0 && area > 0,
   };
 }
