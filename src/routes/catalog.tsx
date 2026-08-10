@@ -46,14 +46,22 @@ import {
 
 
 type Search = {
-  family?: string | undefined;
+  families?: string | undefined;
   senzey_group?: string | undefined;
   site_category?: string | undefined;
 };
 
+function parseSearchFamilies(s: Record<string, unknown>): string[] {
+  const raw = s['families'] ?? s['family'];
+  if (typeof raw === "string" && raw.trim()) {
+    return raw.split(",").map((x) => x.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export const Route = createFileRoute("/catalog")({
   validateSearch: (s: Record<string, unknown>): Search => ({
-    family: typeof s['family'] === "string" ? (s['family'] as string) : undefined,
+    families: parseSearchFamilies(s).join(",") || undefined,
     senzey_group: typeof s['senzey_group'] === "string" ? (s['senzey_group'] as string) : undefined,
     site_category:
       typeof s['site_category'] === "string" ? (s['site_category'] as string) : undefined,
