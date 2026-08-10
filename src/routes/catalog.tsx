@@ -620,8 +620,8 @@ CURVE = out;
       if (colFilters.site_status && p.site_status !== colFilters.site_status) return false;
       if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
       if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
-      if (!matchText(`${activeAnomaly(p)} ${noteTextOf(p.id)}`, colFilters.flags ?? "")) return false;
       if (!matchText(noteTextOf(p.id), colFilters.notes ?? "")) return false;
+
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
       if (colFilters.is_anchor === "yes" && !p.is_anchor) return false;
@@ -1172,16 +1172,12 @@ CURVE = out;
                     קישור
                   </th>
                 )}
-                {visibleCols.flags && (
-                  <th style={{ width: scaledWidths.flags }} className="px-2 py-2 font-semibold">
-                    סימונים
-                  </th>
-                )}
                 {visibleCols.notes && (
                   <th style={{ width: scaledWidths.notes }} className="px-2 py-2">
                     <SortHead k="notes" label="הערות" />
                   </th>
                 )}
+
                 {visibleCols.verified && (
                   <th style={{ width: scaledWidths.verified }} className="px-2 py-2 text-center">
                     <SortHead k="verified" label="אומת" className="mx-auto" />
@@ -1435,16 +1431,6 @@ CURVE = out;
                       </select>
                     </th>
                   )}
-                  {visibleCols.flags && (
-                    <th style={{ width: scaledWidths.flags }} className="px-2 pb-2">
-                      <input
-                        className={colInput}
-                        value={cf("flags")}
-                        onChange={(e) => setCf("flags", e.target.value)}
-                        placeholder="חריגה/הערה…"
-                      />
-                    </th>
-                  )}
                   {visibleCols.notes && (
                     <th style={{ width: scaledWidths.notes }} className="px-2 pb-2">
                       <input
@@ -1455,6 +1441,7 @@ CURVE = out;
                       />
                     </th>
                   )}
+
                   {visibleCols.verified && (
                     <th style={{ width: scaledWidths.verified }} className="px-2 pb-2">
                       <select
@@ -1862,25 +1849,8 @@ CURVE = out;
                       )}
                     </td>
                   )}
-                  {visibleCols.flags && (
-                    <td style={{ width: scaledWidths.flags }} className="truncate whitespace-nowrap px-2 py-1">
-                      {activeAnomaly(p) && (
-                        <span
-                          title={activeAnomaly(p)}
-                          className="me-1 border border-destructive bg-[oklch(0.95_0.05_25)] px-1.5 py-0.5 text-[11px] font-bold text-destructive"
-                        >
-                          חריגה
-                        </span>
-                      )}
-                      {!isClosedOut(p) && (p.senzey_dup_count ?? 0) > 1 && (
-                        <span className="border border-[oklch(0.6_0.14_50)] bg-[oklch(0.95_0.05_60)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.45_0.14_50)]">
-                          כפילות ×{p.senzey_dup_count}
-                        </span>
-                      )}
-
-                    </td>
-                  )}
                   {visibleCols.notes && (
+
                     <td
                       style={{ width: scaledWidths.notes }}
                       className="px-2 py-1 text-center"
