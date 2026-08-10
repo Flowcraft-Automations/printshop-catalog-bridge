@@ -791,7 +791,7 @@ function Calculator() {
                       width: nw,
                       height: nh,
                       qty: nq,
-                      price: calc.unit,
+                      price: effectivePrice,
                     },
                   })
                 }
