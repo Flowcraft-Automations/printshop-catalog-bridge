@@ -23,6 +23,7 @@ import {
   STATUSES,
   STATUS_CLASS,
   STATUS_LABEL,
+  activeAnomaly,
   buildAnchors,
   costFloor,
   displayFieldValue,
@@ -30,8 +31,8 @@ import {
   curveRefPrice,
   isClosedOut,
   jobCost,
-
   parseFieldValue,
+  priceGap,
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
   shekel,
@@ -40,6 +41,7 @@ import {
   type ProductHistory,
   type ProductNote,
 } from "@/lib/mdvd";
+
 
 type Search = {
   family?: string | undefined;
