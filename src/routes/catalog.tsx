@@ -2309,11 +2309,11 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   senzey_status: "סטטוס סנזיי",
   site_status: "סטטוס אתר",
   site_url: "קישור",
-  flags: "סימונים",
   notes: "הערות",
   verified: "אומת",
   is_anchor: "עוגן",
 };
+
 
 function ColumnChooser({
   visible,
@@ -2363,11 +2363,11 @@ function ColumnChooser({
                     senzey_status: true,
                     site_status: true,
                     site_url: true,
-                    flags: true,
                     notes: true,
                     verified: true,
                     is_anchor: true,
                   })
+
                 }
                 className="underline"
               >
