@@ -627,10 +627,10 @@ CURVE = out;
       return { autoCount: 0 };
     },
 
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product-history"] });
-      toast.success("עודכן");
+      toast.success(res?.autoCount ? "עודכן — הסטטוסים חושבו מחדש לפי המחיר" : "עודכן");
     },
     onError: (e: Error) => toast.error(e.message),
   });
