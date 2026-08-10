@@ -443,7 +443,9 @@ CURVE = out;
   const navigate = useNavigate({ from: "/catalog" });
 
   const [q, setQ] = useState("");
-  const [family, setFamily] = useState(familyParam ?? "");
+  const [selectedFamilies, setSelectedFamilies] = useState<Set<string>>(
+    new Set(familiesParam ? familiesParam.split(",").map((x) => x.trim()).filter(Boolean) : []),
+  );
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [onlyGap, setOnlyGap] = useState(false);
