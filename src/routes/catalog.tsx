@@ -338,9 +338,9 @@ CURVE = out;
   const familyWrapRef = useRef<HTMLDivElement>(null);
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
-  const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
   const [onlyOutsource, setOnlyOutsource] = useState(false);
 
@@ -564,13 +564,12 @@ CURVE = out;
       if (family && (p.family ?? "") !== family) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
-      if (onlyAnomaly && !activeAnomaly(p)) return false;
       if (onlyGap) {
         const g = priceGap(p);
-        const flagged = `${activeAnomaly(p)} ${noteTextOf(p.id)}`.includes("פער מחיר");
-        if (!flagged && !(g !== null && Math.abs(g) > 0.009)) return false;
+        if (!(g !== null && Math.abs(g) > 0.009)) return false;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+
       if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
       if (onlyOutsource && !floorByProduct[p.id]?.aboveThreshold) return false;
 
