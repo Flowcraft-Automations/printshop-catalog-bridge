@@ -368,6 +368,7 @@ CURVE = out;
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
+  const { isAdmin } = useAuth();
   const [showClosed, setShowClosed] = useState(false);
   const [colorRows, setColorRows] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
@@ -682,6 +683,7 @@ CURVE = out;
     onlyCurveOut,
     curveByProduct,
     showClosed,
+    isAdmin,
     group,
     category,
     presence,
@@ -991,7 +993,7 @@ CURVE = out;
           />
           רק חריגים מהעקומה
         </label>
-        <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+        <label className={`${isAdmin ? "flex" : "hidden"} cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]`}>
           <Switch
             checked={showClosed}
             onCheckedChange={(v) => setShowClosed(v)}
