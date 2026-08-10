@@ -1,6 +1,26 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Family, Product, ProductHistory, ProductNote } from "./mdvd";
+import type { BusinessConfig, Family, Product, ProductHistory, ProductNote } from "./mdvd";
+
+export const businessConfigQuery = () =>
+  queryOptions({
+    queryKey: ["business-config"],
+    queryFn: async (): Promise<BusinessConfig> => {
+      const { data, error } = await supabase
+        .from("business_config")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? {
+        id: 1,
+        monthly_cost: 200000,
+        monthly_revenue: 175000,
+        overhead_factor: 2,
+      }) as unknown as BusinessConfig;
+    },
+  });
+
 
 export const productHistoryQuery = (productId: string) =>
   queryOptions({
