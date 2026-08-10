@@ -322,7 +322,8 @@ function Calculator() {
         .from("families")
         .update({
           cost_per_m2: Number(costInput) || 0,
-          outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+          outsource_width_cm: outWInput === "" ? null : Number(outWInput),
+          outsource_height_cm: outHInput === "" ? null : Number(outHInput),
           outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
         })
         .eq("family", family);
@@ -609,7 +610,7 @@ function Calculator() {
           {family ? (
             <div className="mt-4 border-2 border-dashed border-[var(--ink)] p-3">
               <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                     ₪ למ״ר
@@ -622,12 +623,22 @@ function Calculator() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    סף מיקור חוץ (מ״ר)
+                    סף רוחב (ס״מ)
                   </label>
                   <input
                     className={`${inputCls} num`}
-                    value={outAreaInput}
-                    onChange={(e) => setOutAreaInput(e.target.value)}
+                    value={outWInput}
+                    onChange={(e) => setOutWInput(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    סף גובה (ס״מ)
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={outHInput}
+                    onChange={(e) => setOutHInput(e.target.value)}
                   />
                 </div>
                 <div>
