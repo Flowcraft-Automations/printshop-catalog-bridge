@@ -6,20 +6,24 @@ import { ArrowUpDown } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
 import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productsQuery } from "@/lib/queries";
+import { businessConfigQuery, familiesQuery, productsQuery } from "@/lib/queries";
 
 import {
   buildAnchors,
+  costFloor,
   fitPowerCurve,
   fitQtyExponent,
   isClosedOut,
+  jobCost,
   priceFromCurve,
   qtyFactor,
   shekel,
+  DEFAULT_OVERHEAD_FACTOR,
   DEFAULT_QTY_EXPONENT,
   QTY_REF,
   type Product,
 } from "@/lib/mdvd";
+
 
 type SortKey =
   | "name"
