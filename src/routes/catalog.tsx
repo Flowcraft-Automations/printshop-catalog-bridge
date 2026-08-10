@@ -1570,13 +1570,23 @@ CURVE = out;
                   )}
                   {visibleCols.family && (
                     <td style={{ width: scaledWidths.family }} className="truncate px-2 py-1 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                      <InlineEdit
-                        key={`fam-${p.id}-${p.family ?? ""}`}
-                        value={p.family}
-                        onSave={(v) => update.mutate({ ids: [p.id], patch: { family: v || null } })}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        {p.family && (
+                          <span
+                            className="inline-block size-2.5 shrink-0 rounded-full"
+                            style={{ background: familyColor(p.family) }}
+                            title={p.family}
+                          />
+                        )}
+                        <InlineEdit
+                          key={`fam-${p.id}-${p.family ?? ""}`}
+                          value={p.family}
+                          onSave={(v) => update.mutate({ ids: [p.id], patch: { family: v || null } })}
+                        />
+                      </div>
                     </td>
                   )}
+
                   {visibleCols.senzey_group && (
                     <td
                       style={{ width: scaledWidths.senzey_group }}
