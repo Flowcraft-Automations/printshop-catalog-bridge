@@ -26,11 +26,12 @@ Under the calculated price, a small panel (with today's 200k / 175k):
 When the leftover is negative or below your target the panel turns red.
 
 
-Plus a target-profit field ("רווח מטרה", default 20%). If what is left is below your target, the panel turns red and shows the price that would hit the target:
+Plus a target-profit field ("רווח מטרה", default 20%). Below the target, the panel shows the price that would hit it — with today's numbers that is roughly ×1.43 on every price:
 
 ```text
-מתחת לרווח המטרה — מחיר מומלץ ₪150
+מתחת לרווח המטרה — מחיר מומלץ ₪170
 ```
+
 
 The curve price itself does not change. Nothing gets silently inflated — you just see whether the number is healthy, and you can adopt the recommended price with one click.
 
