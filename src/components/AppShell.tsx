@@ -1,14 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useLogout } from "./AuthGate";
-
-const NAV = [
-  { to: "/catalog", label: "קטלוג" },
-  { to: "/calculator", label: "מחשבון מידות" },
-] as const;
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const logout = useLogout();
+  const { isAdmin, email, signOut } = useAuth();
+  const qc = useQueryClient();
+  const nav = [
+    { to: "/catalog", label: "קטלוג" },
+    { to: "/calculator", label: "מחשבון מידות" },
+    ...(isAdmin ? [{ to: "/admin", label: "משתמשים" }] : []),
+  ];
   return (
     <div className="min-h-screen bg-[var(--surface-deep)]">
       <header className="sticky top-0 z-30 border-b-2 border-[var(--ink)] bg-[var(--accent-raw)] text-white">
@@ -20,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
           <nav className="flex flex-wrap items-center gap-1">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
@@ -32,12 +34,24 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
-          <button
-            onClick={logout}
-            className="ms-auto border border-white/40 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/10"
-          >
-            יציאה
-          </button>
+          <div className="ms-auto flex items-center gap-3">
+            {email && (
+              <span className="font-mono text-[11px] text-white/60" dir="ltr">
+                {email}
+                {isAdmin ? " · admin" : ""}
+              </span>
+            )}
+            <button
+              onClick={async () => {
+                await qc.cancelQueries();
+                qc.clear();
+                await signOut();
+              }}
+              className="border border-white/40 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/10"
+            >
+              יציאה
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-[1600px] px-5 py-6">{children}</main>
