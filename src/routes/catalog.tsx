@@ -144,6 +144,8 @@ type ColKey =
   | "final_price"
   | "curve_price"
   | "curve_dev"
+  | "cost_floor"
+  | "outsource"
   | "competitor_price"
   | "proposed_price"
   | "senzey_status"
@@ -191,6 +193,23 @@ function curveOf(id: string): CurveSuggestion | null {
   return CURVE[id] ?? null;
 }
 
+/** Per-product cost picture, filled by the catalog's cost memo. */
+export type CostInfo = {
+  area: number;
+  directCost: number;
+  ratePerM2: number;
+  floor: number;
+  hasCost: boolean;
+  below: boolean;
+  threshold: number | null;
+  aboveThreshold: boolean;
+  outsourceRate: number;
+};
+let COST: Record<string, CostInfo> = {};
+function costOf(id: string): CostInfo | null {
+  return COST[id] ?? null;
+}
+
 /** Price used as "current" when comparing against the fitted curve. */
 export function currentPrice(p: Product): number | null {
   const v = p.final_price ?? p.senzey_price ?? p.site_price ?? null;
@@ -213,6 +232,11 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   final_price: (p) => p.final_price,
   curve_price: (p) => curveOf(p.id)?.suggested ?? null,
   curve_dev: (p) => curveOf(p.id)?.dev ?? null,
+  cost_floor: (p) => {
+    const c = costOf(p.id);
+    return c && c.hasCost ? c.floor : null;
+  },
+  outsource: (p) => (costOf(p.id)?.aboveThreshold ? 1 : 0),
   competitor_price: (p) => p.competitor_price ?? null,
   proposed_price: (p) => p.proposed_price ?? null,
   senzey_status: (p) => p.senzey_status,
@@ -295,18 +319,29 @@ CURVE = out;
   // Cost floor per product: direct cost (in-house or outsourced) × overhead factor.
   const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
   const floorByProduct = useMemo(() => {
-    const out: Record<string, { floor: number; current: number; below: boolean }> = {};
+    const out: Record<string, CostInfo> = {};
     for (const p of products) {
       const fam = families.find((f) => f.family === (p.family ?? "").trim());
       const w = Number(p.width_cm);
       const h = Number(p.height_cm);
       if (!fam || !w || !h) continue;
-      const cost = jobCost(fam, (w * h) / 10000, Math.max(1, Number(p.qty) || 1));
-      if (!cost.hasCost) continue;
+      const area = (w * h) / 10000;
+      const cost = jobCost(fam, area, Math.max(1, Number(p.qty) || 1));
       const floor = Math.round(costFloor(cost.directCost, overheadFactor));
       const cur = currentPrice(p);
-      out[p.id] = { floor, current: cur ?? 0, below: cur !== null && cur < floor };
+      out[p.id] = {
+        area,
+        directCost: cost.directCost,
+        ratePerM2: cost.ratePerM2,
+        floor,
+        hasCost: cost.hasCost,
+        below: cost.hasCost && cur !== null && cur < floor,
+        threshold: cost.threshold,
+        aboveThreshold: cost.threshold != null && area > cost.threshold,
+        outsourceRate: Number(fam.outsource_cost_per_m2 ?? 0) || 0,
+      };
     }
+    COST = out;
     return out;
   }, [products, families, overheadFactor]);
 
@@ -326,6 +361,7 @@ CURVE = out;
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
+  const [onlyOutsource, setOnlyOutsource] = useState(false);
 
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
@@ -355,6 +391,8 @@ CURVE = out;
     final_price: true,
     curve_price: true,
     curve_dev: false,
+    cost_floor: true,
+    outsource: true,
     competitor_price: false,
     proposed_price: false,
     senzey_status: true,
@@ -380,6 +418,8 @@ CURVE = out;
     final_price: 7,
     curve_price: 8,
     curve_dev: 6,
+    cost_floor: 7,
+    outsource: 6,
     competitor_price: 7,
     proposed_price: 7,
     senzey_status: 6,
@@ -550,6 +590,7 @@ CURVE = out;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
       if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
+      if (onlyOutsource && !floorByProduct[p.id]?.aboveThreshold) return false;
 
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
@@ -587,6 +628,10 @@ CURVE = out;
         )
       )
         return false;
+      if (!matchNum(floorByProduct[p.id]?.hasCost ? floorByProduct[p.id]!.floor : null, colFilters.cost_floor ?? ""))
+        return false;
+      if (colFilters.outsource === "yes" && !floorByProduct[p.id]?.aboveThreshold) return false;
+      if (colFilters.outsource === "no" && floorByProduct[p.id]?.aboveThreshold) return false;
       if (!matchNum(p.competitor_price, colFilters.competitor_price ?? "")) return false;
       if (!matchNum(p.proposed_price, colFilters.proposed_price ?? "")) return false;
       if (colFilters.senzey_status && p.senzey_status !== colFilters.senzey_status) return false;
@@ -627,6 +672,7 @@ CURVE = out;
     onlyGap,
     onlyDup,
     onlyBelowCost,
+    onlyOutsource,
     floorByProduct,
 
     onlyNew,
@@ -700,6 +746,8 @@ CURVE = out;
       "מחיר סופי": p.final_price ?? "",
       "מחיר לפי עקומה": curveByProduct[p.id]?.suggested ?? "",
       "סטייה מהעקומה %": curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : "",
+      "רצפת מחיר": floorByProduct[p.id]?.hasCost ? floorByProduct[p.id]!.floor : "",
+      "מיקור חוץ": floorByProduct[p.id]?.aboveThreshold ? "כן" : "",
       "סטטוס סנזיי": STATUS_LABEL[p.senzey_status] ?? p.senzey_status,
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
@@ -893,6 +941,14 @@ CURVE = out;
             onChange={(e) => setOnlyBelowCost(e.target.checked)}
           />
           רק מתחת לעלות
+        </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={onlyOutsource}
+            onChange={(e) => setOnlyOutsource(e.target.checked)}
+          />
+          רק מיקור חוץ
         </label>
 
         <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
@@ -1093,6 +1149,16 @@ CURVE = out;
                     <SortHead k="curve_price" label="לפי עקומה" />
                   </th>
                 )}
+                {visibleCols.cost_floor && (
+                  <th style={{ width: scaledWidths.cost_floor }} className="px-2 py-2">
+                    <SortHead k="cost_floor" label="רצפת מחיר" />
+                  </th>
+                )}
+                {visibleCols.outsource && (
+                  <th style={{ width: scaledWidths.outsource }} className="px-2 py-2">
+                    <SortHead k="outsource" label="מיקור חוץ" />
+                  </th>
+                )}
                 {visibleCols.curve_dev && (
                   <th style={{ width: scaledWidths.curve_dev }} className="px-2 py-2">
                     <SortHead k="curve_dev" label="סטייה %" />
@@ -1288,6 +1354,29 @@ CURVE = out;
                       />
                     </th>
                   )}
+                  {visibleCols.cost_floor && (
+                    <th style={{ width: scaledWidths.cost_floor }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("cost_floor")}
+                        onChange={(e) => setCf("cost_floor", e.target.value)}
+                        placeholder="-"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.outsource && (
+                    <th style={{ width: scaledWidths.outsource }} className="px-2 pb-2">
+                      <select
+                        className={colInput}
+                        value={cf("outsource")}
+                        onChange={(e) => setCf("outsource", e.target.value)}
+                      >
+                        <option value="">הכל</option>
+                        <option value="yes">מעל הסף</option>
+                        <option value="no">מתחת לסף</option>
+                      </select>
+                    </th>
+                  )}
                   {visibleCols.curve_dev && (
                     <th style={{ width: scaledWidths.curve_dev }} className="px-2 pb-2">
                       <input
@@ -1417,11 +1506,16 @@ CURVE = out;
               {visible.map((p, i) => {
                 const closedOut = isClosedOut(p);
                 const verified = p.verified;
+                const overThreshold = floorByProduct[p.id]?.aboveThreshold ?? false;
                 return (
                   <tr
                     key={p.id}
                     onClick={() => setDrawer(p)}
                     className={`cursor-pointer border-t border-border hover:bg-[oklch(0.95_0.03_250)] ${
+                      colorRows && overThreshold
+                        ? "border-s-4 border-s-[oklch(0.65_0.16_55)]"
+                        : ""
+                    } ${
                       colorRows && closedOut
                         ? "bg-[oklch(0.92_0_0)]"
                         : colorRows && verified
@@ -1620,22 +1714,7 @@ CURVE = out;
                     >
                       {(() => {
                         const c = curveByProduct[p.id];
-                        const fl = floorByProduct[p.id];
-                        const belowBadge = fl?.below ? (
-                          <span
-                            className="ms-1 border border-[oklch(0.55_0.2_25)] px-1 text-[10px] font-bold text-[oklch(0.5_0.2_25)]"
-                            title={`רצפת מחיר לפי עלות: ${shekel(fl.floor)}`}
-                          >
-                            מתחת לעלות
-                          </span>
-                        ) : null;
-                        if (!c)
-                          return (
-                            <>
-                              <span className="text-muted-foreground">—</span>
-                              {belowBadge}
-                            </>
-                          );
+                        if (!c) return <span className="text-muted-foreground">—</span>;
                         const a = Math.abs(c.dev);
                         const cls =
                           a > 20
@@ -1648,7 +1727,7 @@ CURVE = out;
                             <span className={`px-1 ${cls}`} title={`נוכחי ${shekel(c.current)}`}>
                               {shekel(c.suggested)}
                             </span>
-                            {belowBadge}
+
 
                             {a > 5 && c.suggested !== (p.final_price ?? null) && (
                               <button
@@ -1664,6 +1743,57 @@ CURVE = out;
                               </button>
                             )}
                           </>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleCols.cost_floor && (
+                    <td
+                      style={{ width: scaledWidths.cost_floor }}
+                      className="num truncate whitespace-nowrap px-2 py-1"
+                    >
+                      {(() => {
+                        const c = floorByProduct[p.id];
+                        if (!c || !c.hasCost)
+                          return <span className="text-muted-foreground">—</span>;
+                        const tip = `שטח ${c.area.toFixed(2)} מ״ר · ${c.ratePerM2} ₪/מ״ר${
+                          c.aboveThreshold ? " (מיקור חוץ)" : ""
+                        } · עלות ישירה ${shekel(Math.round(c.directCost))} · ×${overheadFactor} = ${shekel(c.floor)}`;
+                        return (
+                          <span
+                            title={tip}
+                            className={
+                              c.below
+                                ? "bg-[oklch(0.93_0.06_25)] px-1 font-bold text-[oklch(0.45_0.16_25)]"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {shekel(c.floor)}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleCols.outsource && (
+                    <td
+                      style={{ width: scaledWidths.outsource }}
+                      className="truncate whitespace-nowrap px-2 py-1"
+                    >
+                      {(() => {
+                        const c = floorByProduct[p.id];
+                        if (!c || c.threshold == null)
+                          return <span className="text-muted-foreground">—</span>;
+                        if (!c.aboveThreshold)
+                          return <span className="text-muted-foreground">—</span>;
+                        return (
+                          <span
+                            title={`שטח ${c.area.toFixed(2)} מ״ר · מעל ${c.threshold} מ״ר${
+                              c.outsourceRate ? ` · הדפסה בחוץ ${c.outsourceRate} ₪/מ״ר` : ""
+                            }`}
+                            className="border border-[oklch(0.6_0.16_55)] bg-[oklch(0.94_0.08_60)] px-1 text-[11px] font-bold text-[oklch(0.45_0.15_45)]"
+                          >
+                            מיקור חוץ
+                          </span>
                         );
                       })()}
                     </td>
@@ -2217,6 +2347,8 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   final_price: "מחיר סופי",
   curve_price: "מחיר לפי עקומה",
   curve_dev: "סטייה מהעקומה",
+  cost_floor: "רצפת מחיר",
+  outsource: "מיקור חוץ",
   competitor_price: "מחיר מתחרה",
   proposed_price: "מחיר מוצע",
   senzey_status: "סטטוס סנזיי",
@@ -2269,6 +2401,8 @@ function ColumnChooser({
                     final_price: true,
                     curve_price: true,
                     curve_dev: false,
+                    cost_floor: true,
+                    outsource: true,
                     competitor_price: false,
                     proposed_price: false,
                     senzey_status: true,
