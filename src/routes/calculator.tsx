@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/AppShell";
 import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
 import { businessConfigQuery, familiesQuery, productsQuery } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
 
 import {
   buildAnchors,
@@ -179,7 +180,15 @@ function handleSortClick(
 
 function Calculator() {
   const nav = useNavigate();
-  const { data: families = [] } = useQuery(familiesQuery());
+  const { isAdmin, allowedFamilies } = useAuth();
+  const { data: allFamilies = [] } = useQuery(familiesQuery());
+  const families = useMemo(
+    () =>
+      allowedFamilies === null
+        ? allFamilies
+        : allFamilies.filter((f) => allowedFamilies.includes(f.family)),
+    [allFamilies, allowedFamilies],
+  );
   const { data: products = [] } = useQuery(productsQuery());
   const { data: bizCfg } = useQuery(businessConfigQuery());
 
@@ -607,7 +616,7 @@ function Calculator() {
             </div>
           ) : null}
 
-          {family ? (
+          {family && isAdmin ? (
             <div className="mt-4 border-2 border-dashed border-[var(--ink)] p-3">
               <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
               <div className="grid grid-cols-4 gap-3">
