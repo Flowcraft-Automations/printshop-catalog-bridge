@@ -144,6 +144,8 @@ type ColKey =
   | "final_price"
   | "curve_price"
   | "curve_dev"
+  | "cost_floor"
+  | "outsource"
   | "competitor_price"
   | "proposed_price"
   | "senzey_status"
@@ -191,6 +193,23 @@ function curveOf(id: string): CurveSuggestion | null {
   return CURVE[id] ?? null;
 }
 
+/** Per-product cost picture, filled by the catalog's cost memo. */
+export type CostInfo = {
+  area: number;
+  directCost: number;
+  ratePerM2: number;
+  floor: number;
+  hasCost: boolean;
+  below: boolean;
+  threshold: number | null;
+  aboveThreshold: boolean;
+  outsourceRate: number;
+};
+let COST: Record<string, CostInfo> = {};
+function costOf(id: string): CostInfo | null {
+  return COST[id] ?? null;
+}
+
 /** Price used as "current" when comparing against the fitted curve. */
 export function currentPrice(p: Product): number | null {
   const v = p.final_price ?? p.senzey_price ?? p.site_price ?? null;
@@ -213,6 +232,11 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   final_price: (p) => p.final_price,
   curve_price: (p) => curveOf(p.id)?.suggested ?? null,
   curve_dev: (p) => curveOf(p.id)?.dev ?? null,
+  cost_floor: (p) => {
+    const c = costOf(p.id);
+    return c && c.hasCost ? c.floor : null;
+  },
+  outsource: (p) => (costOf(p.id)?.aboveThreshold ? 1 : 0),
   competitor_price: (p) => p.competitor_price ?? null,
   proposed_price: (p) => p.proposed_price ?? null,
   senzey_status: (p) => p.senzey_status,
@@ -295,18 +319,29 @@ CURVE = out;
   // Cost floor per product: direct cost (in-house or outsourced) × overhead factor.
   const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
   const floorByProduct = useMemo(() => {
-    const out: Record<string, { floor: number; current: number; below: boolean }> = {};
+    const out: Record<string, CostInfo> = {};
     for (const p of products) {
       const fam = families.find((f) => f.family === (p.family ?? "").trim());
       const w = Number(p.width_cm);
       const h = Number(p.height_cm);
       if (!fam || !w || !h) continue;
-      const cost = jobCost(fam, (w * h) / 10000, Math.max(1, Number(p.qty) || 1));
-      if (!cost.hasCost) continue;
+      const area = (w * h) / 10000;
+      const cost = jobCost(fam, area, Math.max(1, Number(p.qty) || 1));
       const floor = Math.round(costFloor(cost.directCost, overheadFactor));
       const cur = currentPrice(p);
-      out[p.id] = { floor, current: cur ?? 0, below: cur !== null && cur < floor };
+      out[p.id] = {
+        area,
+        directCost: cost.directCost,
+        ratePerM2: cost.ratePerM2,
+        floor,
+        hasCost: cost.hasCost,
+        below: cost.hasCost && cur !== null && cur < floor,
+        threshold: cost.threshold,
+        aboveThreshold: cost.threshold != null && area > cost.threshold,
+        outsourceRate: Number(fam.outsource_cost_per_m2 ?? 0) || 0,
+      };
     }
+    COST = out;
     return out;
   }, [products, families, overheadFactor]);
 
@@ -326,6 +361,7 @@ CURVE = out;
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
+  const [onlyOutsource, setOnlyOutsource] = useState(false);
 
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
@@ -355,6 +391,8 @@ CURVE = out;
     final_price: true,
     curve_price: true,
     curve_dev: false,
+    cost_floor: true,
+    outsource: true,
     competitor_price: false,
     proposed_price: false,
     senzey_status: true,
@@ -380,6 +418,8 @@ CURVE = out;
     final_price: 7,
     curve_price: 8,
     curve_dev: 6,
+    cost_floor: 7,
+    outsource: 6,
     competitor_price: 7,
     proposed_price: 7,
     senzey_status: 6,
