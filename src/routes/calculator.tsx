@@ -307,6 +307,42 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveCosts = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("families")
+        .update({
+          cost_per_m2: Number(costInput) || 0,
+          outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+          outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
+        })
+        .eq("family", family);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["families"] });
+      toast.success("נתוני העלות נשמרו למשפחה");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveOverhead = useMutation({
+    mutationFn: async (value: number) => {
+      const { error } = await supabase
+        .from("business_config")
+        .upsert({ id: 1, overhead_factor: value });
+      if (error) throw error;
+      return value;
+    },
+    onSuccess: (v) => {
+      qc.invalidateQueries({ queryKey: ["business-config"] });
+      toast.success(`מקדם התקורה נשמר (×${v})`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   const fit = useMemo(() => fitPowerCurve(anchors), [anchors]);
   const calc = useMemo(
     () => priceFromCurve(anchors, skipped, fam, fit, nw, nh, nq, c),
