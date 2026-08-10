@@ -2067,13 +2067,6 @@ function EditDrawer({
               onChange={(e) => set("site_url", e.target.value)}
             />
           </Field>
-          <Field label="חריגה" full>
-            <input
-              className={inputCls}
-              value={f.anomaly ?? ""}
-              onChange={(e) => set("anomaly", e.target.value)}
-            />
-          </Field>
           <Field label="קבוצה בסנזיי">
             <input
               className={inputCls}
@@ -2081,6 +2074,7 @@ function EditDrawer({
               onChange={(e) => set("senzey_group", e.target.value)}
             />
           </Field>
+
           <Field label="קטגוריה באתר">
             <input
               className={inputCls}
@@ -2126,9 +2120,9 @@ function EditDrawer({
               senzey_status: f.senzey_status,
               site_status: f.site_status,
               site_url: f.site_url,
-              anomaly: f.anomaly,
               senzey_group: f.senzey_group ?? null,
               site_category: f.site_category ?? null,
+
               competitor_price: f.competitor_price ?? null,
               competitor_ref: f.competitor_ref ?? null,
               proposed_price: f.proposed_price ?? null,
