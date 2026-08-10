@@ -194,7 +194,8 @@ function Calculator() {
   const [qty, setQty] = useState("1");
   const [cInput, setCInput] = useState("");
   const [costInput, setCostInput] = useState("");
-  const [outAreaInput, setOutAreaInput] = useState("");
+  const [outWInput, setOutWInput] = useState("");
+  const [outHInput, setOutHInput] = useState("");
   const [outCostInput, setOutCostInput] = useState("");
   const [ovhInput, setOvhInput] = useState("");
   const [famSort, setFamSort] = useState<SortState>(null);
@@ -219,11 +220,12 @@ function Calculator() {
   // cost model (per family) + overhead factor (global)
   useEffect(() => {
     setCostInput(fam?.cost_per_m2 != null ? String(fam.cost_per_m2) : "");
-    setOutAreaInput(fam?.outsource_area_m2 != null ? String(fam.outsource_area_m2) : "");
+    setOutWInput(fam?.outsource_width_cm != null ? String(fam.outsource_width_cm) : "");
+    setOutHInput(fam?.outsource_height_cm != null ? String(fam.outsource_height_cm) : "");
     setOutCostInput(
       fam?.outsource_cost_per_m2 != null ? String(fam.outsource_cost_per_m2) : "",
     );
-  }, [family, fam?.cost_per_m2, fam?.outsource_area_m2, fam?.outsource_cost_per_m2]);
+  }, [family, fam?.cost_per_m2, fam?.outsource_width_cm, fam?.outsource_height_cm, fam?.outsource_cost_per_m2]);
   useEffect(() => {
     setOvhInput(String(bizCfg?.overhead_factor ?? DEFAULT_OVERHEAD_FACTOR));
   }, [bizCfg?.overhead_factor]);
@@ -235,11 +237,12 @@ function Calculator() {
     ? {
         ...fam,
         cost_per_m2: Number(costInput) || 0,
-        outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+        outsource_width_cm: outWInput === "" ? null : Number(outWInput),
+        outsource_height_cm: outHInput === "" ? null : Number(outHInput),
         outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
       }
     : undefined;
-  const cost = jobCost(costFamily, area, nq);
+  const cost = jobCost(costFamily, nw, nh, nq);
   const floorPrice = Math.round(costFloor(cost.directCost, overhead));
   const [useFloorPrice, setUseFloorPrice] = useState(false);
   useEffect(() => {
@@ -319,7 +322,8 @@ function Calculator() {
         .from("families")
         .update({
           cost_per_m2: Number(costInput) || 0,
-          outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+          outsource_width_cm: outWInput === "" ? null : Number(outWInput),
+          outsource_height_cm: outHInput === "" ? null : Number(outHInput),
           outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
         })
         .eq("family", family);
@@ -606,7 +610,7 @@ function Calculator() {
           {family ? (
             <div className="mt-4 border-2 border-dashed border-[var(--ink)] p-3">
               <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                     ₪ למ״ר
@@ -619,12 +623,22 @@ function Calculator() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    סף מיקור חוץ (מ״ר)
+                    סף רוחב (ס״מ)
                   </label>
                   <input
                     className={`${inputCls} num`}
-                    value={outAreaInput}
-                    onChange={(e) => setOutAreaInput(e.target.value)}
+                    value={outWInput}
+                    onChange={(e) => setOutWInput(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    סף גובה (ס״מ)
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={outHInput}
+                    onChange={(e) => setOutHInput(e.target.value)}
                   />
                 </div>
                 <div>
@@ -699,7 +713,7 @@ function Calculator() {
                 >
                   {cost.outsourced ? (
                     <div className="mb-1 font-bold">
-                      מעל {cost.threshold} מ״ר — הדפסה במיקור חוץ, {shekel(cost.ratePerM2)} למ״ר
+                      מעל {cost.thresholdW}×{cost.thresholdH} ס״מ — הדפסה במיקור חוץ, {shekel(cost.ratePerM2)} למ״ר
                     </div>
                   ) : null}
                   <div className="text-muted-foreground">
@@ -1047,7 +1061,8 @@ function Calculator() {
               qty={nq}
               factor={qtyFactor(nq, c)}
               costRatePerM2={Number(costInput) || 0}
-              outsourceArea={outAreaInput === "" ? null : Number(outAreaInput)}
+              outsourceWidthCm={outWInput === "" ? null : Number(outWInput)}
+              outsourceHeightCm={outHInput === "" ? null : Number(outHInput)}
               outsourceRatePerM2={Number(outCostInput) || 0}
               overheadFactor={overhead}
             />
