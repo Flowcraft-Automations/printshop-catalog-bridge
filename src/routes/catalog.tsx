@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
 import {
   DEFAULT_OVERHEAD_FACTOR,
   FIELD_LABEL,
@@ -368,6 +369,7 @@ CURVE = out;
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
+  const { isAdmin } = useAuth();
   const [showClosed, setShowClosed] = useState(false);
   const [colorRows, setColorRows] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
@@ -602,7 +604,7 @@ CURVE = out;
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
-      if (!showClosed && isClosedOut(p)) return false;
+      if ((!showClosed || !isAdmin) && isClosedOut(p)) return false;
 
       // per-column filters (Zoho-style)
       if (!matchText(p.senzey_ids, colFilters.senzey_ids ?? "")) return false;
@@ -682,6 +684,7 @@ CURVE = out;
     onlyCurveOut,
     curveByProduct,
     showClosed,
+    isAdmin,
     group,
     category,
     presence,
@@ -991,7 +994,7 @@ CURVE = out;
           />
           רק חריגים מהעקומה
         </label>
-        <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+        <label className={`${isAdmin ? "flex" : "hidden"} cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]`}>
           <Switch
             checked={showClosed}
             onCheckedChange={(v) => setShowClosed(v)}
