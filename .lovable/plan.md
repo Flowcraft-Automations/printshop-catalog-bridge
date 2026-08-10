@@ -41,11 +41,12 @@ The **מחיר לפי עקומה** column gets the same treatment: a small marke
 
 ## Where the settings live
 
-A small "כלכלת העסק" panel in the calculator sidebar with three fields — monthly spend, expected monthly revenue, target profit % — saved in the database so both pages read the same values, and editable at any time.
+A small "כלכלת העסק" panel in the calculator sidebar with three fields — monthly spend, monthly revenue, target profit % — saved in the database so both pages read the same values, and editable at any time.
 
 ## Technical notes
 
-- Migration: new single-row table `business_config` (`monthly_cost`, `expected_monthly_revenue`, `target_margin_pct`) with grants and permissive RLS, matching the existing `families` / `app_config` pattern. Seeded with 200000 / 250000 / 20.
+- Migration: new single-row table `business_config` (`monthly_cost`, `expected_monthly_revenue`, `target_margin_pct`) with grants and permissive RLS, matching the existing `families` / `app_config` pattern. Seeded with 200000 / 175000 / 20.
+
 - `src/lib/mdvd.ts`: pure helper `marginBreakdown(price, cfg)` → `{ overheadShare, overheadAmount, leftover, leftoverPct, meetsTarget, recommendedPrice }`, where `overheadShare = monthly_cost / expected_monthly_revenue` and `recommendedPrice = round5(overheadAmountPerJob / (1 - targetMargin))`.
 - `src/routes/calculator.tsx`: config panel + margin panel under the result, plus an "אמץ מחיר מומלץ" action reusing the existing create-product flow.
 - `src/routes/catalog.tsx`: reuse `marginBreakdown` on the existing `curveByProduct` suggestions for the marker and the new filter toggle.
