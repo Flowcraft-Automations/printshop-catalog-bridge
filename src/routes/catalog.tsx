@@ -917,7 +917,15 @@ CURVE = out;
             className={`${inputCls} min-w-[260px] flex-1`}
           />
           <div className="min-w-[220px] flex-1">
-            <FamilyPicker value={family} families={families} onChange={setFamily} />
+            <FamilyMultiPicker
+              selected={selectedFamilies}
+              families={families}
+              onChange={(next) => {
+                setSelectedFamilies(next);
+                const qs = [...next].join(",");
+                navigate({ to: ".", search: (s) => ({ ...s, families: qs || undefined }) });
+              }}
+            />
           </div>
           <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
             <Switch
