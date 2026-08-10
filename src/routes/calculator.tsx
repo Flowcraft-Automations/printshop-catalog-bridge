@@ -181,6 +181,7 @@ function Calculator() {
   const nav = useNavigate();
   const { data: families = [] } = useQuery(familiesQuery());
   const { data: products = [] } = useQuery(productsQuery());
+  const { data: bizCfg } = useQuery(businessConfigQuery());
 
   const [family, setFamily] = useState("");
   const [familySearch, setFamilySearch] = useState("");
@@ -192,6 +193,10 @@ function Calculator() {
   const [h, setH] = useState("");
   const [qty, setQty] = useState("1");
   const [cInput, setCInput] = useState("");
+  const [costInput, setCostInput] = useState("");
+  const [outAreaInput, setOutAreaInput] = useState("");
+  const [outCostInput, setOutCostInput] = useState("");
+  const [ovhInput, setOvhInput] = useState("");
   const [famSort, setFamSort] = useState<SortState>(null);
   const [simSort, setSimSort] = useState<SortState>(null);
 
@@ -210,6 +215,33 @@ function Calculator() {
     const n = Number(cInput);
     return Number.isFinite(n) && n > 0 ? Math.min(1.5, Math.max(0.2, n)) : DEFAULT_QTY_EXPONENT;
   })();
+
+  // cost model (per family) + overhead factor (global)
+  useEffect(() => {
+    setCostInput(fam?.cost_per_m2 != null ? String(fam.cost_per_m2) : "");
+    setOutAreaInput(fam?.outsource_area_m2 != null ? String(fam.outsource_area_m2) : "");
+    setOutCostInput(
+      fam?.outsource_cost_per_m2 != null ? String(fam.outsource_cost_per_m2) : "",
+    );
+  }, [family, fam?.cost_per_m2, fam?.outsource_area_m2, fam?.outsource_cost_per_m2]);
+  useEffect(() => {
+    setOvhInput(String(bizCfg?.overhead_factor ?? DEFAULT_OVERHEAD_FACTOR));
+  }, [bizCfg?.overhead_factor]);
+  const overhead = (() => {
+    const n = Number(ovhInput);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_OVERHEAD_FACTOR;
+  })();
+  const costFamily = fam
+    ? {
+        ...fam,
+        cost_per_m2: Number(costInput) || 0,
+        outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+        outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
+      }
+    : undefined;
+  const cost = jobCost(costFamily, area, nq);
+  const floorPrice = Math.round(costFloor(cost.directCost, overhead));
+
   const qtyFit = useMemo(
     () => (family ? fitQtyExponent(products, family) : { c: DEFAULT_QTY_EXPONENT, groups: 0 }),
     [products, family],
