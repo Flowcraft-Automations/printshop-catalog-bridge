@@ -222,11 +222,11 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_status: (p) => p.senzey_status,
   site_status: (p) => p.site_status,
   site_url: (p) => p.site_url ?? "",
-  flags: (p) => `${activeAnomaly(p)}${noteTextOf(p.id)}`,
   notes: (p) => noteTextOf(p.id),
   verified: (p) => (p.verified ? 1 : 0),
   is_anchor: (p) => (p.is_anchor ? 1 : 0),
 };
+
 
 const colInput =
   "w-full min-w-[64px] border border-white/30 bg-white/10 px-1.5 py-0.5 text-xs font-normal text-white placeholder:text-white/50 outline-none focus:border-white";
@@ -380,11 +380,11 @@ CURVE = out;
     senzey_status: true,
     site_status: true,
     site_url: true,
-    flags: true,
     notes: true,
     verified: true,
     is_anchor: true,
   });
+
 
   const baseWidths: Record<ColKey, number> = {
     senzey_ids: 7,
@@ -407,11 +407,11 @@ CURVE = out;
     senzey_status: 6,
     site_status: 6,
     site_url: 4,
-    flags: 7,
     notes: 4,
     verified: 4,
     is_anchor: 4,
   };
+
   const scaledWidths = useMemo(() => {
     const visible = Object.entries(baseWidths)
       .filter(([k]) => visibleCols[k as ColKey])
