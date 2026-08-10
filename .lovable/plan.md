@@ -1,53 +1,53 @@
-# Adding the ₪200k monthly spend to the pricing
+# Cost floor per family (שמשונית: 20 ₪/מ״ר, 80 ₪/מ״ר above 1.5×1.6 m)
 
-## The idea in plain words
+The curve says what to charge. It has no idea what the job costs. Genadi's numbers give us the missing half, so the app can tell you when a suggested price is below cost — and where the outsourcing cliff sits.
 
-Today the calculator only knows sizes and prices from the catalog. It has no idea whether those prices actually cover what the business costs to run.
+## The cost model
 
-You spend ₪200,000 every month and currently invoice ₪175,000. So every shekel you invoice has to carry a piece of that ₪200k — and right now it can't: ₪175k of income against ₪200k of cost means each shekel invoiced actually costs you ₪1.14. Today's prices are, on average, about 14% below break-even, and about 43% below a price that would leave a 20% profit.
+Per family, three numbers:
 
-So the app needs two numbers from you:
+1. **עלות חומר + הדפסה למ״ר** — for שמשונית: 20 ₪/מ״ר (5 material + ~7–15 print).
+2. **סף מיקור חוץ** — the area above which printing goes outside. For שמשונית: 1.5 m × 1.6 m = 2.4 m².
+3. **עלות מיקור חוץ למ״ר** — 80 ₪/מ״ר for שמשונית.
 
-1. **הוצאה חודשית** — ₪200,000 (editable)
-2. **מחזור חודשי** — ₪175,000 today (editable — you can also type a target figure to see what prices would need to look like)
+Cost of a job = area × (rate below the threshold, outsource rate above it) × quantity. Above the threshold the whole job uses the outsource rate — that is what actually happens, and it is why large sizes need their own anchor.
 
-From those two it computes one simple thing: **how much of each price is already spoken for**, and whether the price the curve gives you actually leaves anything behind.
+On top of that sits the business overhead you mentioned: ₪200k spent monthly against ₪175k invoiced. Expressed as a factor on direct cost, that is the "מקדם תקורה" field — a single editable multiplier (default 2.0, meaning a job must sell for at least twice its material+print cost to carry labor and overhead).
 
-## What you will see in the calculator
+## What you see in the calculator
 
-Under the calculated price, a small panel (with today's 200k / 175k):
-
-```text
-מחיר לפי עקומה              ₪120
-עלות בפועל (114%)           ₪137
-נשאר                        ₪17-   (הפסד)
-```
-
-When the leftover is negative or below your target the panel turns red.
-
-
-Plus a target-profit field ("רווח מטרה", default 20%). Below the target, the panel shows the price that would hit it — with today's numbers that is roughly ×1.43 on every price:
+Under the calculated price, a compact cost strip:
 
 ```text
-מתחת לרווח המטרה — מחיר מומלץ ₪170
+שטח 0.16 מ״ר · עלות ישירה ₪3  ·  רצפת מחיר (×2.0) ₪6
+מחיר לפי עקומה ₪70  ·  רווח גולמי ₪67 (96%)
 ```
 
+And for a size past the threshold:
 
-The curve price itself does not change. Nothing gets silently inflated — you just see whether the number is healthy, and you can adopt the recommended price with one click.
+```text
+מעל 1.5×1.6 מ׳ — הדפסה במיקור חוץ, עלות ₪80 למ״ר
+שטח 2.6 מ״ר · עלות ישירה ₪208 · רצפת מחיר ₪416
+מחיר לפי עקומה ₪180  ← מתחת לעלות
+```
+
+When the curve price is below the cost floor the strip turns red and offers the floor price as a one-click replacement. The curve itself is never silently changed.
+
+The threshold also shows on the curve chart as a vertical marker labelled "מיקור חוץ", so it is visually obvious that anchors on both sides of it are needed.
 
 ## In the catalog
 
-The **מחיר לפי עקומה** column gets the same treatment: a small marker on rows whose suggested price falls below the target profit, and an optional filter **רק מתחת לרווח מטרה** so you can sweep the catalog for underpriced items. Suggested numbers stay as they are; the marker is informational.
+- **מחיר לפי עקומה** rows whose suggestion is below the family's cost floor get a red cost marker with the cost in the tooltip.
+- New filter **רק מתחת לעלות** to sweep a family for underpriced items.
+- Marker only — adopted prices still come from your click.
 
-## Where the settings live
+## Where the numbers are edited
 
-A small "כלכלת העסק" panel in the calculator sidebar with three fields — monthly spend, monthly revenue, target profit % — saved in the database so both pages read the same values, and editable at any time.
+The family panel in the calculator gains three fields next to the existing minimum charge and quantity exponent: cost per m², outsource threshold (m²), outsource cost per m². Values are per family and saved to the database; שמשונית is seeded with 20 / 2.4 / 80. The overhead factor is one global value shared by all families.
 
 ## Technical notes
 
-- Migration: new single-row table `business_config` (`monthly_cost`, `expected_monthly_revenue`, `target_margin_pct`) with grants and permissive RLS, matching the existing `families` / `app_config` pattern. Seeded with 200000 / 175000 / 20.
-
-- `src/lib/mdvd.ts`: pure helper `marginBreakdown(price, cfg)` → `{ overheadShare, overheadAmount, leftover, leftoverPct, meetsTarget, recommendedPrice }`, where `overheadShare = monthly_cost / expected_monthly_revenue` and `recommendedPrice = round5(overheadAmountPerJob / (1 - targetMargin))`.
-- `src/routes/calculator.tsx`: config panel + margin panel under the result, plus an "אמץ מחיר מומלץ" action reusing the existing create-product flow.
-- `src/routes/catalog.tsx`: reuse `marginBreakdown` on the existing `curveByProduct` suggestions for the marker and the new filter toggle.
-- No change to the power-curve model, anchors, quantity exponent, minimum charge or rounding.
+- Migration: add to `families` — `cost_per_m2 numeric default 0`, `outsource_area_m2 numeric` (nullable), `outsource_cost_per_m2 numeric`; plus a single-row `business_config` table (`monthly_cost`, `monthly_revenue`, `overhead_factor`) with GRANTs and permissive RLS matching the existing `families` pattern, seeded 200000 / 175000 / 2.0. A data update sets the שמשונית row to 20 / 2.4 / 80.
+- `src/lib/mdvd.ts`: `jobCost(family, area, qty)` → `{ directCost, ratePerM2, outsourced }` and `costFloor(directCost, overheadFactor)`. Pure, no side effects; the power-curve pricing path is untouched.
+- `src/routes/calculator.tsx`: cost strip under the result, the three family fields, overhead factor field, chart threshold marker.
+- `src/routes/catalog.tsx`: reuse `jobCost` against each row's existing curve suggestion for the marker and the new filter.
