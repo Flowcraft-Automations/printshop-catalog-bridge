@@ -679,6 +679,61 @@ function Calculator() {
                   </div>
                 </div>
               </div>
+              {cost.hasCost ? (
+                <div
+                  className={`mt-4 border-2 p-3 text-[13px] leading-relaxed ${
+                    calc.total < floorPrice
+                      ? "border-[oklch(0.55_0.2_25)] bg-[oklch(0.55_0.2_25/0.08)]"
+                      : "border-[var(--ink)]"
+                  }`}
+                >
+                  {cost.outsourced ? (
+                    <div className="mb-1 font-bold">
+                      מעל {cost.threshold} מ״ר — הדפסה במיקור חוץ, {shekel(cost.ratePerM2)} למ״ר
+                    </div>
+                  ) : null}
+                  <div className="text-muted-foreground">
+                    שטח {area.toFixed(3)} מ״ר × {shekel(cost.ratePerM2)} למ״ר
+                    {nq > 1 ? ` × ${nq.toLocaleString()} יח׳` : ""} · עלות ישירה{" "}
+                    <span className="num font-bold text-foreground">
+                      {shekel(Math.round(cost.directCost))}
+                    </span>{" "}
+                    · רצפת מחיר (×{overhead}){" "}
+                    <span className="num font-bold text-foreground">{shekel(floorPrice)}</span>
+                  </div>
+                  {calc.total < floorPrice ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="font-bold text-[oklch(0.5_0.2_25)]">
+                        מחיר העקומה ({shekel(calc.total)}) מתחת לרצפת המחיר
+                      </span>
+                      <button
+                        onClick={() => setUseFloorPrice(true)}
+                        className="border-2 border-[var(--ink)] px-2 py-1 text-[11px] font-bold shadow-[2px_2px_0_0_var(--ink)]"
+                      >
+                        השתמש ב{shekel(floorPrice)}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      רווח גולמי{" "}
+                      <span className="num font-bold">
+                        {shekel(Math.round(calc.total - cost.directCost))}
+                      </span>{" "}
+                      ({Math.round(((calc.total - cost.directCost) / calc.total) * 100)}%)
+                    </div>
+                  )}
+                  {useFloorPrice && floorPrice > calc.total ? (
+                    <div className="mt-2 text-[12px] font-bold">
+                      נבחר מחיר לפי עלות: {shekel(effectivePrice)} (לחץ{" "}
+                      <button className="underline" onClick={() => setUseFloorPrice(false)}>
+                        ביטול
+                      </button>
+                      )
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
                 <div className="font-bold">{calc.label}</div>
                 {calc.detail ? (
