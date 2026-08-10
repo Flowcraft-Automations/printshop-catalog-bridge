@@ -3,6 +3,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   Tooltip,
@@ -10,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { curveRefPrice, shekel, type Anchor, type FamilyCurve } from "@/lib/mdvd";
+
 
 type Point = Anchor & {
   /** price rescaled to the requested bundle quantity (what the chart plots) */
@@ -69,6 +71,10 @@ export function CurveChart({
   requestedPrice,
   qty,
   factor,
+  costRatePerM2 = 0,
+  outsourceArea = null,
+  outsourceRatePerM2 = 0,
+  overheadFactor = 0,
 }: {
   anchors: Anchor[];
   dropped: Anchor[];
@@ -79,8 +85,17 @@ export function CurveChart({
   qty: number;
   /** (qty / 1000)^c — scales reference prices to that quantity */
   factor: number;
+  /** direct cost per m² in-house */
+  costRatePerM2?: number;
+  /** area above which printing is outsourced */
+  outsourceArea?: number | null;
+  /** direct cost per m² when outsourced */
+  outsourceRatePerM2?: number;
+  /** multiplier turning direct cost into a minimum sale price */
+  overheadFactor?: number;
 }) {
-  const { ok, warn, out, line, warnCount } = useMemo(() => {
+
+  const { ok, warn, out, line, costLine, warnCount } = useMemo(() => {
     const toPoint = (a: Anchor, isDropped: boolean): Point => {
       const shown = a.refPrice * factor;
       const f =
@@ -111,14 +126,38 @@ export function CurveChart({
             return { area, lineY: curveRefPrice(anchors, fit, area).ref * factor };
           })
         : [];
+    const ovh = overheadFactor > 0 ? overheadFactor : 0;
+    const units = qty > 0 ? qty : 1;
+    const costLn =
+      ovh > 0 && (costRatePerM2 > 0 || outsourceRatePerM2 > 0) && ln.length > 0
+        ? ln.map((p) => {
+            const outsourced =
+              outsourceArea != null && outsourceArea > 0 && p.area > outsourceArea && outsourceRatePerM2 > 0;
+            const rate = outsourced ? outsourceRatePerM2 : costRatePerM2;
+            return { area: p.area, costY: p.area * rate * units * ovh };
+          })
+        : [];
     return {
       ok: pts.filter((p) => p.kind === "ok"),
       warn: pts.filter((p) => p.kind === "warn"),
       out: outs,
       line: ln,
+      costLine: costLn,
       warnCount: pts.filter((p) => p.kind === "warn").length,
     };
-  }, [anchors, dropped, fit, requestedArea, factor]);
+  }, [
+    anchors,
+    dropped,
+    fit,
+    requestedArea,
+    factor,
+    qty,
+    costRatePerM2,
+    outsourceArea,
+    outsourceRatePerM2,
+    overheadFactor,
+  ]);
+
 
   if (anchors.length === 0 && dropped.length === 0) return null;
 
@@ -172,6 +211,31 @@ export function CurveChart({
                   strokeDasharray="6 4"
                 />
               ) : null}
+              {costLine.length > 0 ? (
+                <Line
+                  data={costLine}
+                  dataKey="costY"
+                  type="linear"
+                  dot={false}
+                  isAnimationActive={false}
+                  stroke="oklch(0.55 0.2 25)"
+                  strokeWidth={2}
+                />
+              ) : null}
+              {outsourceArea != null && outsourceArea > 0 ? (
+                <ReferenceLine
+                  x={outsourceArea}
+                  stroke="oklch(0.55 0.2 25)"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `מיקור חוץ מעל ${outsourceArea} מ״ר`,
+                    fontSize: 10,
+                    fill: "oklch(0.5 0.2 25)",
+                    position: "insideTopLeft",
+                  }}
+                />
+              ) : null}
+
               <Scatter
                 data={out}
                 fill="transparent"
@@ -219,6 +283,12 @@ export function CurveChart({
             <i className="inline-block size-2.5 rotate-45 bg-[var(--ink)]" /> המידה המבוקשת
           </span>
           <span>— — הקו המותאם</span>
+          {costLine.length > 0 ? (
+            <span className="flex items-center gap-1.5">
+              <i className="inline-block h-0.5 w-4 bg-[oklch(0.55_0.2_25)]" /> רצפת מחיר לפי עלות
+            </span>
+          ) : null}
+
         </div>
       </div>
     </section>

@@ -6,20 +6,24 @@ import { ArrowUpDown } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
 import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productsQuery } from "@/lib/queries";
+import { businessConfigQuery, familiesQuery, productsQuery } from "@/lib/queries";
 
 import {
   buildAnchors,
+  costFloor,
   fitPowerCurve,
   fitQtyExponent,
   isClosedOut,
+  jobCost,
   priceFromCurve,
   qtyFactor,
   shekel,
+  DEFAULT_OVERHEAD_FACTOR,
   DEFAULT_QTY_EXPONENT,
   QTY_REF,
   type Product,
 } from "@/lib/mdvd";
+
 
 type SortKey =
   | "name"
@@ -177,6 +181,7 @@ function Calculator() {
   const nav = useNavigate();
   const { data: families = [] } = useQuery(familiesQuery());
   const { data: products = [] } = useQuery(productsQuery());
+  const { data: bizCfg } = useQuery(businessConfigQuery());
 
   const [family, setFamily] = useState("");
   const [familySearch, setFamilySearch] = useState("");
@@ -188,6 +193,10 @@ function Calculator() {
   const [h, setH] = useState("");
   const [qty, setQty] = useState("1");
   const [cInput, setCInput] = useState("");
+  const [costInput, setCostInput] = useState("");
+  const [outAreaInput, setOutAreaInput] = useState("");
+  const [outCostInput, setOutCostInput] = useState("");
+  const [ovhInput, setOvhInput] = useState("");
   const [famSort, setFamSort] = useState<SortState>(null);
   const [simSort, setSimSort] = useState<SortState>(null);
 
@@ -206,6 +215,39 @@ function Calculator() {
     const n = Number(cInput);
     return Number.isFinite(n) && n > 0 ? Math.min(1.5, Math.max(0.2, n)) : DEFAULT_QTY_EXPONENT;
   })();
+
+  // cost model (per family) + overhead factor (global)
+  useEffect(() => {
+    setCostInput(fam?.cost_per_m2 != null ? String(fam.cost_per_m2) : "");
+    setOutAreaInput(fam?.outsource_area_m2 != null ? String(fam.outsource_area_m2) : "");
+    setOutCostInput(
+      fam?.outsource_cost_per_m2 != null ? String(fam.outsource_cost_per_m2) : "",
+    );
+  }, [family, fam?.cost_per_m2, fam?.outsource_area_m2, fam?.outsource_cost_per_m2]);
+  useEffect(() => {
+    setOvhInput(String(bizCfg?.overhead_factor ?? DEFAULT_OVERHEAD_FACTOR));
+  }, [bizCfg?.overhead_factor]);
+  const overhead = (() => {
+    const n = Number(ovhInput);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_OVERHEAD_FACTOR;
+  })();
+  const costFamily = fam
+    ? {
+        ...fam,
+        cost_per_m2: Number(costInput) || 0,
+        outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+        outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
+      }
+    : undefined;
+  const cost = jobCost(costFamily, area, nq);
+  const floorPrice = Math.round(costFloor(cost.directCost, overhead));
+  const [useFloorPrice, setUseFloorPrice] = useState(false);
+  useEffect(() => {
+    setUseFloorPrice(false);
+  }, [family, w, h, qty]);
+
+
+
   const qtyFit = useMemo(
     () => (family ? fitQtyExponent(products, family) : { c: DEFAULT_QTY_EXPONENT, groups: 0 }),
     [products, family],
@@ -271,11 +313,51 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveCosts = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("families")
+        .update({
+          cost_per_m2: Number(costInput) || 0,
+          outsource_area_m2: outAreaInput === "" ? null : Number(outAreaInput),
+          outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
+        })
+        .eq("family", family);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["families"] });
+      toast.success("נתוני העלות נשמרו למשפחה");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveOverhead = useMutation({
+    mutationFn: async (value: number) => {
+      const { error } = await supabase
+        .from("business_config")
+        .upsert({ id: 1, overhead_factor: value });
+      if (error) throw error;
+      return value;
+    },
+    onSuccess: (v) => {
+      qc.invalidateQueries({ queryKey: ["business-config"] });
+      toast.success(`מקדם התקורה נשמר (×${v})`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   const fit = useMemo(() => fitPowerCurve(anchors), [anchors]);
   const calc = useMemo(
     () => priceFromCurve(anchors, skipped, fam, fit, nw, nh, nq, c),
     [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
+  const effectivePrice =
+    useFloorPrice && floorPrice > calc.total ? floorPrice : calc.unit;
+
+
 
   const similar = useMemo(() => {
     if (!fam || !area) return [];
@@ -521,6 +603,74 @@ function Calculator() {
             </div>
           ) : null}
 
+          {family ? (
+            <div className="mt-4 border-2 border-dashed border-[var(--ink)] p-3">
+              <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    ₪ למ״ר
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={costInput}
+                    onChange={(e) => setCostInput(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    סף מיקור חוץ (מ״ר)
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={outAreaInput}
+                    onChange={(e) => setOutAreaInput(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    ₪ למ״ר במיקור חוץ
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={outCostInput}
+                    onChange={(e) => setOutCostInput(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    מקדם תקורה (×)
+                  </label>
+                  <input
+                    className={`${inputCls} num w-24`}
+                    value={ovhInput}
+                    onChange={(e) => setOvhInput(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={() => saveCosts.mutate()}
+                  className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
+                >
+                  שמור עלויות
+                </button>
+                <button
+                  onClick={() => saveOverhead.mutate(overhead)}
+                  className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+                >
+                  שמור תקורה
+                </button>
+                <p className="text-[11px] text-muted-foreground">
+                  תקורה ×{overhead} — מחיר חייב לכסות פי {overhead} מהעלות הישירה כדי לשאת עבודה
+                  והוצאות (₪{Number(bizCfg?.monthly_cost ?? 200000).toLocaleString()} חודשי מול ₪
+                  {Number(bizCfg?.monthly_revenue ?? 175000).toLocaleString()} מחזור).
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+
           {fam ? (
             <>
               <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-[var(--ink)] pt-4">
@@ -539,6 +689,61 @@ function Calculator() {
                   </div>
                 </div>
               </div>
+              {cost.hasCost ? (
+                <div
+                  className={`mt-4 border-2 p-3 text-[13px] leading-relaxed ${
+                    calc.total < floorPrice
+                      ? "border-[oklch(0.55_0.2_25)] bg-[oklch(0.55_0.2_25/0.08)]"
+                      : "border-[var(--ink)]"
+                  }`}
+                >
+                  {cost.outsourced ? (
+                    <div className="mb-1 font-bold">
+                      מעל {cost.threshold} מ״ר — הדפסה במיקור חוץ, {shekel(cost.ratePerM2)} למ״ר
+                    </div>
+                  ) : null}
+                  <div className="text-muted-foreground">
+                    שטח {area.toFixed(3)} מ״ר × {shekel(cost.ratePerM2)} למ״ר
+                    {nq > 1 ? ` × ${nq.toLocaleString()} יח׳` : ""} · עלות ישירה{" "}
+                    <span className="num font-bold text-foreground">
+                      {shekel(Math.round(cost.directCost))}
+                    </span>{" "}
+                    · רצפת מחיר (×{overhead}){" "}
+                    <span className="num font-bold text-foreground">{shekel(floorPrice)}</span>
+                  </div>
+                  {calc.total < floorPrice ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="font-bold text-[oklch(0.5_0.2_25)]">
+                        מחיר העקומה ({shekel(calc.total)}) מתחת לרצפת המחיר
+                      </span>
+                      <button
+                        onClick={() => setUseFloorPrice(true)}
+                        className="border-2 border-[var(--ink)] px-2 py-1 text-[11px] font-bold shadow-[2px_2px_0_0_var(--ink)]"
+                      >
+                        השתמש ב{shekel(floorPrice)}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      רווח גולמי{" "}
+                      <span className="num font-bold">
+                        {shekel(Math.round(calc.total - cost.directCost))}
+                      </span>{" "}
+                      ({Math.round(((calc.total - cost.directCost) / calc.total) * 100)}%)
+                    </div>
+                  )}
+                  {useFloorPrice && floorPrice > calc.total ? (
+                    <div className="mt-2 text-[12px] font-bold">
+                      נבחר מחיר לפי עלות: {shekel(effectivePrice)} (לחץ{" "}
+                      <button className="underline" onClick={() => setUseFloorPrice(false)}>
+                        ביטול
+                      </button>
+                      )
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
                 <div className="font-bold">{calc.label}</div>
                 {calc.detail ? (
@@ -586,7 +791,7 @@ function Calculator() {
                       width: nw,
                       height: nh,
                       qty: nq,
-                      price: calc.unit,
+                      price: effectivePrice,
                     },
                   })
                 }
@@ -841,7 +1046,12 @@ function Calculator() {
               requestedPrice={simOn ? simCalc.unit : calc.unit}
               qty={nq}
               factor={qtyFactor(nq, c)}
+              costRatePerM2={Number(costInput) || 0}
+              outsourceArea={outAreaInput === "" ? null : Number(outAreaInput)}
+              outsourceRatePerM2={Number(outCostInput) || 0}
+              overheadFactor={overhead}
             />
+
           ) : null}
 
 

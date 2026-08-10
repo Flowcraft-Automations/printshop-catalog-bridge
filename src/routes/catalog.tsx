@@ -15,17 +15,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
+import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import {
+  DEFAULT_OVERHEAD_FACTOR,
   FIELD_LABEL,
   STATUSES,
   STATUS_CLASS,
   STATUS_LABEL,
   buildAnchors,
+  costFloor,
   displayFieldValue,
   fitPowerCurve,
   curveRefPrice,
   isClosedOut,
+  jobCost,
+
   parseFieldValue,
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
@@ -233,6 +237,8 @@ function Catalog() {
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: allNotes = [] } = useQuery(productNotesQuery());
   const { data: families = [] } = useQuery(familiesQuery());
+  const { data: bizCfg } = useQuery(businessConfigQuery());
+
 
   const notesByProduct = useMemo(() => {
     const map: Record<string, ProductNote[]> = {};
@@ -286,6 +292,26 @@ CURVE = out;
     return out;
   }, [products, families]);
 
+  // Cost floor per product: direct cost (in-house or outsourced) × overhead factor.
+  const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
+  const floorByProduct = useMemo(() => {
+    const out: Record<string, { floor: number; current: number; below: boolean }> = {};
+    for (const p of products) {
+      const fam = families.find((f) => f.family === (p.family ?? "").trim());
+      const w = Number(p.width_cm);
+      const h = Number(p.height_cm);
+      if (!fam || !w || !h) continue;
+      const cost = jobCost(fam, (w * h) / 10000, Math.max(1, Number(p.qty) || 1));
+      if (!cost.hasCost) continue;
+      const floor = Math.round(costFloor(cost.directCost, overheadFactor));
+      const cur = currentPrice(p);
+      out[p.id] = { floor, current: cur ?? 0, below: cur !== null && cur < floor };
+    }
+    return out;
+  }, [products, families, overheadFactor]);
+
+
+
 
   const navigate = useNavigate({ from: "/catalog" });
 
@@ -299,6 +325,8 @@ CURVE = out;
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+  const [onlyBelowCost, setOnlyBelowCost] = useState(false);
+
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
@@ -521,6 +549,8 @@ CURVE = out;
         if (!flagged && !(g !== null && Math.abs(g) > 0.009)) return false;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+      if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
+
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
       if (onlyCurveOut && Math.abs(curveByProduct[p.id]?.dev ?? 0) <= 20) return false;
@@ -596,6 +626,9 @@ CURVE = out;
     onlyAnomaly,
     onlyGap,
     onlyDup,
+    onlyBelowCost,
+    floorByProduct,
+
     onlyNew,
     onlyProposed,
     onlyCurveOut,
@@ -853,6 +886,15 @@ CURVE = out;
           <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
           רק כפילויות
         </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={onlyBelowCost}
+            onChange={(e) => setOnlyBelowCost(e.target.checked)}
+          />
+          רק מתחת לעלות
+        </label>
+
         <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
           <option value="">קבוצה בסנזיי: הכל</option>
           <option value={EMPTY}>— ללא קבוצה —</option>
@@ -1578,7 +1620,22 @@ CURVE = out;
                     >
                       {(() => {
                         const c = curveByProduct[p.id];
-                        if (!c) return <span className="text-muted-foreground">—</span>;
+                        const fl = floorByProduct[p.id];
+                        const belowBadge = fl?.below ? (
+                          <span
+                            className="ms-1 border border-[oklch(0.55_0.2_25)] px-1 text-[10px] font-bold text-[oklch(0.5_0.2_25)]"
+                            title={`רצפת מחיר לפי עלות: ${shekel(fl.floor)}`}
+                          >
+                            מתחת לעלות
+                          </span>
+                        ) : null;
+                        if (!c)
+                          return (
+                            <>
+                              <span className="text-muted-foreground">—</span>
+                              {belowBadge}
+                            </>
+                          );
                         const a = Math.abs(c.dev);
                         const cls =
                           a > 20
@@ -1591,6 +1648,8 @@ CURVE = out;
                             <span className={`px-1 ${cls}`} title={`נוכחי ${shekel(c.current)}`}>
                               {shekel(c.suggested)}
                             </span>
+                            {belowBadge}
+
                             {a > 5 && c.suggested !== (p.final_price ?? null) && (
                               <button
                                 onClick={() =>
