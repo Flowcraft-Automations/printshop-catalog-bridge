@@ -126,14 +126,38 @@ export function CurveChart({
             return { area, lineY: curveRefPrice(anchors, fit, area).ref * factor };
           })
         : [];
+    const ovh = overheadFactor > 0 ? overheadFactor : 0;
+    const units = qty > 0 ? qty : 1;
+    const costLn =
+      ovh > 0 && (costRatePerM2 > 0 || outsourceRatePerM2 > 0) && ln.length > 0
+        ? ln.map((p) => {
+            const outsourced =
+              outsourceArea != null && outsourceArea > 0 && p.area > outsourceArea && outsourceRatePerM2 > 0;
+            const rate = outsourced ? outsourceRatePerM2 : costRatePerM2;
+            return { area: p.area, costY: p.area * rate * units * ovh };
+          })
+        : [];
     return {
       ok: pts.filter((p) => p.kind === "ok"),
       warn: pts.filter((p) => p.kind === "warn"),
       out: outs,
       line: ln,
+      costLine: costLn,
       warnCount: pts.filter((p) => p.kind === "warn").length,
     };
-  }, [anchors, dropped, fit, requestedArea, factor]);
+  }, [
+    anchors,
+    dropped,
+    fit,
+    requestedArea,
+    factor,
+    qty,
+    costRatePerM2,
+    outsourceArea,
+    outsourceRatePerM2,
+    overheadFactor,
+  ]);
+
 
   if (anchors.length === 0 && dropped.length === 0) return null;
 
