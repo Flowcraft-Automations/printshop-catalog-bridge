@@ -549,6 +549,8 @@ CURVE = out;
         if (!flagged && !(g !== null && Math.abs(g) > 0.009)) return false;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+      if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
+
       if (onlyNew && p.source !== "approved_new") return false;
       if (onlyProposed && p.proposed_price == null) return false;
       if (onlyCurveOut && Math.abs(curveByProduct[p.id]?.dev ?? 0) <= 20) return false;
