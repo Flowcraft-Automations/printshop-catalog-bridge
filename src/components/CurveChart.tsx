@@ -283,6 +283,12 @@ export function CurveChart({
             <i className="inline-block size-2.5 rotate-45 bg-[var(--ink)]" /> המידה המבוקשת
           </span>
           <span>— — הקו המותאם</span>
+          {costLine.length > 0 ? (
+            <span className="flex items-center gap-1.5">
+              <i className="inline-block h-0.5 w-4 bg-[oklch(0.55_0.2_25)]" /> רצפת מחיר לפי עלות
+            </span>
+          ) : null}
+
         </div>
       </div>
     </section>
