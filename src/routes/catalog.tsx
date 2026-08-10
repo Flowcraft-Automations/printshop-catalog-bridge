@@ -886,6 +886,15 @@ CURVE = out;
           <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
           רק כפילויות
         </label>
+        <label className="flex items-center gap-1 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={onlyBelowCost}
+            onChange={(e) => setOnlyBelowCost(e.target.checked)}
+          />
+          רק מתחת לעלות
+        </label>
+
         <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
           <option value="">קבוצה בסנזיי: הכל</option>
           <option value={EMPTY}>— ללא קבוצה —</option>
