@@ -654,7 +654,7 @@ CURVE = out;
           .join(" ");
         if (!haystack.includes(qNorm)) return false;
       }
-      if (family && (p.family ?? "") !== family) return false;
+      if (selectedFamilies.size > 0 && !selectedFamilies.has(p.family ?? "")) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
       if (onlyGap) {
