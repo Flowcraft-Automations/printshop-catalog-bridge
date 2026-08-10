@@ -72,7 +72,8 @@ export function CurveChart({
   qty,
   factor,
   costRatePerM2 = 0,
-  outsourceArea = null,
+  outsourceWidthCm = null,
+  outsourceHeightCm = null,
   outsourceRatePerM2 = 0,
   overheadFactor = 0,
 }: {
@@ -87,8 +88,10 @@ export function CurveChart({
   factor: number;
   /** direct cost per m² in-house */
   costRatePerM2?: number;
-  /** area above which printing is outsourced */
-  outsourceArea?: number | null;
+  /** width threshold (cm) above which printing is outsourced */
+  outsourceWidthCm?: number | null;
+  /** height threshold (cm) above which printing is outsourced */
+  outsourceHeightCm?: number | null;
   /** direct cost per m² when outsourced */
   outsourceRatePerM2?: number;
   /** multiplier turning direct cost into a minimum sale price */
@@ -128,11 +131,20 @@ export function CurveChart({
         : [];
     const ovh = overheadFactor > 0 ? overheadFactor : 0;
     const units = qty > 0 ? qty : 1;
+    const thresholdArea =
+      outsourceWidthCm != null &&
+      outsourceHeightCm != null &&
+      outsourceWidthCm > 0 &&
+      outsourceHeightCm > 0
+        ? (outsourceWidthCm * outsourceHeightCm) / 10000
+        : null;
     const costLn =
       ovh > 0 && (costRatePerM2 > 0 || outsourceRatePerM2 > 0) && ln.length > 0
         ? ln.map((p) => {
             const outsourced =
-              outsourceArea != null && outsourceArea > 0 && p.area > outsourceArea && outsourceRatePerM2 > 0;
+              thresholdArea != null &&
+              outsourceRatePerM2 > 0 &&
+              p.area > thresholdArea;
             const rate = outsourced ? outsourceRatePerM2 : costRatePerM2;
             return { area: p.area, costY: p.area * rate * units * ovh };
           })
@@ -144,6 +156,7 @@ export function CurveChart({
       line: ln,
       costLine: costLn,
       warnCount: pts.filter((p) => p.kind === "warn").length,
+      thresholdArea,
     };
   }, [
     anchors,
@@ -153,7 +166,8 @@ export function CurveChart({
     factor,
     qty,
     costRatePerM2,
-    outsourceArea,
+    outsourceWidthCm,
+    outsourceHeightCm,
     outsourceRatePerM2,
     overheadFactor,
   ]);
