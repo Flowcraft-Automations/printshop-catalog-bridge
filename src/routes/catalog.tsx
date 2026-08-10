@@ -444,7 +444,7 @@ CURVE = out;
 
   const [q, setQ] = useState("");
   const [selectedFamilies, setSelectedFamilies] = useState<Set<string>>(
-    new Set(familiesParam ? familiesParam.split(",").map((x) => x.trim()).filter(Boolean) : []),
+    new Set(familiesParam ? familiesParam.split(",").map((x: string) => x.trim()).filter(Boolean) : []),
   );
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
