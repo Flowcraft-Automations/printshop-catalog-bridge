@@ -2444,12 +2444,15 @@ function InlineEdit({
   numeric,
   placeholder = "—",
   className = "",
+  fit,
 }: {
   value: string | number | null | undefined;
   onSave: (v: string) => void;
   numeric?: boolean;
   placeholder?: string;
   className?: string;
+  /** size to content instead of filling the cell (used by the size column) */
+  fit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const initial = value == null || value === "" ? "" : String(value);
