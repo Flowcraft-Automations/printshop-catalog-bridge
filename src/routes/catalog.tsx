@@ -410,7 +410,7 @@ CURVE = out;
     family: 9,
     senzey_group: 8,
     site_category: 8,
-    size: 6,
+    size: 8,
     qty: 4,
     senzey_price: 7,
     site_price: 7,
