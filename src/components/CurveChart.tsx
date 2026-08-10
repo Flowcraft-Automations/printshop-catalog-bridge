@@ -71,6 +71,10 @@ export function CurveChart({
   requestedPrice,
   qty,
   factor,
+  costRatePerM2 = 0,
+  outsourceArea = null,
+  outsourceRatePerM2 = 0,
+  overheadFactor = 0,
 }: {
   anchors: Anchor[];
   dropped: Anchor[];
@@ -81,7 +85,16 @@ export function CurveChart({
   qty: number;
   /** (qty / 1000)^c — scales reference prices to that quantity */
   factor: number;
+  /** direct cost per m² in-house */
+  costRatePerM2?: number;
+  /** area above which printing is outsourced */
+  outsourceArea?: number | null;
+  /** direct cost per m² when outsourced */
+  outsourceRatePerM2?: number;
+  /** multiplier turning direct cost into a minimum sale price */
+  overheadFactor?: number;
 }) {
+
   const { ok, warn, out, line, warnCount } = useMemo(() => {
     const toPoint = (a: Anchor, isDropped: boolean): Point => {
       const shown = a.refPrice * factor;
