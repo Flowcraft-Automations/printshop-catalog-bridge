@@ -165,7 +165,7 @@ function FamilyMultiPicker({
         {selected.size === 1 ? (
           <span
             className="inline-block size-3 shrink-0 rounded-full"
-            style={{ background: familyColor([...selected][0]) }}
+            style={{ background: familyColor([...selected][0]!) }}
           />
         ) : (
           <span className="inline-flex -space-x-1">
