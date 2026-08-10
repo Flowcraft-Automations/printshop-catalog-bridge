@@ -1,51 +1,45 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-const KEY = "mdvd_unlocked";
-
-export function useLogout() {
-  return () => {
-    localStorage.removeItem(KEY);
-    window.location.reload();
-  };
-}
+import { useAuth } from "@/lib/auth";
+import { bootstrapAdmin, bootstrapStatus } from "@/lib/admin.functions";
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
-  const [ok, setOk] = useState(false);
+  const { session, loading } = useAuth();
+  const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [needsBootstrap, setNeedsBootstrap] = useState(false);
 
   useEffect(() => {
-    setOk(localStorage.getItem(KEY) === "1");
-    setReady(true);
-  }, []);
+    if (session) return;
+    bootstrapStatus()
+      .then((r) => setNeedsBootstrap(r.needsBootstrap))
+      .catch(() => setNeedsBootstrap(false));
+  }, [session]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    const { data, error: err } = await supabase
-      .from("app_config")
-      .select("password")
-      .eq("id", 1)
-      .maybeSingle();
-    setBusy(false);
-    if (err) {
-      setError("שגיאת חיבור למסד הנתונים");
-      return;
-    }
-    if (data && (data as { password: string }).password === pwd) {
-      localStorage.setItem(KEY, "1");
-      setOk(true);
-    } else {
-      setError("סיסמה שגויה");
+    try {
+      if (needsBootstrap) {
+        await bootstrapAdmin({ data: { email, password: pwd } });
+      }
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email,
+        password: pwd,
+      });
+      if (err) throw new Error("אימייל או סיסמה שגויים");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "שגיאת התחברות");
+    } finally {
+      setBusy(false);
     }
   }
 
-  if (!ready) return <div className="min-h-screen bg-background" />;
-  if (ok) return <>{children}</>;
+  if (loading) return <div className="min-h-screen bg-background" />;
+  if (session) return <>{children}</>;
 
   return (
     <div className="grid min-h-screen place-items-center bg-[var(--surface-deep)] px-4">
@@ -56,13 +50,26 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <div className="mb-1 font-mono text-[11px] tracking-[0.3em] text-muted-foreground">
           MDVD / CATALOG OPS
         </div>
-        <h1 className="mb-6 text-2xl font-black text-foreground">קונסולת הגירת קטלוג</h1>
-        <label className="mb-2 block text-sm font-semibold text-foreground">סיסמת כניסה</label>
+        <h1 className="mb-6 text-2xl font-black text-foreground">
+          {needsBootstrap ? "יצירת מנהל ראשון" : "כניסה למערכת"}
+        </h1>
+        <label className="mb-2 block text-sm font-semibold text-foreground">אימייל</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoFocus
+          dir="ltr"
+          required
+          className="w-full border-b-2 border-[var(--ink)] bg-transparent py-2 text-lg outline-none focus:border-[var(--accent-raw)]"
+        />
+        <label className="mb-2 mt-5 block text-sm font-semibold text-foreground">סיסמה</label>
         <input
           type="password"
           value={pwd}
           onChange={(e) => setPwd(e.target.value)}
-          autoFocus
+          required
+          dir="ltr"
           className="w-full border-b-2 border-[var(--ink)] bg-transparent py-2 text-lg outline-none focus:border-[var(--accent-raw)]"
         />
         {error && <p className="mt-3 text-sm font-semibold text-destructive">{error}</p>}
@@ -71,7 +78,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           disabled={busy}
           className="mt-6 w-full bg-[var(--accent-raw)] py-3 text-sm font-bold tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
         >
-          {busy ? "בודק…" : "כניסה"}
+          {busy ? "בודק…" : needsBootstrap ? "צור מנהל והיכנס" : "כניסה"}
         </button>
       </form>
     </div>
