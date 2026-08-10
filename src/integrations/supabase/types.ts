@@ -63,6 +63,8 @@ export type Database = {
           notes: string | null
           outsource_area_m2: number | null
           outsource_cost_per_m2: number | null
+          outsource_height_cm: number | null
+          outsource_width_cm: number | null
           qty_discounts: Json | null
           qty_exponent: number
           rate_m2: number | null
@@ -76,6 +78,8 @@ export type Database = {
           notes?: string | null
           outsource_area_m2?: number | null
           outsource_cost_per_m2?: number | null
+          outsource_height_cm?: number | null
+          outsource_width_cm?: number | null
           qty_discounts?: Json | null
           qty_exponent?: number
           rate_m2?: number | null
@@ -89,6 +93,8 @@ export type Database = {
           notes?: string | null
           outsource_area_m2?: number | null
           outsource_cost_per_m2?: number | null
+          outsource_height_cm?: number | null
+          outsource_width_cm?: number | null
           qty_discounts?: Json | null
           qty_exponent?: number
           rate_m2?: number | null
