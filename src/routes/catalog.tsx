@@ -737,7 +737,7 @@ CURVE = out;
     products,
     notesByProduct,
     q,
-    family,
+    selectedFamilies,
     senzeyStatus,
     siteStatus,
     onlyGap,
