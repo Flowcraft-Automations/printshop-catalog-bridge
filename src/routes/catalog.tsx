@@ -458,7 +458,7 @@ CURVE = out;
   const [limit, setLimit] = useState(200);
   const [colFilters, setColFilters] = useState<Partial<Record<ColKey, string>>>({});
   const [showColFilters, setShowColFilters] = useState(true);
-  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null);
+  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" }>({ key: "size", dir: "asc" });
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
     senzey_ids: true,
     name: true,
@@ -530,12 +530,10 @@ CURVE = out;
   const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
   const activeColFilters = Object.values(colFilters).filter((v) => (v ?? "").trim()).length;
   function toggleSort(k: ColKey) {
-    setSort((s) =>
-      s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : null,
-    );
+    setSort((s) => (s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : { key: k, dir: "asc" }));
   }
   function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
-    const active = sort?.key === k;
+    const active = sort.key === k;
     return (
       <button
         onClick={() => toggleSort(k)}
@@ -713,19 +711,17 @@ CURVE = out;
       return true;
     });
 
-    if (sort) {
-      const get = SORT_VALUE[sort.key];
-      const dir = sort.dir === "asc" ? 1 : -1;
-      out.sort((a, b) => {
-        const va = get(a);
-        const vb = get(b);
-        if (va == null && vb == null) return 0;
-        if (va == null) return 1;
-        if (vb == null) return -1;
-        if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
-        return String(va).localeCompare(String(vb), "he") * dir;
-      });
-    }
+    const get = SORT_VALUE[sort.key];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    out.sort((a, b) => {
+      const va = get(a);
+      const vb = get(b);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), "he") * dir;
+    });
     return out;
   }, [
     products,
@@ -781,7 +777,7 @@ CURVE = out;
     setCategory("");
     setPresence("");
     setColFilters({});
-    setSort(null);
+    setSort({ key: "size", dir: "asc" });
     setSelected(new Set());
     setLimit(200);
     navigate({ to: ".", search: {} });
@@ -1065,11 +1061,11 @@ CURVE = out;
             {activeColFilters > 0 && ` (${activeColFilters})`}
           </button>
           <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
-          {(activeColFilters > 0 || sort) && (
+          {(activeColFilters > 0 || sort.key !== "size" || sort.dir !== "asc") && (
             <button
               onClick={() => {
                 setColFilters({});
-                setSort(null);
+                setSort({ key: "size", dir: "asc" });
               }}
               className="underline"
             >
