@@ -1506,11 +1506,16 @@ CURVE = out;
               {visible.map((p, i) => {
                 const closedOut = isClosedOut(p);
                 const verified = p.verified;
+                const overThreshold = floorByProduct[p.id]?.aboveThreshold ?? false;
                 return (
                   <tr
                     key={p.id}
                     onClick={() => setDrawer(p)}
                     className={`cursor-pointer border-t border-border hover:bg-[oklch(0.95_0.03_250)] ${
+                      colorRows && overThreshold
+                        ? "border-s-4 border-s-[oklch(0.65_0.16_55)]"
+                        : ""
+                    } ${
                       colorRows && closedOut
                         ? "bg-[oklch(0.92_0_0)]"
                         : colorRows && verified
