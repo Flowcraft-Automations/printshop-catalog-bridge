@@ -2468,7 +2468,7 @@ function InlineEdit({
           setEditing(true);
         }}
         title="לחץ לעריכה"
-        className={`w-full cursor-text truncate border-b border-dashed border-transparent text-start hover:border-muted-foreground ${className}`}
+        className={`${fit ? "w-auto shrink-0 whitespace-nowrap" : "w-full truncate"} cursor-text border-b border-dashed border-transparent text-start hover:border-muted-foreground ${className}`}
       >
         {initial || <span className="text-muted-foreground">{placeholder}</span>}
       </button>
