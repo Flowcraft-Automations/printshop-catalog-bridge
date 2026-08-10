@@ -1620,7 +1620,22 @@ CURVE = out;
                     >
                       {(() => {
                         const c = curveByProduct[p.id];
-                        if (!c) return <span className="text-muted-foreground">—</span>;
+                        const fl = floorByProduct[p.id];
+                        const belowBadge = fl?.below ? (
+                          <span
+                            className="ms-1 border border-[oklch(0.55_0.2_25)] px-1 text-[10px] font-bold text-[oklch(0.5_0.2_25)]"
+                            title={`רצפת מחיר לפי עלות: ${shekel(fl.floor)}`}
+                          >
+                            מתחת לעלות
+                          </span>
+                        ) : null;
+                        if (!c)
+                          return (
+                            <>
+                              <span className="text-muted-foreground">—</span>
+                              {belowBadge}
+                            </>
+                          );
                         const a = Math.abs(c.dev);
                         const cls =
                           a > 20
@@ -1633,6 +1648,8 @@ CURVE = out;
                             <span className={`px-1 ${cls}`} title={`נוכחי ${shekel(c.current)}`}>
                               {shekel(c.suggested)}
                             </span>
+                            {belowBadge}
+
                             {a > 5 && c.suggested !== (p.final_price ?? null) && (
                               <button
                                 onClick={() =>
