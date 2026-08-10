@@ -230,10 +230,19 @@ export function isClosedOut(p: Product): boolean {
   );
 }
 
+/** Site price minus Senzey price; null when either side is missing. */
+export function priceGap(p: Product): number | null {
+  if (p.site_price === null || p.site_price === undefined) return null;
+  if (p.senzey_price === null || p.senzey_price === undefined) return null;
+  return Number(p.site_price) - Number(p.senzey_price);
+}
+
 export function shekel(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return "₪" + Number(n).toLocaleString("he-IL", { maximumFractionDigits: 2 });
 }
+
+
 
 export function slugify(s: string) {
   return s.trim().replace(/\s+/g, "-").slice(0, 60);

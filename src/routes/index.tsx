@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
-import { activeAnomaly } from "@/routes/catalog";
+import { priceGap } from "@/lib/mdvd";
 import { STATUS_LABEL } from "@/lib/mdvd";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -65,11 +66,14 @@ function Dashboard() {
   const both = products.filter((p) => p.site_exists && p.senzey_exists).length;
   const onlySite = products.filter((p) => p.site_exists && !p.senzey_exists).length;
   const onlySenzey = products.filter((p) => !p.site_exists && p.senzey_exists).length;
-  const anomalies = products.filter((p) => activeAnomaly(p)).length;
-  const gaps = products.filter((p) => (p.notes ?? "").includes("פער מחיר")).length;
+  const gaps = products.filter((p) => {
+    const g = priceGap(p);
+    return g !== null && Math.abs(g) > 0.009;
+  }).length;
   const approvedNew = products.filter(
     (p) => p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"),
   ).length;
+
 
   const count = (key: "site_status" | "senzey_status", v: string) =>
     products.filter((p) => p[key] === v).length;
@@ -94,12 +98,11 @@ function Dashboard() {
     <div>
       <PageTitle title="לוח בקרה" sub="תמונת מצב מלאה של הקטלוג בשתי המערכות" />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
         <Kpi label='סה"כ פריטים' value={products.length} />
         <Kpi label="קיים בשתי המערכות" value={both} />
         <Kpi label="רק באתר" value={onlySite} />
         <Kpi label="רק בסנזיי" value={onlySenzey} />
-        <Kpi label="חריגות מחיר" value={anomalies} tone="text-destructive" />
         <Kpi label="פערי מחיר" value={gaps} tone="text-[oklch(0.55_0.16_50)]" />
         <Kpi
           label="מוצרים חדשים מאושרים"
@@ -107,6 +110,7 @@ function Dashboard() {
           tone="text-[oklch(0.45_0.12_155)]"
         />
       </div>
+
 
       <div className="mt-6 grid gap-3 md:grid-cols-2">
         <Progress

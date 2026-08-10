@@ -30,8 +30,8 @@ import {
   curveRefPrice,
   isClosedOut,
   jobCost,
-
   parseFieldValue,
+  priceGap,
   qtyFactor,
   DEFAULT_QTY_EXPONENT,
   shekel,
@@ -40,6 +40,8 @@ import {
   type ProductHistory,
   type ProductNote,
 } from "@/lib/mdvd";
+
+
 
 type Search = {
   family?: string | undefined;
@@ -152,40 +154,16 @@ type ColKey =
   | "senzey_status"
   | "site_status"
   | "site_url"
-  | "flags"
   | "notes"
   | "verified"
   | "is_anchor";
-
-/** Site price minus Senzey price; null when either side is missing. */
-export function priceGap(p: Product): number | null {
-  if (p.site_price === null || p.site_price === undefined) return null;
-  if (p.senzey_price === null || p.senzey_price === undefined) return null;
-  return Number(p.site_price) - Number(p.senzey_price);
-}
-
-
-/**
- * Anomaly text as it should be shown: a price-gap anomaly self-clears once the
- * Senzey and site prices match (gap = 0), and every anomaly clears once both
- * statuses are נמחק / לא רלוונטי.
- */
-export function activeAnomaly(p: Product): string {
-  const a = (p.anomaly ?? "").trim();
-  if (!a) return "";
-  if (isClosedOut(p)) return "";
-  if (a.includes("פער מחיר")) {
-    const g = priceGap(p);
-    if (g !== null && Math.abs(g) < 0.005) return "";
-  }
-  return a;
-}
 
 
 let NOTE_TEXT: Record<string, string> = {};
 function noteTextOf(id: string) {
   return NOTE_TEXT[id] ?? "";
 }
+
 
 /** Curve suggestion per product id, filled by the catalog's per-family fit memo. */
 export type CurveSuggestion = { suggested: number; current: number; dev: number };
@@ -244,11 +222,11 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_status: (p) => p.senzey_status,
   site_status: (p) => p.site_status,
   site_url: (p) => p.site_url ?? "",
-  flags: (p) => `${activeAnomaly(p)}${noteTextOf(p.id)}`,
   notes: (p) => noteTextOf(p.id),
   verified: (p) => (p.verified ? 1 : 0),
   is_anchor: (p) => (p.is_anchor ? 1 : 0),
 };
+
 
 const colInput =
   "w-full min-w-[64px] border border-white/30 bg-white/10 px-1.5 py-0.5 text-xs font-normal text-white placeholder:text-white/50 outline-none focus:border-white";
@@ -360,9 +338,9 @@ CURVE = out;
   const familyWrapRef = useRef<HTMLDivElement>(null);
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
-  const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
   const [onlyOutsource, setOnlyOutsource] = useState(false);
 
@@ -402,11 +380,11 @@ CURVE = out;
     senzey_status: true,
     site_status: true,
     site_url: true,
-    flags: true,
     notes: true,
     verified: true,
     is_anchor: true,
   });
+
 
   const baseWidths: Record<ColKey, number> = {
     senzey_ids: 7,
@@ -429,11 +407,11 @@ CURVE = out;
     senzey_status: 6,
     site_status: 6,
     site_url: 4,
-    flags: 7,
     notes: 4,
     verified: 4,
     is_anchor: 4,
   };
+
   const scaledWidths = useMemo(() => {
     const visible = Object.entries(baseWidths)
       .filter(([k]) => visibleCols[k as ColKey])
@@ -586,13 +564,12 @@ CURVE = out;
       if (family && (p.family ?? "") !== family) return false;
       if (senzeyStatus && p.senzey_status !== senzeyStatus) return false;
       if (siteStatus && p.site_status !== siteStatus) return false;
-      if (onlyAnomaly && !activeAnomaly(p)) return false;
       if (onlyGap) {
         const g = priceGap(p);
-        const flagged = `${activeAnomaly(p)} ${noteTextOf(p.id)}`.includes("פער מחיר");
-        if (!flagged && !(g !== null && Math.abs(g) > 0.009)) return false;
+        if (!(g !== null && Math.abs(g) > 0.009)) return false;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+
       if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
       if (onlyOutsource && !floorByProduct[p.id]?.aboveThreshold) return false;
 
@@ -642,8 +619,8 @@ CURVE = out;
       if (colFilters.site_status && p.site_status !== colFilters.site_status) return false;
       if (colFilters.site_url === "yes" && !(p.site_url ?? "").trim()) return false;
       if (colFilters.site_url === "no" && (p.site_url ?? "").trim()) return false;
-      if (!matchText(`${activeAnomaly(p)} ${noteTextOf(p.id)}`, colFilters.flags ?? "")) return false;
       if (!matchText(noteTextOf(p.id), colFilters.notes ?? "")) return false;
+
       if (colFilters.verified === "yes" && !p.verified) return false;
       if (colFilters.verified === "no" && p.verified) return false;
       if (colFilters.is_anchor === "yes" && !p.is_anchor) return false;
@@ -672,9 +649,9 @@ CURVE = out;
     family,
     senzeyStatus,
     siteStatus,
-    onlyAnomaly,
     onlyGap,
     onlyDup,
+
     onlyBelowCost,
     onlyOutsource,
     floorByProduct,
@@ -711,9 +688,9 @@ CURVE = out;
     setFamilyOpen(false);
     setSenzeyStatus("");
     setSiteStatus("");
-    setOnlyAnomaly(false);
     setOnlyGap(false);
     setOnlyDup(false);
+
     setOnlyNew(false);
     setOnlyProposed(false);
     setOnlyCurveOut(false);
@@ -757,8 +734,8 @@ CURVE = out;
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
       "עוגן": p.is_anchor ? "כן" : "",
-      "חריגה": activeAnomaly(p),
       "הערות": (notesByProduct[p.id] ?? []).map((n) => n.body).join(" | "),
+
       "קבוצה בסנזיי": p.senzey_group ?? "",
       "קטגוריה באתר": p.site_category ?? "",
       "מחיר מתחרה": p.competitor_price ?? "",
@@ -924,17 +901,10 @@ CURVE = out;
           <option value="senzey">רק סנזיי</option>
         </select>
         <label className="flex items-center gap-1 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={onlyAnomaly}
-            onChange={(e) => setOnlyAnomaly(e.target.checked)}
-          />
-          רק חריגות
-        </label>
-        <label className="flex items-center gap-1 text-sm font-semibold">
           <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
           רק פערי מחיר
         </label>
+
         <label className="flex items-center gap-1 text-sm font-semibold">
           <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
           רק כפילויות
@@ -1194,16 +1164,12 @@ CURVE = out;
                     קישור
                   </th>
                 )}
-                {visibleCols.flags && (
-                  <th style={{ width: scaledWidths.flags }} className="px-2 py-2 font-semibold">
-                    סימונים
-                  </th>
-                )}
                 {visibleCols.notes && (
                   <th style={{ width: scaledWidths.notes }} className="px-2 py-2">
                     <SortHead k="notes" label="הערות" />
                   </th>
                 )}
+
                 {visibleCols.verified && (
                   <th style={{ width: scaledWidths.verified }} className="px-2 py-2 text-center">
                     <SortHead k="verified" label="אומת" className="mx-auto" />
@@ -1457,16 +1423,6 @@ CURVE = out;
                       </select>
                     </th>
                   )}
-                  {visibleCols.flags && (
-                    <th style={{ width: scaledWidths.flags }} className="px-2 pb-2">
-                      <input
-                        className={colInput}
-                        value={cf("flags")}
-                        onChange={(e) => setCf("flags", e.target.value)}
-                        placeholder="חריגה/הערה…"
-                      />
-                    </th>
-                  )}
                   {visibleCols.notes && (
                     <th style={{ width: scaledWidths.notes }} className="px-2 pb-2">
                       <input
@@ -1477,6 +1433,7 @@ CURVE = out;
                       />
                     </th>
                   )}
+
                   {visibleCols.verified && (
                     <th style={{ width: scaledWidths.verified }} className="px-2 pb-2">
                       <select
@@ -1884,25 +1841,8 @@ CURVE = out;
                       )}
                     </td>
                   )}
-                  {visibleCols.flags && (
-                    <td style={{ width: scaledWidths.flags }} className="truncate whitespace-nowrap px-2 py-1">
-                      {activeAnomaly(p) && (
-                        <span
-                          title={activeAnomaly(p)}
-                          className="me-1 border border-destructive bg-[oklch(0.95_0.05_25)] px-1.5 py-0.5 text-[11px] font-bold text-destructive"
-                        >
-                          חריגה
-                        </span>
-                      )}
-                      {!isClosedOut(p) && (p.senzey_dup_count ?? 0) > 1 && (
-                        <span className="border border-[oklch(0.6_0.14_50)] bg-[oklch(0.95_0.05_60)] px-1.5 py-0.5 text-[11px] font-bold text-[oklch(0.45_0.14_50)]">
-                          כפילות ×{p.senzey_dup_count}
-                        </span>
-                      )}
-
-                    </td>
-                  )}
                   {visibleCols.notes && (
+
                     <td
                       style={{ width: scaledWidths.notes }}
                       className="px-2 py-1 text-center"
@@ -2127,13 +2067,6 @@ function EditDrawer({
               onChange={(e) => set("site_url", e.target.value)}
             />
           </Field>
-          <Field label="חריגה" full>
-            <input
-              className={inputCls}
-              value={f.anomaly ?? ""}
-              onChange={(e) => set("anomaly", e.target.value)}
-            />
-          </Field>
           <Field label="קבוצה בסנזיי">
             <input
               className={inputCls}
@@ -2141,6 +2074,7 @@ function EditDrawer({
               onChange={(e) => set("senzey_group", e.target.value)}
             />
           </Field>
+
           <Field label="קטגוריה באתר">
             <input
               className={inputCls}
@@ -2186,9 +2120,9 @@ function EditDrawer({
               senzey_status: f.senzey_status,
               site_status: f.site_status,
               site_url: f.site_url,
-              anomaly: f.anomaly,
               senzey_group: f.senzey_group ?? null,
               site_category: f.site_category ?? null,
+
               competitor_price: f.competitor_price ?? null,
               competitor_ref: f.competitor_ref ?? null,
               proposed_price: f.proposed_price ?? null,
@@ -2361,11 +2295,11 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   senzey_status: "סטטוס סנזיי",
   site_status: "סטטוס אתר",
   site_url: "קישור",
-  flags: "סימונים",
   notes: "הערות",
   verified: "אומת",
   is_anchor: "עוגן",
 };
+
 
 function ColumnChooser({
   visible,
@@ -2415,11 +2349,11 @@ function ColumnChooser({
                     senzey_status: true,
                     site_status: true,
                     site_url: true,
-                    flags: true,
                     notes: true,
                     verified: true,
                     is_anchor: true,
                   })
+
                 }
                 className="underline"
               >
