@@ -241,6 +241,11 @@ function Calculator() {
     : undefined;
   const cost = jobCost(costFamily, area, nq);
   const floorPrice = Math.round(costFloor(cost.directCost, overhead));
+  const [useFloorPrice, setUseFloorPrice] = useState(false);
+  useEffect(() => {
+    setUseFloorPrice(false);
+  }, [family, w, h, qty]);
+
 
 
   const qtyFit = useMemo(
