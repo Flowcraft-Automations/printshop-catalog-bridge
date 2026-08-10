@@ -533,7 +533,7 @@ CURVE = out;
     setSort((s) => (s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : { key: k, dir: "asc" }));
   }
   function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
-    const active = sort?.key === k;
+    const active = sort.key === k;
     return (
       <button
         onClick={() => toggleSort(k)}
