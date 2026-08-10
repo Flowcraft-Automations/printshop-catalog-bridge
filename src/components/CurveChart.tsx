@@ -211,6 +211,31 @@ export function CurveChart({
                   strokeDasharray="6 4"
                 />
               ) : null}
+              {costLine.length > 0 ? (
+                <Line
+                  data={costLine}
+                  dataKey="costY"
+                  type="linear"
+                  dot={false}
+                  isAnimationActive={false}
+                  stroke="oklch(0.55 0.2 25)"
+                  strokeWidth={2}
+                />
+              ) : null}
+              {outsourceArea != null && outsourceArea > 0 ? (
+                <ReferenceLine
+                  x={outsourceArea}
+                  stroke="oklch(0.55 0.2 25)"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `מיקור חוץ מעל ${outsourceArea} מ״ר`,
+                    fontSize: 10,
+                    fill: "oklch(0.5 0.2 25)",
+                    position: "insideTopLeft",
+                  }}
+                />
+              ) : null}
+
               <Scatter
                 data={out}
                 fill="transparent"
