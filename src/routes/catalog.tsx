@@ -325,6 +325,8 @@ CURVE = out;
   const [onlyAnomaly, setOnlyAnomaly] = useState(false);
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+  const [onlyBelowCost, setOnlyBelowCost] = useState(false);
+
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
