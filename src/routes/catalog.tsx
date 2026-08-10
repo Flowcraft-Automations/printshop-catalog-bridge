@@ -19,6 +19,7 @@ import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQu
 import { useAuth } from "@/lib/auth";
 import {
   DEFAULT_OVERHEAD_FACTOR,
+  autoStatusFromPrice,
   FIELD_LABEL,
   STATUSES,
   STATUS_CLASS,
