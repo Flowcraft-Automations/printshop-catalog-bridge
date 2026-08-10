@@ -108,8 +108,61 @@ export type Family = {
   min_charge: number | null;
   qty_discounts: QtyDiscount[] | null;
   qty_exponent?: number | null;
+  cost_per_m2?: number | null;
+  outsource_area_m2?: number | null;
+  outsource_cost_per_m2?: number | null;
   notes: string | null;
 };
+
+export type BusinessConfig = {
+  id: number;
+  monthly_cost: number;
+  monthly_revenue: number;
+  overhead_factor: number;
+};
+
+export const DEFAULT_OVERHEAD_FACTOR = 2;
+
+export type JobCost = {
+  area: number;
+  ratePerM2: number;
+  directCost: number;
+  outsourced: boolean;
+  threshold: number | null;
+  hasCost: boolean;
+};
+
+/** Direct material + print cost of a job, switching to the outsourcing rate above the family threshold. */
+export function jobCost(
+  family: Family | undefined,
+  area: number,
+  qty: number,
+): JobCost {
+  const base = Number(family?.cost_per_m2 ?? 0) || 0;
+  const threshold =
+    family?.outsource_area_m2 != null && Number(family.outsource_area_m2) > 0
+      ? Number(family.outsource_area_m2)
+      : null;
+  const outRate = Number(family?.outsource_cost_per_m2 ?? 0) || 0;
+  const outsourced = threshold != null && area > threshold && outRate > 0;
+  const ratePerM2 = outsourced ? outRate : base;
+  const units = qty > 0 ? qty : 1;
+  return {
+    area,
+    ratePerM2,
+    directCost: area * ratePerM2 * units,
+    outsourced,
+    threshold,
+    hasCost: ratePerM2 > 0 && area > 0,
+  };
+}
+
+/** Minimum sale price that covers direct cost plus labor/overhead. */
+export function costFloor(directCost: number, overheadFactor: number) {
+  const f = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
+  return directCost * f;
+}
+
 
 export const STATUSES = [
   "exists",
