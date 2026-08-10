@@ -4,24 +4,27 @@
 
 Today the calculator only knows sizes and prices from the catalog. It has no idea whether those prices actually cover what the business costs to run.
 
-You spend ₪200,000 every month. So every shekel you invoice has to carry a piece of that ₪200k. If you expect to invoice ₪250,000 in a month, then 80 agorot out of every shekel are already eaten by the monthly spend — only 20 agorot are left. If you expect ₪400,000, only 50 agorot per shekel go to the spend and you keep the rest.
+You spend ₪200,000 every month and currently invoice ₪175,000. So every shekel you invoice has to carry a piece of that ₪200k — and right now it can't: ₪175k of income against ₪200k of cost means each shekel invoiced actually costs you ₪1.14. Today's prices are, on average, about 14% below break-even, and about 43% below a price that would leave a 20% profit.
 
 So the app needs two numbers from you:
 
 1. **הוצאה חודשית** — ₪200,000 (editable)
-2. **מחזור חודשי צפוי** — how much you expect to invoice in a normal month
+2. **מחזור חודשי** — ₪175,000 today (editable — you can also type a target figure to see what prices would need to look like)
 
 From those two it computes one simple thing: **how much of each price is already spoken for**, and whether the price the curve gives you actually leaves anything behind.
 
 ## What you will see in the calculator
 
-Under the calculated price, a small panel:
+Under the calculated price, a small panel (with today's 200k / 175k):
 
 ```text
 מחיר לפי עקומה              ₪120
-מתוכו לכיסוי הוצאות (80%)   ₪96
-נשאר                        ₪24   (20%)
+עלות בפועל (114%)           ₪137
+נשאר                        ₪17-   (הפסד)
 ```
+
+When the leftover is negative or below your target the panel turns red.
+
 
 Plus a target-profit field ("רווח מטרה", default 20%). If what is left is below your target, the panel turns red and shows the price that would hit the target:
 
