@@ -484,8 +484,8 @@ function Calculator() {
     <div>
       <PageTitle title="מחשבון מידות" sub="חישוב מחיר לפי עקומת התמחור של המשפחה" />
 
-      {/* === sticky horizontal top bar: inputs + price, always visible === */}
-      <div className="sticky top-0 z-30 border-b-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]">
+      {/* === sticky horizontal top bar: inputs + price, always visible on desktop === */}
+      <div className="border-b-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)] lg:sticky lg:top-0 lg:z-30">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 p-4 lg:flex lg:flex-wrap lg:items-end lg:justify-between">
           {/* inputs */}
           <div className="flex min-w-0 flex-wrap items-end gap-3">
