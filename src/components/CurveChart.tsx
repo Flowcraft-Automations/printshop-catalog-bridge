@@ -236,13 +236,13 @@ export function CurveChart({
                   strokeWidth={2}
                 />
               ) : null}
-              {outsourceArea != null && outsourceArea > 0 ? (
+              {thresholdArea != null && thresholdArea > 0 ? (
                 <ReferenceLine
-                  x={outsourceArea}
+                  x={thresholdArea}
                   stroke="oklch(0.55 0.2 25)"
                   strokeDasharray="4 4"
                   label={{
-                    value: `מיקור חוץ מעל ${outsourceArea} מ״ר`,
+                    value: `מיקור חוץ מעל ${outsourceWidthCm}×${outsourceHeightCm} ס״מ`,
                     fontSize: 10,
                     fill: "oklch(0.5 0.2 25)",
                     position: "insideTopLeft",

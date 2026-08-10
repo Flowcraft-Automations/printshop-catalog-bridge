@@ -1785,13 +1785,13 @@ CURVE = out;
                     >
                       {(() => {
                         const c = floorByProduct[p.id];
-                        if (!c || c.threshold == null)
+                        if (!c || c.thresholdW == null || c.thresholdH == null)
                           return <span className="text-muted-foreground">—</span>;
                         if (!c.aboveThreshold)
                           return <span className="text-muted-foreground">—</span>;
                         return (
                           <span
-                            title={`שטח ${c.area.toFixed(2)} מ״ר · מעל ${c.threshold} מ״ר${
+                            title={`שטח ${c.area.toFixed(2)} מ״ר · מעל ${c.thresholdW}×${c.thresholdH} ס״מ${
                               c.outsourceRate ? ` · הדפסה בחוץ ${c.outsourceRate} ₪/מ״ר` : ""
                             }`}
                             className="border border-[oklch(0.6_0.16_55)] bg-[oklch(0.94_0.08_60)] px-1 text-[11px] font-bold text-[oklch(0.45_0.15_45)]"
