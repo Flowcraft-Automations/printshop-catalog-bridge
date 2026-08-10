@@ -201,7 +201,8 @@ export type CostInfo = {
   floor: number;
   hasCost: boolean;
   below: boolean;
-  threshold: number | null;
+  thresholdW: number | null;
+  thresholdH: number | null;
   aboveThreshold: boolean;
   outsourceRate: number;
 };
@@ -326,7 +327,7 @@ CURVE = out;
       const h = Number(p.height_cm);
       if (!fam || !w || !h) continue;
       const area = (w * h) / 10000;
-      const cost = jobCost(fam, area, Math.max(1, Number(p.qty) || 1));
+      const cost = jobCost(fam, w, h, Math.max(1, Number(p.qty) || 1));
       const floor = Math.round(costFloor(cost.directCost, overheadFactor));
       const cur = currentPrice(p);
       out[p.id] = {
@@ -336,8 +337,9 @@ CURVE = out;
         floor,
         hasCost: cost.hasCost,
         below: cost.hasCost && cur !== null && cur < floor,
-        threshold: cost.threshold,
-        aboveThreshold: cost.threshold != null && area > cost.threshold,
+        thresholdW: cost.thresholdW,
+        thresholdH: cost.thresholdH,
+        aboveThreshold: cost.outsourced,
         outsourceRate: Number(fam.outsource_cost_per_m2 ?? 0) || 0,
       };
     }
