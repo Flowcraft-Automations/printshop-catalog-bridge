@@ -286,6 +286,26 @@ CURVE = out;
     return out;
   }, [products, families]);
 
+  // Cost floor per product: direct cost (in-house or outsourced) × overhead factor.
+  const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
+  const floorByProduct = useMemo(() => {
+    const out: Record<string, { floor: number; current: number; below: boolean }> = {};
+    for (const p of products) {
+      const fam = families.find((f) => f.family === (p.family ?? "").trim());
+      const w = Number(p.width_cm);
+      const h = Number(p.height_cm);
+      if (!fam || !w || !h) continue;
+      const cost = jobCost(fam, (w * h) / 10000, Math.max(1, Number(p.qty) || 1));
+      if (!cost.hasCost) continue;
+      const floor = Math.round(costFloor(cost.directCost, overheadFactor));
+      const cur = currentPrice(p);
+      out[p.id] = { floor, current: cur ?? 0, below: cur !== null && cur < floor };
+    }
+    return out;
+  }, [products, families, overheadFactor]);
+
+
+
 
   const navigate = useNavigate({ from: "/catalog" });
 
