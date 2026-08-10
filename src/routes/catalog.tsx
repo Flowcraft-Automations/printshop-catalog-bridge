@@ -626,6 +626,9 @@ CURVE = out;
     onlyAnomaly,
     onlyGap,
     onlyDup,
+    onlyBelowCost,
+    floorByProduct,
+
     onlyNew,
     onlyProposed,
     onlyCurveOut,
