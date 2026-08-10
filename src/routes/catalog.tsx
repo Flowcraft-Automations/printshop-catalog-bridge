@@ -596,12 +596,37 @@ CURVE = out;
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
+      const stamp = new Date().toISOString();
+      const priceChanged = Object.prototype.hasOwnProperty.call(patch, "final_price");
+      const statusGiven =
+        Object.prototype.hasOwnProperty.call(patch, "senzey_status") ||
+        Object.prototype.hasOwnProperty.call(patch, "site_status");
+
+      // Changing the final price re-derives each system's status (עלה / ירד / ללא שינוי),
+      // unless the caller explicitly set a status itself.
+      if (priceChanged && !statusGiven) {
+        let autoCount = 0;
+        for (const id of ids) {
+          const p = products.find((x) => x.id === id);
+          const auto = p ? autoStatusFromPrice(p, (patch.final_price ?? null) as number | null) : {};
+          if (Object.keys(auto).length) autoCount++;
+          const { error } = await supabase
+            .from("products")
+            .update({ ...patch, ...auto, updated_at: stamp })
+            .eq("id", id);
+          if (error) throw error;
+        }
+        return { autoCount };
+      }
+
       const { error } = await supabase
         .from("products")
-        .update({ ...patch, updated_at: new Date().toISOString() })
+        .update({ ...patch, updated_at: stamp })
         .in("id", ids);
       if (error) throw error;
+      return { autoCount: 0 };
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["product-history"] });
