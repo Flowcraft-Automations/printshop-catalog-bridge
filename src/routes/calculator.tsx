@@ -1046,7 +1046,12 @@ function Calculator() {
               requestedPrice={simOn ? simCalc.unit : calc.unit}
               qty={nq}
               factor={qtyFactor(nq, c)}
+              costRatePerM2={Number(costInput) || 0}
+              outsourceArea={outAreaInput === "" ? null : Number(outAreaInput)}
+              outsourceRatePerM2={Number(outCostInput) || 0}
+              overheadFactor={overhead}
             />
+
           ) : null}
 
 
