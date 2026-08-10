@@ -484,219 +484,108 @@ function Calculator() {
     <div>
       <PageTitle title="מחשבון מידות" sub="חישוב מחיר לפי עקומת התמחור של המשפחה" />
 
-      <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
-        <div className="border-2 border-[var(--ink)] bg-card p-5 shadow-[6px_6px_0_0_var(--ink)]">
-          <label className="mb-1 block text-xs font-bold text-muted-foreground">משפחה</label>
-          <div ref={familyWrapRef} className="relative">
-            <input
-              className={inputCls}
-              value={familyOpen ? familySearch : familySearch || family || ""}
-              placeholder={family ? family : "הקלד לחיפוש משפחה…"}
-              onChange={(e) => {
-                setFamilySearch(e.target.value);
-                setFamilyOpen(true);
-              }}
-              onFocus={() => setFamilyOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setFamilyOpen(false);
-                }
-                if (e.key === "ArrowDown" && filteredFamilies.length > 0) {
-                  e.preventDefault();
-                  const first = document.querySelector<HTMLButtonElement>("[data-family-option]");
-                  first?.focus();
-                }
-              }}
-              aria-expanded={familyOpen}
-              aria-autocomplete="list"
-              aria-controls="family-listbox"
-            />
-            {familyOpen && (
-              <div
-                id="family-listbox"
-                className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]"
-              >
-                {filteredFamilies.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">לא נמצאו משפחות</div>
-                ) : (
-                  filteredFamilies.map((f) => (
-                    <button
-                      key={f.family}
-                      type="button"
-                      data-family-option
-                      className={`w-full px-3 py-2 text-right text-sm hover:bg-[var(--accent-raw)] hover:text-white ${
-                        f.family === family ? "bg-[var(--surface-deep)] font-bold" : ""
-                      }`}
-                      onClick={() => {
-                        setFamily(f.family);
-                        setFamilySearch("");
-                        setFamilyOpen(false);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          const next = (e.target as HTMLElement).nextElementSibling as HTMLButtonElement | null;
-                          next?.focus();
-                        } else if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          const prev = (e.target as HTMLElement).previousElementSibling as HTMLButtonElement | null;
-                          if (prev) {
-                            prev.focus();
-                          } else {
+      {/* === sticky horizontal top bar: inputs + price, always visible on desktop === */}
+      <div className="border-b-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)] lg:sticky lg:top-0 lg:z-30">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 p-4 lg:flex lg:flex-wrap lg:items-end lg:justify-between">
+          {/* inputs */}
+          <div className="flex min-w-0 flex-wrap items-end gap-3">
+            <div className="min-w-0 flex-1">
+              <label className="mb-1 block text-xs font-bold text-muted-foreground">משפחה</label>
+              <div ref={familyWrapRef} className="relative">
+                <input
+                  className={inputCls}
+                  value={familyOpen ? familySearch : familySearch || family || ""}
+                  placeholder={family ? family : "הקלד לחיפוש משפחה…"}
+                  onChange={(e) => {
+                    setFamilySearch(e.target.value);
+                    setFamilyOpen(true);
+                  }}
+                  onFocus={() => setFamilyOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setFamilyOpen(false);
+                    }
+                    if (e.key === "ArrowDown" && filteredFamilies.length > 0) {
+                      e.preventDefault();
+                      const first = document.querySelector<HTMLButtonElement>("[data-family-option]");
+                      first?.focus();
+                    }
+                  }}
+                  aria-expanded={familyOpen}
+                  aria-autocomplete="list"
+                  aria-controls="family-listbox"
+                />
+                {familyOpen && (
+                  <div
+                    id="family-listbox"
+                    className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]"
+                  >
+                    {filteredFamilies.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">לא נמצאו משפחות</div>
+                    ) : (
+                      filteredFamilies.map((f) => (
+                        <button
+                          key={f.family}
+                          type="button"
+                          data-family-option
+                          className={`w-full px-3 py-2 text-right text-sm hover:bg-[var(--accent-raw)] hover:text-white ${
+                            f.family === family ? "bg-[var(--surface-deep)] font-bold" : ""
+                          }`}
+                          onClick={() => {
+                            setFamily(f.family);
+                            setFamilySearch("");
                             setFamilyOpen(false);
-                          }
-                        } else if (e.key === "Enter") {
-                          e.preventDefault();
-                          setFamily(f.family);
-                          setFamilySearch("");
-                          setFamilyOpen(false);
-                        } else if (e.key === "Escape") {
-                          setFamilyOpen(false);
-                        }
-                      }}
-                    >
-                      {f.family}
-                    </button>
-                  ))
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              const next = (e.target as HTMLElement).nextElementSibling as HTMLButtonElement | null;
+                              next?.focus();
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              const prev = (e.target as HTMLElement).previousElementSibling as HTMLButtonElement | null;
+                              if (prev) {
+                                prev.focus();
+                              } else {
+                                setFamilyOpen(false);
+                              }
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              setFamily(f.family);
+                              setFamilySearch("");
+                              setFamilyOpen(false);
+                            } else if (e.key === "Escape") {
+                              setFamilyOpen(false);
+                            }
+                          }}
+                        >
+                          {f.family}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
 
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <div>
+            <div className="w-24 shrink-0">
               <label className="mb-1 block text-xs font-bold text-muted-foreground">רוחב ס״מ</label>
               <input className={`${inputCls} num`} value={w} onChange={(e) => setW(e.target.value)} />
             </div>
-            <div>
+            <div className="w-24 shrink-0">
               <label className="mb-1 block text-xs font-bold text-muted-foreground">גובה ס״מ</label>
               <input className={`${inputCls} num`} value={h} onChange={(e) => setH(e.target.value)} />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-muted-foreground">
-                כמות בחבילה
-              </label>
+            <div className="w-28 shrink-0">
+              <label className="mb-1 block text-xs font-bold text-muted-foreground">כמות בחבילה</label>
               <input className={`${inputCls} num`} value={qty} onChange={(e) => setQty(e.target.value)} />
             </div>
           </div>
 
-          {family ? (
-            <div className="mt-4 flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
-              <div>
-                <label className="mb-1 block text-xs font-bold text-muted-foreground">
-                  מקדם כמות (c)
-                </label>
-                <input
-                  className={`${inputCls} num w-28`}
-                  value={cInput}
-                  onChange={(e) => setCInput(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={() => setCInput(String(qtyFit.c))}
-                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
-                disabled={qtyFit.groups === 0}
-              >
-                חשב מהנתונים ({qtyFit.c})
-              </button>
-              <button
-                onClick={() => saveExponent.mutate(c)}
-                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
-              >
-                שמור למשפחה
-              </button>
-              <p className="text-[11px] text-muted-foreground">
-                המחיר גדל לפי (כמות / {QTY_REF.toLocaleString()})^c. c=1 מחיר יחסי לכמות, c נמוך יותר =
-                הנחת כמות חזקה יותר.
-                {qtyFit.groups > 0
-                  ? ` נמדד מ־${qtyFit.groups} קבוצות מידה עם כמויות שונות.`
-                  : " אין מספיק נתונים במשפחה למדידה — ערך ברירת מחדל."}
-              </p>
-            </div>
-          ) : null}
-
-          {family && isAdmin ? (
-            <div className="mt-4 border-2 border-dashed border-[var(--ink)] p-3">
-              <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    ₪ למ״ר
-                  </label>
-                  <input
-                    className={`${inputCls} num`}
-                    value={costInput}
-                    onChange={(e) => setCostInput(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    סף רוחב (ס״מ)
-                  </label>
-                  <input
-                    className={`${inputCls} num`}
-                    value={outWInput}
-                    onChange={(e) => setOutWInput(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    סף גובה (ס״מ)
-                  </label>
-                  <input
-                    className={`${inputCls} num`}
-                    value={outHInput}
-                    onChange={(e) => setOutHInput(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    ₪ למ״ר במיקור חוץ
-                  </label>
-                  <input
-                    className={`${inputCls} num`}
-                    value={outCostInput}
-                    onChange={(e) => setOutCostInput(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                    מקדם תקורה (×)
-                  </label>
-                  <input
-                    className={`${inputCls} num w-24`}
-                    value={ovhInput}
-                    onChange={(e) => setOvhInput(e.target.value)}
-                  />
-                </div>
-                <button
-                  onClick={() => saveCosts.mutate()}
-                  className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
-                >
-                  שמור עלויות
-                </button>
-                <button
-                  onClick={() => saveOverhead.mutate(overhead)}
-                  className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
-                >
-                  שמור תקורה
-                </button>
-                <p className="text-[11px] text-muted-foreground">
-                  תקורה ×{overhead} — מחיר חייב לכסות פי {overhead} מהעלות הישירה כדי לשאת עבודה
-                  והוצאות (₪{Number(bizCfg?.monthly_cost ?? 200000).toLocaleString()} חודשי מול ₪
-                  {Number(bizCfg?.monthly_revenue ?? 175000).toLocaleString()} מחזור).
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-
-          {fam ? (
-            <>
-              <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-[var(--ink)] pt-4">
+          {/* price, always visible */}
+          <div className="flex flex-wrap items-end gap-4">
+            {fam ? (
+              <>
                 <div>
                   <div className="text-xs font-bold text-muted-foreground">
                     מחיר לעבודה ({nq.toLocaleString()} יח׳)
@@ -711,10 +600,79 @@ function Calculator() {
                     ₪{(calc.total / nq).toFixed(3)}
                   </div>
                 </div>
+                <button
+                  onClick={() =>
+                    nav({
+                      to: "/new-product",
+                      search: {
+                        name: `הדפסה על ${family} ${nw}/${nh}`,
+                        family,
+                        width: nw,
+                        height: nh,
+                        qty: nq,
+                        price: effectivePrice,
+                      },
+                    })
+                  }
+                  className="shrink-0 bg-[var(--accent-raw)] px-4 py-2 font-bold text-white shadow-[3px_3px_0_0_var(--ink)]"
+                >
+                  צור מוצר
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">בחר משפחה כדי לחשב.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* === main content below the sticky bar === */}
+      <div className="mt-5 space-y-8">
+        {fam ? (
+          <>
+            {/* calculation details + cost floor */}
+            <section className="grid gap-4 lg:grid-cols-[1fr_auto]">
+              <div className="border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
+                <div className="font-bold">{calc.label}</div>
+                {calc.detail ? (
+                  <div className="text-muted-foreground">{calc.detail}</div>
+                ) : null}
+                <div className="text-muted-foreground">
+                  שטח מבוקש: {nw}×{nh} = {Math.round(area * 10000).toLocaleString()} סמ״ר
+                </div>
+                {calc.floorApplied ? (
+                  <div className="text-muted-foreground">
+                    הועלה למחיר הפריט הזול ביותר במשפחה.
+                  </div>
+                ) : null}
+                {calc.minApplied ? (
+                  <div className="text-muted-foreground">
+                    הופעל מחיר מינימום של המשפחה ({shekel(fam.min_charge ?? 0)}).
+                  </div>
+                ) : null}
+                {calc.basis !== "catalog" ? (
+                  <div className="text-muted-foreground">המחיר עוגל ל־5₪ הקרובים.</div>
+                ) : null}
+                {fit ? (
+                  <div className="text-[11px] text-muted-foreground/70">
+                    {source === "anchors"
+                      ? `העקומה נבנתה מ־${fit.count} עוגנים שסימנת`
+                      : source === "single-anchor"
+                        ? "העקומה נבנתה מעוגן יחיד שסימנת (הרחבה יחסית לשטח)"
+                        : `התאמה מ־${fit.count} פריטים · מעריך ${fit.b.toFixed(2)} · סטייה ממוצעת ${fit.deviation.toFixed(0)}%`}
+                    {calc.skipped > 0 ? ` · דילגנו על ${calc.skipped} חריגות` : ""}
+                  </div>
+                ) : null}
+                {fit && source === "all-items" && fit.deviation > 15 ? (
+                  <div className="text-[12px] font-bold text-[oklch(0.5_0.16_45)]">
+                    סמן עוגן אחד או יותר במשפחה כדי לייצב את העקומה
+                  </div>
+                ) : null}
               </div>
+
               {cost.hasCost ? (
                 <div
-                  className={`mt-4 border-2 p-3 text-[13px] leading-relaxed ${
+                  className={`border-2 p-3 text-[13px] leading-relaxed ${
                     calc.total < floorPrice
                       ? "border-[oklch(0.55_0.2_25)] bg-[oklch(0.55_0.2_25/0.08)]"
                       : "border-[var(--ink)]"
@@ -766,71 +724,59 @@ function Calculator() {
                   ) : null}
                 </div>
               ) : null}
+            </section>
 
-              <div className="mt-4 space-y-2 border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
-                <div className="font-bold">{calc.label}</div>
-                {calc.detail ? (
-                  <div className="text-muted-foreground">{calc.detail}</div>
-                ) : null}
-                <div className="text-muted-foreground">
-                  שטח מבוקש: {nw}×{nh} = {Math.round(area * 10000).toLocaleString()} סמ״ר
-                </div>
-                {calc.floorApplied ? (
-                  <div className="text-muted-foreground">
-                    הועלה למחיר הפריט הזול ביותר במשפחה.
-                  </div>
-                ) : null}
-                {calc.minApplied ? (
-                  <div className="text-muted-foreground">
-                    הופעל מחיר מינימום של המשפחה ({shekel(fam.min_charge ?? 0)}).
-                  </div>
-                ) : null}
-                {calc.basis !== "catalog" ? (
-                  <div className="text-muted-foreground">המחיר עוגל ל־5₪ הקרובים.</div>
-                ) : null}
-                {fit ? (
-                  <div className="text-[11px] text-muted-foreground/70">
-                    {source === "anchors"
-                      ? `העקומה נבנתה מ־${fit.count} עוגנים שסימנת`
-                      : source === "single-anchor"
-                        ? "העקומה נבנתה מעוגן יחיד שסימנת (הרחבה יחסית לשטח)"
-                        : `התאמה מ־${fit.count} פריטים · מעריך ${fit.b.toFixed(2)} · סטייה ממוצעת ${fit.deviation.toFixed(0)}%`}
-                    {calc.skipped > 0 ? ` · דילגנו על ${calc.skipped} חריגות` : ""}
-                  </div>
-                ) : null}
-                {fit && source === "all-items" && fit.deviation > 15 ? (
-                  <div className="text-[12px] font-bold text-[oklch(0.5_0.16_45)]">
-                    סמן עוגן אחד או יותר במשפחה כדי לייצב את העקומה
-                  </div>
-                ) : null}
+            {/* quantity exponent */}
+            <section className="flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-muted-foreground">
+                  מקדם כמות (c)
+                </label>
+                <input
+                  className={`${inputCls} num w-28`}
+                  value={cInput}
+                  onChange={(e) => setCInput(e.target.value)}
+                />
               </div>
               <button
-                onClick={() =>
-                  nav({
-                    to: "/new-product",
-                    search: {
-                      name: `הדפסה על ${family} ${nw}/${nh}`,
-                      family,
-                      width: nw,
-                      height: nh,
-                      qty: nq,
-                      price: effectivePrice,
-                    },
-                  })
-                }
-                className="mt-5 w-full bg-[var(--accent-raw)] py-3 font-bold text-white"
+                onClick={() => setCInput(String(qtyFit.c))}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+                disabled={qtyFit.groups === 0}
               >
-                צור מוצר מהחישוב
+                חשב מהנתונים ({qtyFit.c})
               </button>
-            </>
-          ) : (
-            <p className="mt-6 text-sm text-muted-foreground">בחר משפחה כדי לחשב.</p>
-          )}
-        </div>
+              <button
+                onClick={() => saveExponent.mutate(c)}
+                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור למשפחה
+              </button>
+              <p className="text-[11px] text-muted-foreground">
+                המחיר גדל לפי (כמות / {QTY_REF.toLocaleString()})^c. c=1 מחיר יחסי לכמות, c נמוך יותר =
+                הנחת כמות חזקה יותר.
+                {qtyFit.groups > 0
+                  ? ` נמדד מ־${qtyFit.groups} קבוצות מידה עם כמויות שונות.`
+                  : " אין מספיק נתונים במשפחה למדידה — ערך ברירת מחדל."}
+              </p>
+            </section>
 
-        <div>
-          {family ? (
-            <section className="mb-8">
+            <CurveChart
+              anchors={simOn ? simBuild.anchors : anchors}
+              dropped={simOn ? simBuild.dropped : dropped}
+              fit={simOn ? simFit : fit}
+              requestedArea={area}
+              requestedPrice={simOn ? simCalc.unit : calc.unit}
+              qty={nq}
+              factor={qtyFactor(nq, c)}
+              costRatePerM2={Number(costInput) || 0}
+              outsourceWidthCm={outWInput === "" ? null : Number(outWInput)}
+              outsourceHeightCm={outHInput === "" ? null : Number(outHInput)}
+              outsourceRatePerM2={Number(outCostInput) || 0}
+              overheadFactor={overhead}
+            />
+
+            {/* family items table */}
+            <section>
               <h2 className="mb-1 text-lg font-black">
                 כל הפריטים במשפחה «{family}»
               </h2>
@@ -911,10 +857,9 @@ function Calculator() {
                 </div>
               )}
             </section>
-          ) : null}
 
-          {family ? (
-            <section className="mb-8 border-2 border-dashed border-[var(--accent-raw)] bg-card p-4">
+            {/* experiment section */}
+            <section className="border-2 border-dashed border-[var(--accent-raw)] bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-black">אזור ניסוי — עקומה זמנית</h2>
@@ -1058,68 +1003,124 @@ function Calculator() {
                 </>
               ) : null}
             </section>
-          ) : null}
+          </>
+        ) : null}
 
-          {family ? (
-            <CurveChart
-              anchors={simOn ? simBuild.anchors : anchors}
-              dropped={simOn ? simBuild.dropped : dropped}
-              fit={simOn ? simFit : fit}
-              requestedArea={area}
-              requestedPrice={simOn ? simCalc.unit : calc.unit}
-              qty={nq}
-              factor={qtyFactor(nq, c)}
-              costRatePerM2={Number(costInput) || 0}
-              outsourceWidthCm={outWInput === "" ? null : Number(outWInput)}
-              outsourceHeightCm={outHInput === "" ? null : Number(outHInput)}
-              outsourceRatePerM2={Number(outCostInput) || 0}
-              overheadFactor={overhead}
-            />
-
-          ) : null}
-
-
-
-
-
-          <h2 className="mb-3 text-lg font-black">מוצרים קיימים דומים (±25% שטח)</h2>
-
-          {!fam ? (
-            <p className="text-sm text-muted-foreground">בחר משפחה.</p>
-          ) : similar.length === 0 ? (
-            <p className="border-2 border-dashed border-border p-6 text-sm text-muted-foreground">
-              לא נמצאו מוצרים דומים בטווח.
-            </p>
-          ) : (
-            <div className="overflow-x-auto border-2 border-[var(--ink)] bg-card">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--ink)] text-white">
-                  <tr className="text-right">
-                    <th className="px-3 py-2 font-semibold">שם</th>
-                    <th className="px-3 py-2 font-semibold">מידה</th>
-                    <th className="px-3 py-2 font-semibold">מ״ר</th>
-                    <th className="px-3 py-2 font-semibold">כמות</th>
-                    <th className="px-3 py-2 font-semibold">מחיר סנזיי</th>
+        <h2 className="mb-3 text-lg font-black">מוצרים קיימים דומים (±25% שטח)</h2>
+        {!fam ? (
+          <p className="text-sm text-muted-foreground">בחר משפחה.</p>
+        ) : similar.length === 0 ? (
+          <p className="border-2 border-dashed border-border p-6 text-sm text-muted-foreground">
+            לא נמצאו מוצרים דומים בטווח.
+          </p>
+        ) : (
+          <div className="overflow-x-auto border-2 border-[var(--ink)] bg-card">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--ink)] text-white">
+                <tr className="text-right">
+                  <th className="px-3 py-2 font-semibold">שם</th>
+                  <th className="px-3 py-2 font-semibold">מידה</th>
+                  <th className="px-3 py-2 font-semibold">מ״ר</th>
+                  <th className="px-3 py-2 font-semibold">כמות</th>
+                  <th className="px-3 py-2 font-semibold">מחיר סנזיי</th>
+                </tr>
+              </thead>
+              <tbody>
+                {similar.map(({ p, area }, i) => (
+                  <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
+                    <td className="px-3 py-1.5">{p.name}</td>
+                    <td className="num px-3 py-1.5">
+                      {p.width_cm}×{p.height_cm}
+                    </td>
+                    <td className="num px-3 py-1.5">{area.toFixed(3)}</td>
+                    <td className="num px-3 py-1.5">{p.qty ?? 1}</td>
+                    <td className="num px-3 py-1.5 font-bold">{shekel(p.senzey_price)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {similar.map(({ p, area }, i) => (
-                    <tr key={p.id} className={i % 2 ? "bg-[var(--surface-deep)]" : ""}>
-                      <td className="px-3 py-1.5">{p.name}</td>
-                      <td className="num px-3 py-1.5">
-                        {p.width_cm}×{p.height_cm}
-                      </td>
-                      <td className="num px-3 py-1.5">{area.toFixed(3)}</td>
-                      <td className="num px-3 py-1.5">{p.qty ?? 1}</td>
-                      <td className="num px-3 py-1.5 font-bold">{shekel(p.senzey_price)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* cost model — moved to bottom, admin only */}
+        {family && isAdmin ? (
+          <section className="border-2 border-dashed border-[var(--ink)] bg-card p-4">
+            <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  ₪ למ״ר
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={costInput}
+                  onChange={(e) => setCostInput(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  סף רוחב (ס״מ)
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={outWInput}
+                  onChange={(e) => setOutWInput(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  סף גובה (ס״מ)
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={outHInput}
+                  onChange={(e) => setOutHInput(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  ₪ למ״ר במיקור חוץ
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={outCostInput}
+                  onChange={(e) => setOutCostInput(e.target.value)}
+                />
+              </div>
             </div>
-          )}
-        </div>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  מקדם תקורה (×)
+                </label>
+                <input
+                  className={`${inputCls} num w-24`}
+                  value={ovhInput}
+                  onChange={(e) => setOvhInput(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => saveCosts.mutate()}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור עלויות
+              </button>
+              <button
+                onClick={() => saveOverhead.mutate(overhead)}
+                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור תקורה
+              </button>
+              <p className="text-[11px] text-muted-foreground">
+                תקורה ×{overhead} — מחיר חייב לכסות פי {overhead} מהעלות הישירה כדי לשאת עבודה
+                והוצאות (₪{Number(bizCfg?.monthly_cost ?? 200000).toLocaleString()} חודשי מול ₪
+                {Number(bizCfg?.monthly_revenue ?? 175000).toLocaleString()} מחזור).
+              </p>
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );
+
 }
