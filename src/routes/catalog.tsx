@@ -649,9 +649,9 @@ CURVE = out;
     family,
     senzeyStatus,
     siteStatus,
-    onlyAnomaly,
     onlyGap,
     onlyDup,
+
     onlyBelowCost,
     onlyOutsource,
     floorByProduct,
@@ -688,9 +688,9 @@ CURVE = out;
     setFamilyOpen(false);
     setSenzeyStatus("");
     setSiteStatus("");
-    setOnlyAnomaly(false);
     setOnlyGap(false);
     setOnlyDup(false);
+
     setOnlyNew(false);
     setOnlyProposed(false);
     setOnlyCurveOut(false);
@@ -901,17 +901,10 @@ CURVE = out;
           <option value="senzey">רק סנזיי</option>
         </select>
         <label className="flex items-center gap-1 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={onlyAnomaly}
-            onChange={(e) => setOnlyAnomaly(e.target.checked)}
-          />
-          רק חריגות
-        </label>
-        <label className="flex items-center gap-1 text-sm font-semibold">
           <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
           רק פערי מחיר
         </label>
+
         <label className="flex items-center gap-1 text-sm font-semibold">
           <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
           רק כפילויות
