@@ -23,7 +23,6 @@ import {
   STATUSES,
   STATUS_CLASS,
   STATUS_LABEL,
-  activeAnomaly,
   buildAnchors,
   costFloor,
   displayFieldValue,
@@ -41,6 +40,7 @@ import {
   type ProductHistory,
   type ProductNote,
 } from "@/lib/mdvd";
+
 
 
 type Search = {
@@ -734,8 +734,8 @@ CURVE = out;
       "סטטוס אתר": STATUS_LABEL[p.site_status] ?? p.site_status,
       "אומת": p.verified ? "כן" : "לא",
       "עוגן": p.is_anchor ? "כן" : "",
-      "חריגה": activeAnomaly(p),
       "הערות": (notesByProduct[p.id] ?? []).map((n) => n.body).join(" | "),
+
       "קבוצה בסנזיי": p.senzey_group ?? "",
       "קטגוריה באתר": p.site_category ?? "",
       "מחיר מתחרה": p.competitor_price ?? "",
