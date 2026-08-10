@@ -214,8 +214,7 @@ function FamilyMultiPicker({
                     type="checkbox"
                     readOnly
                     checked={isSelected}
-                    className="size-4 accent-[var(--accent-raw)]"
-                    onClick={(e) => e.stopPropagation()}
+                    className="pointer-events-none size-4 accent-[var(--accent-raw)]"
                   />
                   <span
                     className="inline-block size-3 shrink-0 rounded-full"
