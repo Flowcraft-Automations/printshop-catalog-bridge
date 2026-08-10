@@ -26,6 +26,7 @@ import {
   buildAnchors,
   costFloor,
   displayFieldValue,
+  familyColor,
   fitPowerCurve,
   curveRefPrice,
   isClosedOut,
@@ -40,6 +41,7 @@ import {
   type ProductHistory,
   type ProductNote,
 } from "@/lib/mdvd";
+
 
 
 
@@ -94,6 +96,107 @@ function StatusSelect({
 }
 
 const EMPTY = "__empty__";
+
+function FamilyPicker({
+  value,
+  families,
+  onChange,
+}: {
+  value: string;
+  families: { family: string }[];
+  onChange: (f: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const selected = families.find((f) => f.family === value);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const qf = q.trim().toLowerCase();
+    if (!qf) return families;
+    return families.filter((f) => f.family.toLowerCase().includes(qf));
+  }, [families, q]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-bold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]"
+      >
+        {selected ? (
+          <span
+            className="inline-block size-3 shrink-0 rounded-full"
+            style={{ background: familyColor(selected.family) }}
+          />
+        ) : (
+          <span className="inline-block size-3 shrink-0 rounded-full bg-muted-foreground" />
+        )}
+        <span className="truncate">{value || "כל המשפחות"}</span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 w-64 border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]">
+          <div className="border-b border-[var(--ink)] p-2">
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="חיפוש משפחה…"
+              className="w-full border-b-2 border-[var(--ink)] bg-transparent px-1 py-1 text-sm outline-none focus:border-[var(--accent-raw)]"
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setQ("");
+                setOpen(false);
+              }}
+              className={`flex w-full items-center gap-2 px-2 py-1.5 text-right text-sm hover:bg-[var(--surface-deep)] ${value === "" ? "bg-[var(--surface-deep)] font-bold" : ""}`}
+            >
+              <span className="inline-block size-3 shrink-0 rounded-full bg-muted-foreground" />
+              כל המשפחות
+            </button>
+            {filtered.map((f) => {
+              const color = familyColor(f.family);
+              return (
+                <button
+                  key={f.family}
+                  type="button"
+                  onClick={() => {
+                    onChange(f.family);
+                    setQ("");
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-right text-sm hover:bg-[var(--surface-deep)] ${value === f.family ? "bg-[var(--surface-deep)] font-bold" : ""}`}
+                >
+                  <span
+                    className="inline-block size-3 shrink-0 rounded-full"
+                    style={{ background: color }}
+                  />
+                  <span className="truncate">{f.family}</span>
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="px-2 py-2 text-sm text-muted-foreground">לא נמצאו משפחות</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /** Zoho-style per-column matchers */
 function matchText(value: string | null | undefined, expr: string) {
@@ -333,9 +436,6 @@ CURVE = out;
 
   const [q, setQ] = useState("");
   const [family, setFamily] = useState(familyParam ?? "");
-  const [familySearch, setFamilySearch] = useState("");
-  const [familyOpen, setFamilyOpen] = useState(false);
-  const familyWrapRef = useRef<HTMLDivElement>(null);
   const [senzeyStatus, setSenzeyStatus] = useState("");
   const [siteStatus, setSiteStatus] = useState("");
   const [onlyGap, setOnlyGap] = useState(false);
@@ -455,21 +555,6 @@ CURVE = out;
     () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
     [products],
   );
-  const filteredFamilies = useMemo(() => {
-    const qf = familySearch.trim().toLowerCase();
-    if (!qf) return families;
-    return families.filter((f) => f.family.toLowerCase().includes(qf));
-  }, [families, familySearch]);
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (!familyWrapRef.current?.contains(e.target as Node)) {
-        setFamilyOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
 
   const update = useMutation({
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
@@ -684,13 +769,10 @@ CURVE = out;
   function resetFilters() {
     setQ("");
     setFamily("");
-    setFamilySearch("");
-    setFamilyOpen(false);
     setSenzeyStatus("");
     setSiteStatus("");
     setOnlyGap(false);
     setOnlyDup(false);
-
     setOnlyNew(false);
     setOnlyProposed(false);
     setOnlyCurveOut(false);
@@ -704,6 +786,7 @@ CURVE = out;
     setLimit(200);
     navigate({ to: ".", search: {} });
   }
+
 
   async function exportRows(kind: "xlsx" | "csv") {
     if (!rows.length) {
@@ -788,207 +871,148 @@ CURVE = out;
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3 border-2 border-[var(--ink)] bg-card p-3">
-        <input
-          placeholder="חיפוש לפי תת-מחרוזת (שם, משפחה, קבוצה, קטגוריה, הערות…)"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className={`${inputCls} min-w-[260px] flex-1`}
-        />
-        <div ref={familyWrapRef} className="relative min-w-[200px] flex-1">
+      <div className="mb-4 space-y-3">
+        {/* Simple filters — visible to all users */}
+        <div className="flex flex-wrap items-center gap-3 border-2 border-[var(--ink)] bg-card p-3">
           <input
-            value={familyOpen ? familySearch : familySearch || family || ""}
-            placeholder={family ? family : "כל המשפחות — הקלד לחיפוש"}
-            onChange={(e) => {
-              setFamilySearch(e.target.value);
-              setFamilyOpen(true);
-            }}
-            onFocus={() => setFamilyOpen(true)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setFamilyOpen(false);
-              }
-              if (e.key === "ArrowDown" && filteredFamilies.length > 0) {
-                e.preventDefault();
-                const first = document.querySelector<HTMLButtonElement>("[data-catalog-family-option]");
-                first?.focus();
-              }
-            }}
-            aria-expanded={familyOpen}
-            aria-autocomplete="list"
-            aria-controls="catalog-family-listbox"
-            className={`${inputCls} w-full`}
+            placeholder="חיפוש לפי תת-מחרוזת (שם, משפחה, קבוצה, קטגוריה, הערות…)"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className={`${inputCls} min-w-[260px] flex-1`}
           />
-          {familyOpen && (
-            <div
-              id="catalog-family-listbox"
-              className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_0_var(--ink)]"
-            >
-              {filteredFamilies.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">לא נמצאו משפחות</div>
-              ) : (
-                filteredFamilies.map((f) => (
-                  <button
-                    key={f.family}
-                    type="button"
-                    data-catalog-family-option
-                    className={`w-full px-3 py-2 text-right text-sm hover:bg-[var(--accent-raw)] hover:text-white ${
-                      f.family === family ? "bg-[var(--surface-deep)] font-bold" : ""
-                    }`}
-                    onClick={() => {
-                      setFamily(f.family);
-                      setFamilySearch("");
-                      setFamilyOpen(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        const next = (e.target as HTMLElement).nextElementSibling as HTMLButtonElement | null;
-                        next?.focus();
-                      } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        const prev = (e.target as HTMLElement).previousElementSibling as HTMLButtonElement | null;
-                        if (prev) {
-                          prev.focus();
-                        } else {
-                          setFamilyOpen(false);
-                        }
-                      } else if (e.key === "Enter") {
-                        e.preventDefault();
-                        setFamily(f.family);
-                        setFamilySearch("");
-                        setFamilyOpen(false);
-                      } else if (e.key === "Escape") {
-                        setFamilyOpen(false);
-                      }
-                    }}
-                  >
-                    {f.family}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
+          <div className="min-w-[220px] flex-1">
+            <FamilyPicker value={family} families={families} onChange={setFamily} />
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+            <Switch
+              checked={onlyGap}
+              onCheckedChange={(v) => setOnlyGap(v)}
+              aria-label="רק פערי מחיר"
+            />
+            רק פערי מחיר
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+            <Switch
+              checked={colorRows}
+              onCheckedChange={(v) => setColorRows(v)}
+              aria-label="צביעת שורות"
+            />
+            צביעת שורות
+          </label>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 bg-[var(--accent-raw)] px-3 py-2 text-sm font-bold text-white shadow-[2px_2px_0_0_var(--ink)] hover:brightness-110"
+          >
+            <RotateCcw className="size-4" />
+            איפוס סינון
+          </button>
         </div>
-        <select
-          value={senzeyStatus}
-          onChange={(e) => setSenzeyStatus(e.target.value)}
-          className={inputCls}
-        >
-          <option value="">סטטוס סנזיי: הכל</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select
-          value={siteStatus}
-          onChange={(e) => setSiteStatus(e.target.value)}
-          className={inputCls}
-        >
-          <option value="">סטטוס אתר: הכל</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select value={presence} onChange={(e) => setPresence(e.target.value)} className={inputCls}>
-          <option value="">נוכחות: הכל</option>
-          <option value="both">בשתי המערכות</option>
-          <option value="site">רק אתר</option>
-          <option value="senzey">רק סנזיי</option>
-        </select>
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
-          רק פערי מחיר
-        </label>
 
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
-          רק כפילויות
-        </label>
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={onlyBelowCost}
-            onChange={(e) => setOnlyBelowCost(e.target.checked)}
-          />
-          רק מתחת לעלות
-        </label>
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={onlyOutsource}
-            onChange={(e) => setOnlyOutsource(e.target.checked)}
-          />
-          רק מיקור חוץ
-        </label>
-
-        <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
-          <option value="">קבוצה בסנזיי: הכל</option>
-          <option value={EMPTY}>— ללא קבוצה —</option>
-          {groupOptions.map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
-          <option value="">קטגוריה באתר: הכל</option>
-          <option value={EMPTY}>— ללא קטגוריה —</option>
-          {categoryOptions.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
-          מוצרים חדשים מאושרים
-        </label>
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={onlyProposed}
-            onChange={(e) => setOnlyProposed(e.target.checked)}
-          />
-          יש מחיר מוצע
-        </label>
-        <label className="flex items-center gap-1 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={onlyCurveOut}
-            onChange={(e) => setOnlyCurveOut(e.target.checked)}
-          />
-          רק חריגים מהעקומה
-        </label>
-        <label className={`${isAdmin ? "flex" : "hidden"} cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]`}>
-          <Switch
-            checked={showClosed}
-            onCheckedChange={(v) => setShowClosed(v)}
-            aria-label="הצג גם פריטים נמחקים או לא רלוונטים"
-          />
-          הצג גם נמחקים / לא רלוונטים
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
-          <Switch
-            checked={colorRows}
-            onCheckedChange={(v) => setColorRows(v)}
-            aria-label="צביעת שורות"
-          />
-          צביעת שורות
-        </label>
-        <button
-          type="button"
-          onClick={resetFilters}
-          className="flex items-center gap-1.5 bg-[var(--accent-raw)] px-3 py-2 text-sm font-bold text-white shadow-[2px_2px_0_0_var(--ink)] hover:brightness-110"
-        >
-          <RotateCcw className="size-4" />
-          איפוס סינון
-        </button>
+        {/* Advanced filters — admin only */}
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-3 border-2 border-dashed border-[var(--ink)] bg-card p-3">
+            <span className="text-xs font-bold text-muted-foreground">סינון מתקדם:</span>
+            <select
+              value={senzeyStatus}
+              onChange={(e) => setSenzeyStatus(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">סטטוס סנזיי: הכל</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+            <select
+              value={siteStatus}
+              onChange={(e) => setSiteStatus(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">סטטוס אתר: הכל</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+            <select value={presence} onChange={(e) => setPresence(e.target.value)} className={inputCls}>
+              <option value="">נוכחות: הכל</option>
+              <option value="both">בשתי המערכות</option>
+              <option value="site">רק אתר</option>
+              <option value="senzey">רק סנזיי</option>
+            </select>
+            <label className="flex items-center gap-1 text-sm font-semibold">
+              <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
+              רק כפילויות
+            </label>
+            <label className="flex items-center gap-1 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={onlyBelowCost}
+                onChange={(e) => setOnlyBelowCost(e.target.checked)}
+              />
+              רק מתחת לעלות
+            </label>
+            <label className="flex items-center gap-1 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={onlyOutsource}
+                onChange={(e) => setOnlyOutsource(e.target.checked)}
+              />
+              רק מיקור חוץ
+            </label>
+            <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls}>
+              <option value="">קבוצה בסנזיי: הכל</option>
+              <option value={EMPTY}>— ללא קבוצה —</option>
+              {groupOptions.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              <option value="">קטגוריה באתר: הכל</option>
+              <option value={EMPTY}>— ללא קטגוריה —</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-1 text-sm font-semibold">
+              <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+              מוצרים חדשים מאושרים
+            </label>
+            <label className="flex items-center gap-1 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={onlyProposed}
+                onChange={(e) => setOnlyProposed(e.target.checked)}
+              />
+              יש מחיר מוצע
+            </label>
+            <label className="flex items-center gap-1 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={onlyCurveOut}
+                onChange={(e) => setOnlyCurveOut(e.target.checked)}
+              />
+              רק חריגים מהעקומה
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded border-2 border-[var(--ink)] bg-card px-3 py-2 text-sm font-semibold shadow-[2px_2px_0_0_var(--ink)] hover:bg-[var(--surface-deep)]">
+              <Switch
+                checked={showClosed}
+                onCheckedChange={(v) => setShowClosed(v)}
+                aria-label="הצג גם פריטים נמחקים או לא רלוונטים"
+              />
+              הצג גם נמחקים / לא רלוונטים
+            </label>
+          </div>
+        )}
       </div>
+
 
       {selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-3 border-2 border-[var(--accent-raw)] bg-[oklch(0.95_0.03_250)] p-3 text-sm">
@@ -1031,30 +1055,33 @@ CURVE = out;
         </div>
       )}
 
-      <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-        <button
-          onClick={() => setShowColFilters((v) => !v)}
-          className="border-2 border-[var(--ink)] px-3 py-1 font-bold hover:bg-[var(--surface-deep)]"
-        >
-          {showColFilters ? "הסתר סינון עמודות" : "סינון לפי עמודה"}
-          {activeColFilters > 0 && ` (${activeColFilters})`}
-        </button>
-        <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
-        {(activeColFilters > 0 || sort) && (
+      {isAdmin && (
+        <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
           <button
-            onClick={() => {
-              setColFilters({});
-              setSort(null);
-            }}
-            className="underline"
+            onClick={() => setShowColFilters((v) => !v)}
+            className="border-2 border-[var(--ink)] px-3 py-1 font-bold hover:bg-[var(--surface-deep)]"
           >
-            ניקוי סינון עמודות ומיון
+            {showColFilters ? "הסתר סינון עמודות" : "סינון לפי עמודה"}
+            {activeColFilters > 0 && ` (${activeColFilters})`}
           </button>
-        )}
-        <span className="text-xs text-muted-foreground">
-          מספרים: ‎&gt;100‎ · ‎&lt;=50‎ · ‎10-30‎ · ‎-‎ ריק · ‎*‎ לא ריק
-        </span>
-      </div>
+          <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
+          {(activeColFilters > 0 || sort) && (
+            <button
+              onClick={() => {
+                setColFilters({});
+                setSort(null);
+              }}
+              className="underline"
+            >
+              ניקוי סינון עמודות ומיון
+            </button>
+          )}
+          <span className="text-xs text-muted-foreground">
+            מספרים: ‎&gt;100‎ · ‎&lt;=50‎ · ‎10-30‎ · ‎-‎ ריק · ‎*‎ לא ריק
+          </span>
+        </div>
+      )}
+
 
       {isLoading ? (
         <p className="text-muted-foreground">טוען…</p>
@@ -1182,7 +1209,7 @@ CURVE = out;
                 )}
                 <th className="w-10 px-2 py-2"></th>
               </tr>
-              {showColFilters && (
+              {isAdmin && showColFilters && (
                 <tr className="bg-[var(--ink)] text-right align-top">
                   <th className="px-2 pb-2"></th>
                   {visibleCols.senzey_ids && (
@@ -1543,13 +1570,23 @@ CURVE = out;
                   )}
                   {visibleCols.family && (
                     <td style={{ width: scaledWidths.family }} className="truncate px-2 py-1 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                      <InlineEdit
-                        key={`fam-${p.id}-${p.family ?? ""}`}
-                        value={p.family}
-                        onSave={(v) => update.mutate({ ids: [p.id], patch: { family: v || null } })}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        {p.family && (
+                          <span
+                            className="inline-block size-2.5 shrink-0 rounded-full"
+                            style={{ background: familyColor(p.family) }}
+                            title={p.family}
+                          />
+                        )}
+                        <InlineEdit
+                          key={`fam-${p.id}-${p.family ?? ""}`}
+                          value={p.family}
+                          onSave={(v) => update.mutate({ ids: [p.id], patch: { family: v || null } })}
+                        />
+                      </div>
                     </td>
                   )}
+
                   {visibleCols.senzey_group && (
                     <td
                       style={{ width: scaledWidths.senzey_group }}

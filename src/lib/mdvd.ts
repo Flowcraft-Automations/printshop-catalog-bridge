@@ -98,6 +98,26 @@ export function displayFieldValue(field: string, value: string | null): string {
   return value;
 }
 
+/** Stable, visually distinct color for a family name. */
+const FAMILY_PALETTE = [
+  "oklch(0.62 0.16 25)",   // red
+  "oklch(0.62 0.16 55)",   // orange
+  "oklch(0.62 0.16 95)",   // yellow-green
+  "oklch(0.62 0.16 145)",  // green
+  "oklch(0.62 0.16 190)",  // teal
+  "oklch(0.62 0.16 250)",  // blue
+  "oklch(0.62 0.16 290)",  // indigo
+  "oklch(0.62 0.16 330)",  // pink
+];
+export function familyColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return FAMILY_PALETTE[Math.abs(hash) % FAMILY_PALETTE.length] as string;
+}
+
+
 export type QtyDiscount = { min: number; mult: number };
 
 export type Family = {
