@@ -242,6 +242,7 @@ function Calculator() {
   const cost = jobCost(costFamily, area, nq);
   const floorPrice = Math.round(costFloor(cost.directCost, overhead));
 
+
   const qtyFit = useMemo(
     () => (family ? fitQtyExponent(products, family) : { c: DEFAULT_QTY_EXPONENT, groups: 0 }),
     [products, family],
