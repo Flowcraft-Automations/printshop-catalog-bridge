@@ -713,7 +713,7 @@ function Calculator() {
                 >
                   {cost.outsourced ? (
                     <div className="mb-1 font-bold">
-                      מעל {cost.threshold} מ״ר — הדפסה במיקור חוץ, {shekel(cost.ratePerM2)} למ״ר
+                      מעל {cost.thresholdW}×{cost.thresholdH} ס״מ — הדפסה במיקור חוץ, {shekel(cost.ratePerM2)} למ״ר
                     </div>
                   ) : null}
                   <div className="text-muted-foreground">
@@ -1061,7 +1061,8 @@ function Calculator() {
               qty={nq}
               factor={qtyFactor(nq, c)}
               costRatePerM2={Number(costInput) || 0}
-              outsourceArea={outAreaInput === "" ? null : Number(outAreaInput)}
+              outsourceWidthCm={outWInput === "" ? null : Number(outWInput)}
+              outsourceHeightCm={outHInput === "" ? null : Number(outHInput)}
               outsourceRatePerM2={Number(outCostInput) || 0}
               overheadFactor={overhead}
             />
