@@ -253,9 +253,9 @@ function Calculator() {
     : undefined;
   const cost = jobCost(costFamily, nw, nh, nq);
   const floorPrice = Math.round(costFloor(cost.directCost, overhead));
-  const [useFloorPrice, setUseFloorPrice] = useState(false);
+  const [overrideCurve, setOverrideCurve] = useState(false);
   useEffect(() => {
-    setUseFloorPrice(false);
+    setOverrideCurve(false);
   }, [family, w, h, qty]);
 
 
