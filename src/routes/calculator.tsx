@@ -367,8 +367,9 @@ function Calculator() {
     () => priceFromCurve(anchors, skipped, fam, fit, nw, nh, nq, c),
     [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
-  const effectivePrice =
-    useFloorPrice && floorPrice > calc.total ? floorPrice : calc.unit;
+  const floorDrives = cost.hasCost && !overrideCurve && floorPrice > calc.total;
+  const finalTotal = floorDrives ? floorPrice : calc.total;
+  const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
 
 
 
