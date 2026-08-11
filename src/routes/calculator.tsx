@@ -367,9 +367,25 @@ function Calculator() {
     () => priceFromCurve(anchors, skipped, fam, fit, nw, nh, nq, c),
     [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
-  const floorDrives = cost.hasCost && !overrideCurve && floorPrice > calc.total;
-  const finalTotal = floorDrives ? floorPrice : calc.total;
+  // a price already decided in the catalog for this exact size+qty wins over the curve
+  const decided = useMemo(() => {
+    if (!family || !nw || !nh) return null;
+    const match = products.find(
+      (p) =>
+        p.family === family &&
+        !isClosedOut(p) &&
+        Number(p.width_cm) === nw &&
+        Number(p.height_cm) === nh &&
+        Math.max(1, Number(p.qty) || 1) === nq &&
+        Number(p.final_price) > 0,
+    );
+    return match ? { p: match, unit: Number(match.final_price) } : null;
+  }, [products, family, nw, nh, nq]);
+
+  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
+  const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : calc.total;
   const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
+
 
 
 
