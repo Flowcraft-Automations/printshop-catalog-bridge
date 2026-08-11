@@ -367,9 +367,25 @@ function Calculator() {
     () => priceFromCurve(anchors, skipped, fam, fit, nw, nh, nq, c),
     [anchors, skipped, fam, fit, nw, nh, nq, c],
   );
-  const floorDrives = cost.hasCost && !overrideCurve && floorPrice > calc.total;
-  const finalTotal = floorDrives ? floorPrice : calc.total;
+  // a price already decided in the catalog for this exact size+qty wins over the curve
+  const decided = useMemo(() => {
+    if (!family || !nw || !nh) return null;
+    const match = products.find(
+      (p) =>
+        p.family === family &&
+        !isClosedOut(p) &&
+        Number(p.width_cm) === nw &&
+        Number(p.height_cm) === nh &&
+        Math.max(1, Number(p.qty) || 1) === nq &&
+        Number(p.final_price) > 0,
+    );
+    return match ? { p: match, unit: Number(match.final_price) } : null;
+  }, [products, family, nw, nh, nq]);
+
+  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
+  const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : calc.total;
   const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
+
 
 
 
@@ -594,7 +610,14 @@ function Calculator() {
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
                     {shekel(finalTotal)}
                   </div>
-                  {floorDrives ? (
+                  {decided ? (
+                    <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
+                      מחיר שנקבע בקטלוג · {decided.p.name} ·{" "}
+                      <span className="num font-normal text-muted-foreground">
+                        עקומה {shekel(calc.total)}
+                      </span>
+                    </div>
+                  ) : floorDrives ? (
                     <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.5_0.16_45)]">
                       לפי עלות ייצור ·{" "}
                       <span className="num font-normal line-through text-muted-foreground">
@@ -602,6 +625,7 @@ function Calculator() {
                       </span>
                     </div>
                   ) : null}
+
                 </div>
                 <div className="text-left">
                   <div className="text-xs font-bold text-muted-foreground">ליחידה</div>
