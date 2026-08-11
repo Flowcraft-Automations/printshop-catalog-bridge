@@ -592,13 +592,21 @@ function Calculator() {
                     מחיר לעבודה ({nq.toLocaleString()} יח׳)
                   </div>
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
-                    {shekel(calc.total)}
+                    {shekel(finalTotal)}
                   </div>
+                  {floorDrives ? (
+                    <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.5_0.16_45)]">
+                      לפי עלות ייצור ·{" "}
+                      <span className="num font-normal line-through text-muted-foreground">
+                        {shekel(calc.total)}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="text-left">
                   <div className="text-xs font-bold text-muted-foreground">ליחידה</div>
                   <div className="num text-2xl font-black">
-                    ₪{(calc.total / nq).toFixed(3)}
+                    ₪{effectivePrice.toFixed(2)}
                   </div>
                 </div>
                 <button
