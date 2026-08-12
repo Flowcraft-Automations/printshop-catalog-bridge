@@ -258,36 +258,41 @@ export function priceGap(p: Product): number | null {
 }
 
 /**
- * When the final price changes, derive the per-system status automatically:
- * higher than that system's current price → "עלה", lower → "ירד", equal → "ללא שינוי".
- * Systems that are closed out (נמחק / לא רלוונטי / כפילות נמחקה) or have no price are left alone.
+ * Each system's status follows its own price column: when מחיר סנזיי changes the
+ * Senzey status becomes עלה / ירד / ללא שינוי, and likewise for מחיר אתר.
+ * Systems that are closed out (נמחק / לא רלוונטי / כפילות נמחקה) are left alone.
  */
 export function autoStatusFromPrice(
-  p: Product,
-  newFinal: number | null,
+  prev: Product,
+  patchIn: Partial<Product>,
 ): { senzey_status?: string; site_status?: string } {
   const patch: { senzey_status?: string; site_status?: string } = {};
-  if (newFinal === null || newFinal === undefined || Number.isNaN(newFinal)) return patch;
 
-  const decide = (ref: unknown): string | null => {
-    if (ref === null || ref === undefined || ref === "") return null;
-    const r = Number(ref);
-    if (!Number.isFinite(r)) return null;
-    const d = newFinal - r;
+  const decide = (oldV: unknown, newV: unknown): string | null => {
+    if (newV === null || newV === undefined || newV === "") return null;
+    const n = Number(newV);
+    if (!Number.isFinite(n)) return null;
+    if (oldV === null || oldV === undefined || oldV === "") return "exists";
+    const o = Number(oldV);
+    if (!Number.isFinite(o)) return "exists";
+    const d = n - o;
     if (Math.abs(d) < 0.01) return "exists";
     return d > 0 ? "increased" : "decreased";
   };
 
-  if (!CLOSED_STATUSES.has(p.senzey_status ?? "")) {
-    const s = decide(p.senzey_price);
-    if (s && s !== p.senzey_status) patch.senzey_status = s;
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(patchIn, k);
+
+  if (has("senzey_price") && !CLOSED_STATUSES.has(prev.senzey_status ?? "")) {
+    const s = decide(prev.senzey_price, patchIn.senzey_price);
+    if (s && s !== prev.senzey_status) patch.senzey_status = s;
   }
-  if (!CLOSED_STATUSES.has(p.site_status ?? "")) {
-    const s = decide(p.site_price);
-    if (s && s !== p.site_status) patch.site_status = s;
+  if (has("site_price") && !CLOSED_STATUSES.has(prev.site_status ?? "")) {
+    const s = decide(prev.site_price, patchIn.site_price);
+    if (s && s !== prev.site_status) patch.site_status = s;
   }
   return patch;
 }
+
 
 export function shekel(n: number | null | undefined) {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
