@@ -598,19 +598,15 @@ CURVE = out;
     mutationFn: async ({ ids, patch }: { ids: string[]; patch: Partial<Product> }) => {
       const stamp = new Date().toISOString();
       const has = (k: string) => Object.prototype.hasOwnProperty.call(patch, k);
-      const priceChanged = has("final_price") || has("senzey_price") || has("site_price");
-      const statusGiven = has("senzey_status") || has("site_status");
+      const priceChanged = has("senzey_price") || has("site_price");
 
-      // Changing prices re-derives each system's status (עלה / ירד / ללא שינוי),
-      // unless the caller explicitly set a status itself.
-      if (priceChanged && !statusGiven) {
+      // Changing a system's price re-derives that system's status (עלה / ירד / ללא שינוי).
+      // Auto always wins over a manually picked status in the same save.
+      if (priceChanged) {
         let autoCount = 0;
         for (const id of ids) {
           const p = products.find((x) => x.id === id);
-          const merged = p ? ({ ...p, ...patch } as Product) : null;
-          const auto = merged
-            ? autoStatusFromPrice(merged, (merged.final_price ?? null) as number | null)
-            : {};
+          const auto = p ? autoStatusFromPrice(p, patch) : {};
           if (Object.keys(auto).length) autoCount++;
           const { error } = await supabase
             .from("products")
@@ -620,6 +616,7 @@ CURVE = out;
         }
         return { autoCount };
       }
+
 
       const { error } = await supabase
         .from("products")

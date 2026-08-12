@@ -155,7 +155,7 @@ function Dashboard() {
                 <td className="px-3 py-1.5">
                   <Link
                     to="/catalog"
-                    search={{ family: f }}
+                    search={{ families: f }}
                     className="font-semibold text-[var(--accent-raw)] hover:underline"
                   >
                     {f}
