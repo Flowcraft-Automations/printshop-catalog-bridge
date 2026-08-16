@@ -165,6 +165,7 @@ export function unitsPerSheet(p: PerSheetParams, w: number, h: number): number {
 type Ctx = {
   configs: Record<string, PricingConfig | null | undefined>;
   qty: number;
+  rawQty: number;
   seen: Set<string>;
 };
 
@@ -240,7 +241,7 @@ function computeTier(
     if (w <= 0 || h <= 0) {
       return { ...base, ...self, price: 0, error: "הזינו מידות" };
     }
-    if (!ctx.qty || ctx.qty <= 0) {
+    if (!ctx.rawQty || ctx.rawQty <= 0) {
       return { ...base, ...self, price: 0, error: "הזינו כמות" };
     }
     const units = unitsPerSheet(p, w, h);
@@ -349,7 +350,7 @@ export function priceJob(input: PriceJobInput): PriceResult {
     return { ...empty, tier, tierPath: [family], error: "הזינו מידות" };
   }
 
-  const ctx: Ctx = { configs, qty: qty || 1, seen: new Set([family]) };
+  const ctx: Ctx = { configs, qty: qty || 1, rawQty: qty, seen: new Set([family]) };
   const out = computeTier(tier, family, s.w, s.h, ctx);
   if (out.error) {
     return { ...empty, tier: out.tier, tierPath: out.tierPath, error: out.error };
