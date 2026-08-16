@@ -516,20 +516,24 @@ export function priceJob(
     };
   };
 
+  const minUnitArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
+  const qtyExp = cfg.qtyExponent > 0 ? cfg.qtyExponent : 1;
+  const qtyFactor = Math.pow(units, qtyExp);
+
   if (cfg.method === "sheet") {
     if (above) {
-      const orderArea = area * units;
-      const billed = Math.max(1, orderArea);
-      const cost = cfg.outsourceCost * billed;
+      const billedUnitArea = Math.max(minUnitArea, area);
+      const cost = cfg.outsourceCost * billedUnitArea * qtyFactor;
       return finish(
         cost * margin,
         cost,
         "מעל הסף — מיקור חוץ",
-        `${shekel(cfg.outsourceCost)} למ״ר × ${billed.toFixed(2)} מ״ר${
-          orderArea < 1 ? " (מינימום 1 מ״ר)" : ""
-        } × מקדם ${margin}`,
+        `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
+          area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
+        } × ${units.toLocaleString()} יח׳${qtyExp !== 1 ? `^${qtyExp}` : ""} × מקדם ${margin}`,
       );
     }
+
 
     const per = sheetUnitsFor(cfg, w, h);
     const sheets = per.units > 0 ? units / per.units : 0;
