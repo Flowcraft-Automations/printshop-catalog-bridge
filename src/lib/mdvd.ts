@@ -194,7 +194,14 @@ const num = (v: unknown) => {
 export function readCustomerPricing(family: Family | undefined): CustomerPricing {
   const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
   const c = (raw?.["customer"] ?? null) as Record<string, unknown> | null;
-  if (!c) return { ...EMPTY_CUSTOMER_PRICING, below: { ...EMPTY_SIDE }, above: { ...EMPTY_SIDE } };
+  if (!c)
+    return {
+      ...EMPTY_CUSTOMER_PRICING,
+      // nothing configured yet → the cost table is the simplest way to price
+      mode: "cost",
+      below: { ...EMPTY_SIDE },
+      above: { ...EMPTY_SIDE },
+    };
   const side = (v: unknown): PriceSide => {
     const o = (v ?? {}) as Record<string, unknown>;
     return { base: num(o["base"]), rate_m2: num(o["rate_m2"]), min: num(o["min"]) };
@@ -202,6 +209,9 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   const s = (c["sheet"] ?? {}) as Record<string, unknown>;
   const r = (c["rounding"] ?? {}) as Record<string, unknown>;
   return {
+    mode: c["mode"] === "cost" ? "cost" : "customer",
+    margin_pct: num(c["margin_pct"]),
+    min_charge: num(c["min_charge"]),
     below: side(c["below"]),
     above: side(c["above"]),
     min_per_linear_m: num(c["min_per_linear_m"]),
@@ -228,8 +238,9 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   };
 }
 
-/** true when the family has any customer price configured. */
+/** true when the family has a usable price configuration (either mode). */
 export function hasCustomerPricing(cfg: CustomerPricing): boolean {
+  if (cfg.mode === "cost") return true;
   return (
     cfg.below.base > 0 ||
     cfg.below.rate_m2 > 0 ||
@@ -240,6 +251,7 @@ export function hasCustomerPricing(cfg: CustomerPricing): boolean {
     (cfg.sheet_mode && cfg.sheet.price_per_sheet > 0)
   );
 }
+
 
 /**
  * "Fits in the box": the item's longer side is within סף רוחב and its shorter
