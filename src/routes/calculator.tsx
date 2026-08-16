@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { Anchor as AnchorIcon } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
@@ -14,6 +14,7 @@ import {
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
+  isClosedOut,
   familyColor,
   priceJob,
   readFamilyPricing,
@@ -153,6 +154,30 @@ function Calculator() {
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
 
+  /** every approved (non-deleted / relevant) item of the family — the anchor table body */
+  const rows = useMemo(() => {
+    return products
+      .filter((p) => (p.family ?? "").trim() === family.trim())
+      .filter((p) => !isClosedOut(p))
+      .map((p) => {
+        const w = Number(p.width_cm) || 0;
+        const h = Number(p.height_cm) || 0;
+        const price = p.final_price ?? p.senzey_price ?? null;
+        return {
+          id: p.id,
+          name: p.name,
+          w,
+          h,
+          area: (w * h) / 10000,
+          qty: Math.max(1, Number(p.qty) || 1),
+          price,
+          isAnchor: !!p.is_anchor,
+        };
+      })
+      .filter((r) => r.w > 0 && r.h > 0)
+      .sort((a, b) => a.area - b.area || a.qty - b.qty);
+  }, [products, family]);
+
   /* ---------------- mutations ---------------- */
 
   const saveCfg = useMutation({
@@ -177,7 +202,14 @@ function Calculator() {
   });
 
   const upsertAnchor = useMutation({
-    mutationFn: async (a: { id?: string; w: number; h: number; qty: number; price: number }) => {
+    mutationFn: async (a: {
+      id?: string;
+      w: number;
+      h: number;
+      qty: number;
+      price: number;
+      anchor?: boolean;
+    }) => {
       if (a.id) {
         const { error } = await supabase
           .from("products")
@@ -186,7 +218,7 @@ function Calculator() {
             height_cm: a.h,
             qty: a.qty,
             final_price: a.price,
-            is_anchor: true,
+            ...(a.anchor === undefined ? {} : { is_anchor: a.anchor }),
           })
           .eq("id", a.id);
         if (error) throw error;
@@ -224,9 +256,9 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const removeAnchor = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").update({ is_anchor: false }).eq("id", id);
+  const toggleAnchor = useMutation({
+    mutationFn: async ({ id, on }: { id: string; on: boolean }) => {
+      const { error } = await supabase.from("products").update({ is_anchor: on }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
