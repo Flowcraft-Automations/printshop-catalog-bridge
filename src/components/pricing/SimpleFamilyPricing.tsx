@@ -56,6 +56,33 @@ function areaTier(name: string): Tier {
   };
 }
 
+/** Best-effort collapse of any config into the one-threshold simple shape. */
+function simplify(cfg: PricingConfig): PricingConfig {
+  const tiers = cfg.tiers ?? [];
+  const usable = tiers.filter(
+    (t) => t.method === "area_linear" || t.method === "per_sheet",
+  );
+  const src = usable.length ? usable : [areaTier("כל המידות")];
+  const withCap = src.find((t) => t.match?.max_w != null || t.match?.max_h != null);
+  const catchAll = [...src].reverse().find((t) => !t.match?.max_w && !t.match?.max_h);
+
+  if (!withCap || !catchAll || withCap === catchAll) {
+    const only = { ...(catchAll ?? src[0]!), name: "כל המידות", match: {} };
+    return { ...cfg, tiers: [only] };
+  }
+  const w = withCap.match?.max_w ?? withCap.match?.max_h ?? 0;
+  const h = withCap.match?.max_h ?? withCap.match?.max_w ?? 0;
+  const big = Math.max(w, h);
+  const small = Math.min(w, h);
+  return {
+    ...cfg,
+    tiers: [
+      { ...withCap, name: `עד ${big}×${small} ס״מ`, match: { max_w: big, max_h: small } },
+      { ...catchAll, name: "מעל הסף", method: "area_linear", match: {} },
+    ],
+  };
+}
+
 export function SimpleFamilyPricing({
   family,
   config,
@@ -69,19 +96,25 @@ export function SimpleFamilyPricing({
 }) {
   const qc = useQueryClient();
   const base = config ?? DEFAULT_CONFIG;
-  const [draft, setDraft] = useState<PricingConfig>(base);
-  const [advanced, setAdvanced] = useState(!isSimpleConfig(base));
+  const [draft, setDraft] = useState<PricingConfig>(
+    isSimpleConfig(base) ? base : simplify(base),
+  );
+  const [advanced, setAdvanced] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isSimpleConfig(base));
   const [tw, setTw] = useState("");
   const [th, setTh] = useState("");
   const [tq, setTq] = useState("1");
 
   useEffect(() => {
     const next = config ?? DEFAULT_CONFIG;
-    setDraft(next);
-    setAdvanced(!isSimpleConfig(next));
+    const simple = isSimpleConfig(next);
+    setDraft(simple ? next : simplify(next));
+    setCollapsed(!simple);
+    setAdvanced(false);
   }, [family, config]);
 
-  const representable = isSimpleConfig(draft);
+
+  
 
   const liveConfigs = useMemo(
     () => ({ ...configs, [family]: draft }),
@@ -169,17 +202,11 @@ export function SimpleFamilyPricing({
       <div className="space-y-2">
         <button
           onClick={() => setAdvanced(false)}
-          disabled={!representable}
-          className="flex items-center gap-1 border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+          className="flex items-center gap-1 border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
         >
           <Settings2 className="size-3" /> חזור למצב פשוט
         </button>
-        {!representable ? (
-          <p className="text-[11px] font-bold text-muted-foreground">
-            התמחור של משפחה זו משתמש בכללים מיוחדים (יותר משני טווחים, מחיר למטר אורך או הפניה
-            למשפחה אחרת), לכן הוא מוצג במצב המתקדם בלבד.
-          </p>
-        ) : null}
+
         <TierEditor
           family={family}
           config={config}
@@ -209,6 +236,14 @@ export function SimpleFamilyPricing({
           </button>
         </div>
       </div>
+
+      {collapsed ? (
+        <p className="mb-4 border-2 border-dashed border-[var(--ink)] p-2 text-[11px] font-bold">
+          למשפחה הזו היו כללים ישנים ומורכבים. הם קופלו כאן לתצורה אחת — בדקו את המספרים
+          ולחצו «שמור» כדי לקבע אותם (או פתחו «הגדרות מתקדמות» לכללים המקוריים).
+        </p>
+      ) : null}
+
 
       {/* ---- size threshold ---- */}
       <div className="mb-5 border-2 border-dashed border-[var(--ink)] p-3">
