@@ -150,7 +150,12 @@ export type SheetConfig = {
   overrides: { size: string; units: number }[];
 };
 
+export type PricingMode = "cost" | "customer";
+
 export type CustomerPricing = {
+  mode: PricingMode;
+  margin_pct: number;
+  min_charge: number;
   below: PriceSide;
   above: PriceSide;
   min_per_linear_m: number;
@@ -162,6 +167,9 @@ export type CustomerPricing = {
 export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
 
 export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
+  mode: "customer",
+  margin_pct: 0,
+  min_charge: 0,
   below: { ...EMPTY_SIDE },
   above: { ...EMPTY_SIDE },
   min_per_linear_m: 0,
@@ -176,6 +184,7 @@ export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
   rounding: { step: 5, direction: "nearest" },
 };
 
+
 const num = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -185,7 +194,14 @@ const num = (v: unknown) => {
 export function readCustomerPricing(family: Family | undefined): CustomerPricing {
   const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
   const c = (raw?.["customer"] ?? null) as Record<string, unknown> | null;
-  if (!c) return { ...EMPTY_CUSTOMER_PRICING, below: { ...EMPTY_SIDE }, above: { ...EMPTY_SIDE } };
+  if (!c)
+    return {
+      ...EMPTY_CUSTOMER_PRICING,
+      // nothing configured yet → the cost table is the simplest way to price
+      mode: "cost",
+      below: { ...EMPTY_SIDE },
+      above: { ...EMPTY_SIDE },
+    };
   const side = (v: unknown): PriceSide => {
     const o = (v ?? {}) as Record<string, unknown>;
     return { base: num(o["base"]), rate_m2: num(o["rate_m2"]), min: num(o["min"]) };
@@ -193,6 +209,9 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   const s = (c["sheet"] ?? {}) as Record<string, unknown>;
   const r = (c["rounding"] ?? {}) as Record<string, unknown>;
   return {
+    mode: c["mode"] === "cost" ? "cost" : "customer",
+    margin_pct: num(c["margin_pct"]),
+    min_charge: num(c["min_charge"]),
     below: side(c["below"]),
     above: side(c["above"]),
     min_per_linear_m: num(c["min_per_linear_m"]),
@@ -219,8 +238,9 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   };
 }
 
-/** true when the family has any customer price configured. */
+/** true when the family has a usable price configuration (either mode). */
 export function hasCustomerPricing(cfg: CustomerPricing): boolean {
+  if (cfg.mode === "cost") return true;
   return (
     cfg.below.base > 0 ||
     cfg.below.rate_m2 > 0 ||
@@ -231,6 +251,7 @@ export function hasCustomerPricing(cfg: CustomerPricing): boolean {
     (cfg.sheet_mode && cfg.sheet.price_per_sheet > 0)
   );
 }
+
 
 /**
  * "Fits in the box": the item's longer side is within סף רוחב and its shorter
@@ -328,6 +349,52 @@ export function priceFromConfig(
     }`,
   };
 }
+
+/**
+ * Cost-driven price: the cost table alone sets the customer price.
+ * total = direct cost × מקדם תקורה × (1 + רווח%), never below מחיר מינימום
+ * (nor below מינימום למטר אורך × meters when set).
+ */
+export function priceFromCost(
+  family: Family | undefined,
+  cfg: CustomerPricing,
+  w: number,
+  h: number,
+  qty: number,
+  overheadFactor: number,
+): ConfigPricing {
+  const units = Math.max(1, qty || 1);
+  const inside = fitsInBox(w, h, family);
+  const side = inside ? "below" : "above";
+  const job = jobCost(family, w, h, units);
+  const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
+  const margin = 1 + (cfg.margin_pct > 0 ? cfg.margin_pct : 0) / 100;
+  const raw = job.directCost * ovh * margin;
+  const meters = (Math.max(w, h) / 100) * units;
+  const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
+  const minCharge = cfg.min_charge > 0 ? cfg.min_charge : 0;
+  const floorValue = Math.max(minCharge, linearMin);
+  const minApplied = raw < minCharge && minCharge >= linearMin;
+  const linearApplied = raw < linearMin && linearMin > minCharge;
+  const total = applyRounding(Math.max(raw, floorValue), cfg.rounding);
+  return {
+    total,
+    unit: total / units,
+    side,
+    minApplied,
+    linearApplied,
+    sheets: null,
+    detail: `לפי עלות · ${inside ? "בתוך הסף" : "מעל הסף"} · ${shekel(job.ratePerM2)} למ״ר × ${job.area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""} = ${shekel(Math.round(job.directCost))} × תקורה ${ovh}${cfg.margin_pct > 0 ? ` × רווח ${cfg.margin_pct}%` : ""} = ${shekel(Math.round(raw))}${
+      linearApplied
+        ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
+        : minApplied
+          ? ` → מחיר מינימום ${shekel(minCharge)}`
+          : ""
+    }`,
+  };
+}
+
+
 
 export type BusinessConfig = {
   id: number;
