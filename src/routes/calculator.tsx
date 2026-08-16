@@ -99,9 +99,11 @@ function Calculator() {
   );
 
   const [family, setFamily] = useState("");
+  const [search, setSearch] = useState("");
   useEffect(() => {
     if (!family && families.length) setFamily(families[0]!.family);
   }, [families, family]);
+
 
   const fam = families.find((f) => f.family === family);
   const saved = useMemo(() => readFamilyPricing(fam), [fam]);
