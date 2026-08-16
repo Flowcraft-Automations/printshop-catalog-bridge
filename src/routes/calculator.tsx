@@ -801,39 +801,6 @@ function Calculator() {
               ) : null}
             </section>
 
-            {/* quantity exponent */}
-            <section className="flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
-              <div>
-                <label className="mb-1 block text-xs font-bold text-muted-foreground">
-                  מקדם כמות (c)
-                </label>
-                <input
-                  className={`${inputCls} num w-28`}
-                  value={cInput}
-                  onChange={(e) => setCInput(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={() => setCInput(String(qtyFit.c))}
-                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
-                disabled={qtyFit.groups === 0}
-              >
-                חשב מהנתונים ({qtyFit.c})
-              </button>
-              <button
-                onClick={() => saveExponent.mutate(c)}
-                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
-              >
-                שמור למשפחה
-              </button>
-              <p className="text-[11px] text-muted-foreground">
-                המחיר גדל לפי (כמות / {QTY_REF.toLocaleString()})^c. c=1 מחיר יחסי לכמות, c נמוך יותר =
-                הנחת כמות חזקה יותר.
-                {qtyFit.groups > 0
-                  ? ` נמדד מ־${qtyFit.groups} קבוצות מידה עם כמויות שונות.`
-                  : " אין מספיק נתונים במשפחה למדידה — ערך ברירת מחדל."}
-              </p>
-            </section>
 
             <CurveChart
               anchors={simOn ? simBuild.anchors : anchors}
