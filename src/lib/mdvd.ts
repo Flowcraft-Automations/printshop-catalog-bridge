@@ -303,9 +303,14 @@ export type FamilyPricing = {
   margin: number;
   rounding: number;
   packages: number[];
+  /** מ״ר מינימלי לחיוב לכל יחידה (מעל הסף) */
+  minUnitArea: number;
+  /** מקדם כמות: העלות מוכפלת ב-units^qtyExponent (1 = ליניארי, <1 = הנחת כמות) */
+  qtyExponent: number;
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
 };
+
 
 export const DEFAULT_MARGIN = 1.3;
 export const DEFAULT_ROUNDING = 5;
@@ -332,9 +337,12 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     packages: Array.isArray(v?.["packages"])
       ? (v?.["packages"] as unknown[]).map(num).filter((n) => n > 0).sort((a, b) => a - b)
       : [],
+    minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
+    qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
     sheetUnits: su,
   };
 }
+
 
 /** The pricing_config JSON to persist for a family. */
 export function writeFamilyPricing(cfg: FamilyPricing) {
@@ -344,7 +352,10 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       margin: cfg.margin,
       rounding: cfg.rounding,
       packages: cfg.packages,
+      min_unit_area: cfg.minUnitArea,
+      qty_exponent: cfg.qtyExponent,
       sheet_units: cfg.sheetUnits,
+
     },
   };
 }
@@ -505,20 +516,24 @@ export function priceJob(
     };
   };
 
+  const minUnitArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
+  const qtyExp = cfg.qtyExponent > 0 ? cfg.qtyExponent : 1;
+  const qtyFactor = Math.pow(units, qtyExp);
+
   if (cfg.method === "sheet") {
     if (above) {
-      const orderArea = area * units;
-      const billed = Math.max(1, orderArea);
-      const cost = cfg.outsourceCost * billed;
+      const billedUnitArea = Math.max(minUnitArea, area);
+      const cost = cfg.outsourceCost * billedUnitArea * qtyFactor;
       return finish(
         cost * margin,
         cost,
         "מעל הסף — מיקור חוץ",
-        `${shekel(cfg.outsourceCost)} למ״ר × ${billed.toFixed(2)} מ״ר${
-          orderArea < 1 ? " (מינימום 1 מ״ר)" : ""
-        } × מקדם ${margin}`,
+        `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
+          area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
+        } × ${units.toLocaleString()} יח׳${qtyExp !== 1 ? `^${qtyExp}` : ""} × מקדם ${margin}`,
       );
     }
+
 
     const per = sheetUnitsFor(cfg, w, h);
     const sheets = per.units > 0 ? units / per.units : 0;
@@ -561,14 +576,18 @@ export function priceJob(
 
   // area method
   if (above) {
-    const cost = cfg.outsourceCost * area * units;
+    const billedUnitArea = Math.max(minUnitArea, area);
+    const cost = cfg.outsourceCost * billedUnitArea * qtyFactor;
     return finish(
       cost * margin,
       cost,
       "מעל הסף — מיקור חוץ",
-      `${shekel(cfg.outsourceCost)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} × מקדם ${margin}`,
+      `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
+        area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
+      } × ${units.toLocaleString()} יח׳${qtyExp !== 1 ? `^${qtyExp}` : ""} × מקדם ${margin}`,
     );
   }
+
   const cost = cfg.cost * area * units;
   const { kept, bad } = consistentAreaAnchors(anchors);
   if (kept.length === 0) {

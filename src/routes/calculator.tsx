@@ -82,7 +82,10 @@ type Draft = {
   margin: string;
   rounding: string;
   packages: string;
+  minUnitArea: string;
+  qtyExponent: string;
 };
+
 
 function Calculator() {
   const qc = useQueryClient();
@@ -117,6 +120,9 @@ function Calculator() {
     margin: String(DEFAULT_MARGIN),
     rounding: String(DEFAULT_ROUNDING),
     packages: "",
+    minUnitArea: "1",
+    qtyExponent: "1",
+
   });
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
 
@@ -130,6 +136,9 @@ function Calculator() {
       margin: String(saved.margin),
       rounding: String(saved.rounding),
       packages: saved.packages.join(", "),
+      minUnitArea: String(saved.minUnitArea),
+      qtyExponent: String(saved.qtyExponent),
+
     });
     setSheetUnits(saved.sheetUnits);
   }, [saved]);
@@ -149,7 +158,10 @@ function Calculator() {
         .map(Number)
         .filter((x) => Number.isFinite(x) && x > 0)
         .sort((a, b) => a - b),
+      minUnitArea: n(draft.minUnitArea) || 1,
+      qtyExponent: n(draft.qtyExponent) || 1,
       sheetUnits,
+
     };
   }, [draft, sheetUnits]);
 
@@ -474,7 +486,24 @@ function Calculator() {
                 width="w-56"
               />
             )}
+            <Field
+              label='מ״ר מינימלי ליחידה (מעל הסף)'
+              value={draft.minUnitArea}
+              onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
+              width="w-44"
+            />
+            <Field
+              label="מקדם כמות (חזקה)"
+              value={draft.qtyExponent}
+              onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+              width="w-40"
+            />
           </div>
+          <div className="mt-2 text-[11px] font-bold text-muted-foreground">
+            מעל הסף המחיר מחושב לכל יחידה: עלות למ״ר × מ״ר ליחידה (לפחות המינימום) × כמות^מקדם כמות × מקדם רווח.
+            מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות.
+          </div>
+
 
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
