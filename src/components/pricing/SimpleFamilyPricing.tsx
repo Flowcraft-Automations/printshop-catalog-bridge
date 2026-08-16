@@ -202,17 +202,11 @@ export function SimpleFamilyPricing({
       <div className="space-y-2">
         <button
           onClick={() => setAdvanced(false)}
-          disabled={!representable}
-          className="flex items-center gap-1 border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+          className="flex items-center gap-1 border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
         >
           <Settings2 className="size-3" /> חזור למצב פשוט
         </button>
-        {!representable ? (
-          <p className="text-[11px] font-bold text-muted-foreground">
-            התמחור של משפחה זו משתמש בכללים מיוחדים (יותר משני טווחים, מחיר למטר אורך או הפניה
-            למשפחה אחרת), לכן הוא מוצג במצב המתקדם בלבד.
-          </p>
-        ) : null}
+
         <TierEditor
           family={family}
           config={config}
