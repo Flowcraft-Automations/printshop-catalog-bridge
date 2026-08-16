@@ -1145,22 +1145,27 @@ function Calculator() {
           </div>
         )}
 
-        {/* cost model — moved to bottom, admin only */}
+        {/* family pricing config — admin only */}
         {family && isAdmin ? (
           <section className="border-2 border-dashed border-[var(--ink)] bg-card p-4">
-            <div className="mb-2 text-xs font-black">עלות ייצור למשפחה</div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {/* 1. שיטת תמחור */}
+            <div className="flex flex-wrap items-end gap-3">
               <div>
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  ₪ למ״ר
+                  שיטת תמחור
                 </label>
-                <input
-                  className={`${inputCls} num`}
-                  value={costInput}
-                  onChange={(e) => setCostInput(e.target.value)}
-                />
+                <select
+                  className={`${inputCls} w-72`}
+                  value={cust.method}
+                  onChange={(e) =>
+                    setCust((p) => ({ ...p, method: e.target.value as typeof p.method }))
+                  }
+                >
+                  <option value="area">לפי מ״ר</option>
+                  <option value="sheet_area">משולב — גיליון עד גודל, מ״ר מעל</option>
+                </select>
               </div>
-              <div>
+              <div className="w-28">
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                   סף רוחב (ס״מ)
                 </label>
@@ -1170,7 +1175,7 @@ function Calculator() {
                   onChange={(e) => setOutWInput(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="w-28">
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                   סף גובה (ס״מ)
                 </label>
@@ -1180,37 +1185,221 @@ function Calculator() {
                   onChange={(e) => setOutHInput(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  ₪ למ״ר במיקור חוץ
-                </label>
-                <input
-                  className={`${inputCls} num`}
-                  value={outCostInput}
-                  onChange={(e) => setOutCostInput(e.target.value)}
-                />
-              </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-end gap-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  מקדם תקורה (×)
-                </label>
-                <input
-                  className={`${inputCls} num w-24`}
-                  value={ovhInput}
-                  onChange={(e) => setOvhInput(e.target.value)}
-                />
+
+            {cust.method === "sheet_area" ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    דמי הכנה ₪
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={cust.sheet.setup}
+                    onChange={(e) =>
+                      setCust((p) => ({
+                        ...p,
+                        sheet: { ...p.sheet, setup: Number(e.target.value) || 0 },
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    מחיר לגיליון ₪
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={cust.sheet.price_per_sheet}
+                    onChange={(e) =>
+                      setCust((p) => ({
+                        ...p,
+                        sheet: { ...p.sheet, price_per_sheet: Number(e.target.value) || 0 },
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    עלות גיליון ₪
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={cust.sheet.cost_per_sheet}
+                    onChange={(e) =>
+                      setCust((p) => ({
+                        ...p,
+                        sheet: { ...p.sheet, cost_per_sheet: Number(e.target.value) || 0 },
+                      }))
+                    }
+                  />
+                </div>
               </div>
+            ) : null}
+
+            {cust.method === "sheet_area" ? (
+              <div className="mt-3 border-2 border-[var(--ink)] p-3">
+                <div className="mb-2 text-[11px] font-black">
+                  יחידות בגיליון — מחושב אוטומטית מגיליון 45×32 (רווח 0.5), חריגים ידניים כאן
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  {cust.sheet.overrides.map((o, i) => (
+                    <div key={i} className="flex items-end gap-1">
+                      <input
+                        className={`${inputCls} num w-24`}
+                        value={o.size}
+                        placeholder="5x5"
+                        onChange={(e) =>
+                          setCust((p) => ({
+                            ...p,
+                            sheet: {
+                              ...p.sheet,
+                              overrides: p.sheet.overrides.map((x, j) =>
+                                j === i ? { ...x, size: e.target.value } : x,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                      <input
+                        className={`${inputCls} num w-20`}
+                        value={o.units}
+                        onChange={(e) =>
+                          setCust((p) => ({
+                            ...p,
+                            sheet: {
+                              ...p.sheet,
+                              overrides: p.sheet.overrides.map((x, j) =>
+                                j === i ? { ...x, units: Number(e.target.value) || 0 } : x,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                      <button
+                        onClick={() =>
+                          setCust((p) => ({
+                            ...p,
+                            sheet: {
+                              ...p.sheet,
+                              overrides: p.sheet.overrides.filter((_, j) => j !== i),
+                            },
+                          }))
+                        }
+                        className="border-2 border-[var(--ink)] px-2 py-1 text-[11px] font-bold"
+                      >
+                        הסר
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setCust((p) => ({
+                        ...p,
+                        sheet: {
+                          ...p.sheet,
+                          overrides: [...p.sheet.overrides, { size: "", units: 0 }],
+                        },
+                      }))
+                    }
+                    className="border-2 border-[var(--ink)] px-3 py-2 text-[11px] font-bold shadow-[3px_3px_0_0_var(--ink)]"
+                  >
+                    הוסף חריג
+                  </button>
+                  {nw && nh ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      {nw}×{nh} → {unitsPerSheet(nw, nh, cust.sheet.overrides)} יח׳ בגיליון
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {/* trios */}
+            <div className="mt-3 grid gap-4 lg:grid-cols-2">
+              {cust.method === "area" ? (
+                <div>
+                  <div className="mb-1 text-[11px] font-black">בתוך הסף</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                        דמי בסיס ₪
+                      </label>
+                      <input
+                        className={`${inputCls} num`}
+                        value={cust.below.base}
+                        onChange={(e) =>
+                          setCust((p) => ({
+                            ...p,
+                            below: { ...p.below, base: Number(e.target.value) || 0 },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                        ₪ למ״ר
+                      </label>
+                      <input
+                        className={`${inputCls} num`}
+                        value={cust.below.rate_m2}
+                        onChange={(e) =>
+                          setCust((p) => ({
+                            ...p,
+                            below: { ...p.below, rate_m2: Number(e.target.value) || 0 },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                        מחיר מינימום ₪
+                      </label>
+                      <input
+                        className={`${inputCls} num`}
+                        value={cust.below.min}
+                        onChange={(e) =>
+                          setCust((p) => ({
+                            ...p,
+                            below: { ...p.below, min: Number(e.target.value) || 0 },
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div>
+                <div className="mb-1 text-[11px] font-black">מעל הסף</div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
                     <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                      רווח %
+                      דמי בסיס ₪
                     </label>
                     <input
-                      className={`${inputCls} num w-28`}
-                      value={cust.margin_pct}
+                      className={`${inputCls} num`}
+                      value={cust.above.base}
                       onChange={(e) =>
-                        setCust((p) => ({ ...p, margin_pct: Number(e.target.value) || 0 }))
+                        setCust((p) => ({
+                          ...p,
+                          above: { ...p.above, base: Number(e.target.value) || 0 },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                      ₪ למ״ר
+                    </label>
+                    <input
+                      className={`${inputCls} num`}
+                      value={cust.above.rate_m2}
+                      onChange={(e) =>
+                        setCust((p) => ({
+                          ...p,
+                          above: { ...p.above, rate_m2: Number(e.target.value) || 0 },
+                        }))
                       }
                     />
                   </div>
@@ -1219,43 +1408,52 @@ function Calculator() {
                       מחיר מינימום ₪
                     </label>
                     <input
-                      className={`${inputCls} num w-28`}
-                      value={cust.min_charge}
+                      className={`${inputCls} num`}
+                      value={cust.above.min}
                       onChange={(e) =>
-                        setCust((p) => ({ ...p, min_charge: Number(e.target.value) || 0 }))
+                        setCust((p) => ({
+                          ...p,
+                          above: { ...p.above, min: Number(e.target.value) || 0 },
+                        }))
                       }
                     />
                   </div>
-              <button
-                onClick={() => saveCosts.mutate()}
-                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
-              >
-                שמור עלויות
-              </button>
-              <button
-                onClick={() => saveOverhead.mutate(overhead)}
-                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
-              >
-                שמור תקורה
-              </button>
-              <button
-                onClick={() => savePricing.mutate(undefined)}
-                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
-              >
-                שמור רווח ומינימום
-              </button>
-              <p className="text-[11px] text-muted-foreground">
-                {`מחיר = עלות ישירה × תקורה ${overhead}${cust.margin_pct > 0 ? ` × רווח ${cust.margin_pct}%` : ""}, לא פחות ממחיר המינימום.`}
-              </p>
+                </div>
+              </div>
             </div>
-          </section>
-        ) : null}
 
-        {/* Row 3 + quick test */}
-        {family && isAdmin ? (
-          <section className="border-2 border-dashed border-[var(--ink)] bg-card p-4">
-            <div className="flex flex-wrap items-end gap-3">
+            {cust.method === "area" ? (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-[11px] font-black">אפשרויות נוספות</summary>
+                <div className="mt-2 w-40">
+                  <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                    מינימום למטר אורך ₪
+                  </label>
+                  <input
+                    className={`${inputCls} num`}
+                    value={cust.min_per_linear_m}
+                    onChange={(e) =>
+                      setCust((p) => ({ ...p, min_per_linear_m: Number(e.target.value) || 0 }))
+                    }
+                  />
+                </div>
+              </details>
+            ) : null}
 
+            {/* 2. חבילות כמות */}
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t-2 border-dashed border-border pt-3">
+              <div className="min-w-64 flex-1">
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  חבילות כמות (רשימה מופרדת בפסיקים · ריק = כמות חופשית)
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={pkgInput}
+                  placeholder="100,150,200,250,500"
+                  onChange={(e) => setPkgInput(e.target.value)}
+                  onBlur={() => setCust((p) => ({ ...p, packages: parsePackages(pkgInput) }))}
+                />
+              </div>
               <div>
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                   עיגול מחיר ₪
@@ -1271,28 +1469,96 @@ function Calculator() {
                   }
                 />
               </div>
-              <div>
+              <button
+                onClick={() => {
+                  setCust((p) => ({ ...p, packages: parsePackages(pkgInput) }));
+                  savePricing.mutate({ ...cust, packages: parsePackages(pkgInput) });
+                }}
+                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור מחירון
+              </button>
+              <button
+                disabled={ladder.length === 0}
+                onClick={() => {
+                  const text = ladder
+                    .map((l) => `${l.qty} יח׳\t${Math.round(l.price)}`)
+                    .join("\n");
+                  navigator.clipboard.writeText(text);
+                  toast.success("סולם הכמויות הועתק");
+                }}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+              >
+                צור סולם כמויות
+              </button>
+            </div>
+
+            {ladder.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+                {ladder.map((l) => (
+                  <span
+                    key={l.qty}
+                    className="num border-2 border-[var(--ink)] px-2 py-1 font-bold"
+                  >
+                    {l.qty.toLocaleString()} → {shekel(l.price)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {/* 3. costs + overhead */}
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t-2 border-dashed border-border pt-3">
+              <div className="w-32">
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  הנחות כמות (c)
+                  עלות ייצור ₪ למ״ר
                 </label>
                 <input
-                  className={`${inputCls} num w-24`}
+                  className={`${inputCls} num`}
+                  value={costInput}
+                  onChange={(e) => setCostInput(e.target.value)}
+                />
+              </div>
+              <div className="w-36">
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  ₪ למ״ר מעל הסף (עלות)
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={outCostInput}
+                  onChange={(e) => setOutCostInput(e.target.value)}
+                />
+              </div>
+              <div className="w-28">
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  מקדם תקורה (×)
+                </label>
+                <input
+                  className={`${inputCls} num`}
+                  value={ovhInput}
+                  onChange={(e) => setOvhInput(e.target.value)}
+                />
+              </div>
+              <div className="w-28">
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  מקדם כמות (c)
+                </label>
+                <input
+                  className={`${inputCls} num`}
                   value={cInput}
                   onChange={(e) => setCInput(e.target.value)}
                 />
               </div>
               <button
-                onClick={() => setCInput(String(qtyFit.c))}
-                disabled={qtyFit.groups === 0}
-                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)] disabled:opacity-40"
+                onClick={() => saveCosts.mutate()}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
               >
-                חשב מהנתונים ({qtyFit.c})
+                שמור עלויות
               </button>
               <button
-                onClick={() => savePricing.mutate(undefined)}
-                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+                onClick={() => saveOverhead.mutate(overhead)}
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
               >
-                שמור מחירון
+                שמור תקורה
               </button>
               <button
                 onClick={() => saveExponent.mutate(c)}
@@ -1301,8 +1567,7 @@ function Calculator() {
                 שמור מקדם כמות
               </button>
               <p className="text-[11px] text-muted-foreground">
-                מקדם הכמות משפיע על עקומת העוגנים ((כמות / {QTY_REF.toLocaleString()})^c);
-                מחיר המחירון גדל ליניארית עם הכמות.
+                {`רצפת מחיר = עלות ישירה × תקורה ${overhead} · מקדם הכמות משפיע רק על עקומת העוגנים ((כמות / ${QTY_REF.toLocaleString()})^c).`}
               </p>
             </div>
 
@@ -1336,6 +1601,7 @@ function Calculator() {
             </div>
           </section>
         ) : null}
+
       </div>
     </div>
   );
