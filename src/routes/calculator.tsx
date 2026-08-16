@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { Anchor as AnchorIcon } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
@@ -14,6 +14,7 @@ import {
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
+  isClosedOut,
   familyColor,
   priceJob,
   readFamilyPricing,
@@ -23,7 +24,6 @@ import {
   slugify,
   writeFamilyPricing,
   type FamilyPricing,
-  type JobAnchor,
 } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/calculator")({
@@ -153,6 +153,30 @@ function Calculator() {
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
 
+  /** every approved (non-deleted / relevant) item of the family — the anchor table body */
+  const rows = useMemo(() => {
+    return products
+      .filter((p) => (p.family ?? "").trim() === family.trim())
+      .filter((p) => !isClosedOut(p))
+      .map((p) => {
+        const w = Number(p.width_cm) || 0;
+        const h = Number(p.height_cm) || 0;
+        const price = p.final_price ?? p.senzey_price ?? null;
+        return {
+          id: p.id,
+          name: p.name,
+          w,
+          h,
+          area: (w * h) / 10000,
+          qty: Math.max(1, Number(p.qty) || 1),
+          price,
+          isAnchor: !!p.is_anchor,
+        };
+      })
+      .filter((r) => r.w > 0 && r.h > 0)
+      .sort((a, b) => a.area - b.area || a.qty - b.qty);
+  }, [products, family]);
+
   /* ---------------- mutations ---------------- */
 
   const saveCfg = useMutation({
@@ -177,7 +201,14 @@ function Calculator() {
   });
 
   const upsertAnchor = useMutation({
-    mutationFn: async (a: { id?: string; w: number; h: number; qty: number; price: number }) => {
+    mutationFn: async (a: {
+      id?: string;
+      w: number;
+      h: number;
+      qty: number;
+      price: number;
+      anchor?: boolean;
+    }) => {
       if (a.id) {
         const { error } = await supabase
           .from("products")
@@ -186,7 +217,7 @@ function Calculator() {
             height_cm: a.h,
             qty: a.qty,
             final_price: a.price,
-            is_anchor: true,
+            ...(a.anchor === undefined ? {} : { is_anchor: a.anchor }),
           })
           .eq("id", a.id);
         if (error) throw error;
@@ -224,9 +255,9 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const removeAnchor = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").update({ is_anchor: false }).eq("id", id);
+  const toggleAnchor = useMutation({
+    mutationFn: async ({ id, on }: { id: string; on: boolean }) => {
+      const { error } = await supabase.from("products").update({ is_anchor: on }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
@@ -272,8 +303,9 @@ function Calculator() {
     setNewRow({ w: "", h: "", qty: "", price: "" });
   };
 
-  const setUnitsForSize = (a: JobAnchor, units: number) => {
+  const setUnitsForSize = (a: { w: number; h: number }, units: number) => {
     const key = sizeKey(a.w, a.h);
+
     setSheetUnits((prev) => {
       const next = { ...prev };
       if (units > 0) next[key] = units;
@@ -430,38 +462,58 @@ function Calculator() {
             )}
           </div>
 
-          {/* anchors */}
+          {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
           <div className="mt-6 text-xs font-bold text-muted-foreground">
             {cfg.method === "area"
-              ? "עוגנים ⚓ — מתחת לסף המחיר מחושב ביניהם לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
-              : `עוגנים ⚓ — מידה + חבילה + מחיר · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+              ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
+              : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
           </div>
 
-          <table className="mt-2 w-full">
-            <thead>
+          <div className="mt-2 max-h-[26rem] overflow-y-auto">
+          <table className="w-full">
+            <thead className="sticky top-0 bg-background">
               <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
+                <th className="w-10 p-2 text-right font-medium">⚓</th>
                 <th className="p-2 text-right font-medium">מידה</th>
                 {cfg.method === "sheet" ? (
                   <>
                     <th className="p-2 text-right font-medium">יחידות בגיליון</th>
                     <th className="p-2 text-right font-medium">חבילה</th>
                   </>
-                ) : null}
-                <th className="p-2 text-right font-medium">מחיר ⚓</th>
-                <th className="w-8" />
+                ) : (
+                  <th className="p-2 text-right font-medium">כמות</th>
+                )}
+                <th className="p-2 text-right font-medium">מחיר</th>
+                <th className="p-2 text-right font-medium">שם</th>
               </tr>
             </thead>
             <tbody>
-              {anchors.map((a) => {
+              {rows.map((a) => {
                 const per = sheetUnitsFor(cfg, a.w, a.h);
                 const bad = inconsistent.some((x) => x.id === a.id);
                 return (
-                  <tr key={a.id} className="border-b border-[var(--line,#c9d4de)] text-base font-bold">
+                  <tr
+                    key={a.id}
+                    className={`border-b border-[var(--line,#c9d4de)] text-base font-bold ${a.isAnchor ? "" : "opacity-70"}`}
+                  >
+                    <td className="p-2">
+                      <button
+                        title={a.isAnchor ? "בטל עוגן" : "סמן כעוגן"}
+                        onClick={() => toggleAnchor.mutate({ id: a.id, on: !a.isAnchor })}
+                        className={a.isAnchor ? "text-[var(--ink)]" : "text-muted-foreground/50"}
+                      >
+                        <AnchorIcon
+                          className="size-4"
+                          strokeWidth={a.isAnchor ? 2.5 : 1.5}
+                          fill={a.isAnchor ? "currentColor" : "none"}
+                        />
+                      </button>
+                    </td>
                     <td className="p-2">
                       {a.w}×{a.h}
                       {bad ? (
                         <span className="mr-2 text-xs font-normal text-destructive">
-                          עוגן לא עקבי: {a.w}×{a.h}
+                          עוגן לא עקבי
                         </span>
                       ) : null}
                     </td>
@@ -479,11 +531,14 @@ function Calculator() {
                         </td>
                         <td className="p-2">{a.qty.toLocaleString()}</td>
                       </>
-                    ) : null}
+                    ) : (
+                      <td className="p-2">{a.qty.toLocaleString()}</td>
+                    )}
                     <td className="p-2 text-[var(--ink)]">
                       <input
+                        key={`${a.id}-${a.price ?? ""}`}
                         className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 font-bold outline-none"
-                        defaultValue={a.price}
+                        defaultValue={a.price ?? ""}
                         onBlur={(e) => {
                           const v = Number(e.target.value) || 0;
                           if (v > 0 && v !== a.price)
@@ -491,19 +546,15 @@ function Calculator() {
                         }}
                       />
                     </td>
-                    <td className="p-2">
-                      <button
-                        title="הסר עוגן (הפריט נשאר בקטלוג)"
-                        className="text-destructive"
-                        onClick={() => removeAnchor.mutate(a.id)}
-                      >
-                        <X className="size-4" />
-                      </button>
+                    <td className="max-w-[18rem] truncate p-2 text-xs font-normal text-muted-foreground">
+                      {a.name}
                     </td>
                   </tr>
                 );
               })}
+
               <tr className="text-base">
+                <td className="p-2 text-muted-foreground">+</td>
                 <td className="p-2">
                   <input
                     className="w-14 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
@@ -535,7 +586,16 @@ function Calculator() {
                       />
                     </td>
                   </>
-                ) : null}
+                ) : (
+                  <td className="p-2">
+                    <input
+                      className="w-20 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                      placeholder="כמות"
+                      value={newRow.qty}
+                      onChange={(e) => setNewRow((p) => ({ ...p, qty: e.target.value }))}
+                    />
+                  </td>
+                )}
                 <td className="p-2">
                   <input
                     className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
@@ -548,6 +608,7 @@ function Calculator() {
               </tr>
             </tbody>
           </table>
+          </div>
 
           <div className="mt-4 flex items-center gap-3">
             <button
