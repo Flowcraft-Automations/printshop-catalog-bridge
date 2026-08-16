@@ -1617,26 +1617,30 @@ function Calculator() {
 
             {/* 3. costs + overhead */}
             <div className="mt-4 flex flex-wrap items-end gap-3 border-t-2 border-dashed border-border pt-3">
-              <div className="w-32">
-                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  עלות ייצור ₪ למ״ר
-                </label>
-                <input
-                  className={`${inputCls} num`}
-                  value={costInput}
-                  onChange={(e) => setCostInput(e.target.value)}
-                />
-              </div>
-              <div className="w-36">
-                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  ₪ למ״ר מעל הסף (עלות)
-                </label>
-                <input
-                  className={`${inputCls} num`}
-                  value={outCostInput}
-                  onChange={(e) => setOutCostInput(e.target.value)}
-                />
-              </div>
+              {cust.method === "area" ? (
+                <>
+                  <div className="w-32">
+                    <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                      עלות ייצור ₪ למ״ר
+                    </label>
+                    <input
+                      className={`${inputCls} num`}
+                      value={costInput}
+                      onChange={(e) => setCostInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-36">
+                    <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                      ₪ למ״ר מעל הסף (עלות)
+                    </label>
+                    <input
+                      className={`${inputCls} num`}
+                      value={outCostInput}
+                      onChange={(e) => setOutCostInput(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : null}
               <div className="w-28">
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                   מקדם תקורה (×)
