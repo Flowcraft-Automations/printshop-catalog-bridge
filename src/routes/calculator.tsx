@@ -158,7 +158,10 @@ function Calculator() {
         .map(Number)
         .filter((x) => Number.isFinite(x) && x > 0)
         .sort((a, b) => a - b),
+      minUnitArea: n(draft.minUnitArea) || 1,
+      qtyExponent: n(draft.qtyExponent) || 1,
       sheetUnits,
+
     };
   }, [draft, sheetUnits]);
 
