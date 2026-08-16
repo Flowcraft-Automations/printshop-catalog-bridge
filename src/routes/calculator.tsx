@@ -1237,7 +1237,7 @@ function Calculator() {
                 שמור תקורה
               </button>
               <button
-                onClick={() => savePricing.mutate()}
+                onClick={() => savePricing.mutate(undefined)}
                 className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
               >
                 שמור מצב תמחור
@@ -1506,7 +1506,7 @@ function Calculator() {
                 חשב מהנתונים ({qtyFit.c})
               </button>
               <button
-                onClick={() => savePricing.mutate()}
+                onClick={() => savePricing.mutate(undefined)}
                 className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
               >
                 שמור מחירון
