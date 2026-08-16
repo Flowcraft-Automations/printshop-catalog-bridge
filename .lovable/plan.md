@@ -1,57 +1,96 @@
-# Size tiers for every family
+# One universal, config-driven pricing engine
 
 ## What we're building, in plain English
 
-Today a family has one set of numbers: one cost per m², one minimum price, one quantity discount, plus a single "above this size we outsource" rule. That is too simple. A sticker under 20 cm and a sticker over 20 cm are two different products made on two different machines at two different costs.
+Today pricing rules are baked into the code: one cost per m², one minimum, one outsourcing threshold, one curve. Every new way of pricing (running metre, sheets, "same as another family") needs new code.
 
-So each family gets **size tiers**: a list of size bands, and each band carries its own cost, its own minimum price, its own quantity curve, and its own price anchors. The calculator looks at the size you typed, picks the matching band, and prices from that band. The old outsourcing rule becomes just the top band of שמשונית — nothing special anymore.
+After this refactor, each family carries a **pricing configuration** — a list of size bands, each with a pricing method and its numbers. The code knows only the methods; the shop's rules live entirely in configuration. שמשונית, מדבקות, and anything Gena invents later are just different configs. The same config will later drive the public website calculator, so nothing in it may assume an admin is looking.
 
-## How a tier is defined
+## 1. Configuration shape
 
-Each tier says when it applies and how it prices:
+A `pricing_config` jsonb column on `families`:
 
-```text
-label:        name shown in the calculator
-applies:      up to N cm / from N cm / from N m²
-cost mode:    per m²    -> cost per m²
-              per sheet -> sheet cost + units per sheet
-min charge:   the floor price inside this band
-qty exponent: bundle discount curve inside this band
+```json
+{
+  "tiers": [
+    { "name": "סרט", "match": {"max_h": 50},
+      "method": "per_running_meter", "params": {"rate": 55, "min": 35},
+      "cost": {"cost_per_m2": 20} },
+    { "name": "יריעה אחת", "match": {"max_h": 160},
+      "method": "area_linear", "params": {"base": 20, "rate_m2": 52, "min": 40},
+      "cost": {"cost_per_m2": 20} },
+    { "name": "שתי יריעות", "match": {},
+      "method": "area_linear", "params": {"base": 0, "rate_m2": 100, "min": 0},
+      "cost": {"cost_per_m2": 40} }
+  ],
+  "qty_model": { "type": "tiers", "tiers": [{"min_qty": 10, "mult": 0.85}, {"min_qty": 20, "mult": 0.75}] },
+  "rounding": { "step": 5, "direction": "up" },
+  "cost": { "overhead_mult": 1.3 }
+}
 ```
 
-Anchors already live on products, so each anchor automatically belongs to the band its size falls into. Each band fits its own curve, so a small sticker can no longer drag a large one down.
+Matching: `w` is the longer side, `h` the shorter. The first tier whose conditions (`min_w` / `max_w` / `min_h` / `max_h`, all optional) all pass wins. An empty `match` is the catch-all and must be last.
 
-## The two families we can configure now
+Methods:
 
-שמשונית, exactly today's numbers rewritten as tiers:
+- `area_linear` — `base + rate_m2 × area_m2`, never below `min`.
+- `per_running_meter` — `rate × longer side in metres`, never below `min`.
+- `per_sheet` — params `sheet_w`, `sheet_h`, `gap_cm`, `setup_fee`, `sheet_rate`, `sheet_cost`, optional `units_overrides` (`{"5x5": 30}`). Units per sheet = override, else `floor((sheet_w+gap)/(w+gap)) × floor((sheet_h+gap)/(h+gap))`. `sheets = ceil(qty / units)`, `price = setup_fee + sheets × sheet_rate`. Quantity is already inside the price, so the qty model is skipped. Floor = `sheets × sheet_cost`.
+- `reference` — `{"family": "שמשונית", "overrides": {"min": 70}}`: run the referenced family's tiers, then apply overrides.
 
-```text
-1. up to 150x160 cm   per m2 20    min 25    qty exp 0.85
-2. from 150x160 cm    per m2 80    min 25    qty exp 0.85
-```
+Each tier carries its own cost params (`cost_per_m2`, `sheet_cost`, or `outsource_per_m2`). Floor = computed cost × `overhead_mult`, and this single floor drives the below-floor warnings everywhere.
 
-מדבקות, the split the meeting settled:
+## 2. The engine
 
-```text
-1. under 20 cm   per sheet: 4 per sheet, units per sheet from Gena's table   min 20
-2. from 20 cm    per m2 20 (same press as שמשונית)                            min 70
-```
+One function, `priceJob(family, w, h, qty)`, in `src/lib/pricing.ts`:
 
-Band 2 immediately flags the large stickers being sold below cost: 100x100 at 60, 120x80 at 60, 70x20 at 29, 56x17 at 50 — all under the 70 floor.
+1. Resolve the tier (following `reference` chains, guarding against loops).
+2. Compute by method.
+3. Apply the qty model — skipped for `per_sheet`.
+4. Round per config.
+5. If the requested size and quantity match an existing catalog anchor within ±2% area, return that anchor's price labelled "מחיר קטלוג" instead of the formula.
+6. Always attach the cost floor and the resulting margin.
 
-Band 1 stays configured but incomplete. The units-per-sheet count per size (3x3, 4x4, 5x5 up to 15x15) is the table you're building with Gena; only 5 cm diameter at about 30 per sheet is known. Until it arrives, small sticker prices stay untouched and only the 20 minimum applies.
+It returns the price plus a **breakdown generated from the config** — tier name and the formula with the real numbers substituted. No hardcoded sentences.
 
-## What changes on screen
+## 3. Quantity models
 
-- Calculator: a line under the size inputs naming the band the size landed in and why, with that band's cost floor and minimum. The admin panel edits the list of bands instead of the single outsourcing block.
-- Catalog: the cost floor column uses each item's own band, so the below-floor warning is finally right for large stickers.
-- Curve chart: a marker at each band boundary, and one fitted curve per band.
-- Header: a "לוח בקרה" link is added so the dashboard page is reachable — it exists at `/` but nothing links to it.
+`tiers` (an explicit list of `min_qty` → multiplier, the new default) or `power` (today's exponent `c`). Selectable per family; every family is seeded with explicit tiers converted from its current behaviour.
+
+## 4. Migration — identical behaviour on day one
+
+Convert each family's flat fields (`cost_per_m2`, `min_charge`, size thresholds, outsourcing fields, the ×1.3 overhead, `c = 0.85`) into `pricing_config`. The old columns stay readable until every screen is switched over.
+
+Seed שמשונית with the three tiers exactly as above. Seed מדבקות with:
+
+- **קטנות** — `match {"max_w": 19.9, "max_h": 19.9}`, `per_sheet`, params `sheet_w 45, sheet_h 32, gap_cm 0.5, setup_fee 94, sheet_rate 8, sheet_cost 4`, `units_overrides {"5x5": 30}`.
+- **גדולות** — `match {}`, `reference` → שמשונית with overrides `{"min": 70}`.
+
+## 5. Settings UI per family
+
+A tier editor: table of tiers with add / remove / reorder, a method dropdown, and a params form that changes with the chosen method. Plus editors for the qty model, rounding and overhead. A live test box (width, height, quantity) shows the matched tier and the resulting price, updating as the config is edited.
+
+## 6. Validation
+
+If the matched tier needs dimensions and they are empty, show "הזינו מידות" and no price. A 0×0 job is never priced — that is today's bug where it returns ₪60. `per_sheet` tiers require a quantity too.
+
+## 7. Everything downstream reads the same config
+
+- Curve chart: one fitted curve per tier, with markers at tier boundaries.
+- Catalog: below-floor warnings use each item's own tier floor.
+- Quantity-ladder generator ("צור סולם כמויות"): for `per_sheet` tiers, an editable 100 / 150 / 200 / 250 / 500 / 1000 list with computed prices and a copy button.
+- No admin-only assumptions anywhere in the engine or the config reader.
+
+## Verification
+
+- מדבקות 5×5: qty 100 → ₪126, qty 150 → ₪134, qty 500 → ₪230 (matches the live site ladder).
+- מדבקות 30×30 qty 1 → priced through the שמשונית reference, never below ₪70.
+- שמשונית: 120×80 → ₪70, 400×200 → ₪800, 200×40 → ₪110.
+- Empty size → no price, validation message shown.
 
 ## Technical notes
 
-- Add a `tiers` jsonb column to `families`, and seed it from the existing cost, minimum and outsourcing fields so behaviour is identical on day one. The old columns stay in place until the UI is fully moved over.
-- `src/lib/mdvd.ts`: `jobCost()` gains a tier lookup and a per-sheet cost mode; `buildAnchors()` and `fitPowerCurve()` group anchors per tier.
-- `src/routes/calculator.tsx`, `src/routes/catalog.tsx` and `src/components/CurveChart.tsx` read tier values instead of the flat family fields.
-- `src/components/AppShell.tsx`: add the dashboard nav link.
-- Sticker data cleanup — assigning items to the correct side of the 20 cm break, fixing the 10 items priced 0 on the website, and fixing the 9x9 bundle rows that all store qty 100 — is a separate pass once the tiers exist.
+- New `src/lib/pricing.ts` holds the config types, tier matcher, methods, qty models, rounding and `priceJob`. `src/lib/mdvd.ts` keeps the anchor/curve helpers; `jobCost` and `costFloor` become thin wrappers over the engine so nothing breaks mid-refactor.
+- Schema change: `pricing_config jsonb` on `families`, seeded by the same migration.
+- Screens updated to call `priceJob`: `src/routes/calculator.tsx`, `src/routes/catalog.tsx`, `src/components/CurveChart.tsx`, and the family settings panel.
+- Engine gets unit tests covering every verification case above, so the ladder numbers are checked automatically rather than by eye.
