@@ -791,6 +791,15 @@ function Calculator() {
               ) : null}
             </section>
 
+            {isAdmin ? (
+              <TierEditor
+                family={family}
+                config={fam.pricing_config ?? null}
+                configs={configs}
+                familyNames={allFamilies.map((f) => f.family)}
+              />
+            ) : null}
+
             {/* quantity exponent */}
             <section className="flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
               <div>
