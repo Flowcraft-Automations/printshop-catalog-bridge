@@ -156,12 +156,19 @@ export type SheetConfig = {
   overrides: SheetOverride[];
 };
 
+/** manual price for a specific size + package (wins over the formula) */
+export type PriceAnchor = { size: string; qty: number; price: number };
+
 export type CustomerPricing = {
   method: PriceMethod;
   below: PriceSide;
   above: PriceSide;
   min_per_linear_m: number;
   sheet: SheetConfig;
+  /** משולב, מעל הסף: עלות לעמוד × כמות × מקדם תקורה */
+  above_page_cost: number;
+  above_min: number;
+  anchors: PriceAnchor[];
   /** quantity packages offered to the customer; empty = free quantity input */
   packages: number[];
   rounding: { step: number; direction: "nearest" | "up" | "down" };
@@ -175,9 +182,13 @@ export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
   above: { ...EMPTY_SIDE },
   min_per_linear_m: 0,
   sheet: { setup: 0, price_per_sheet: 0, cost_per_sheet: 0, overrides: [] },
+  above_page_cost: 0,
+  above_min: 0,
+  anchors: [],
   packages: [],
   rounding: { step: 5, direction: "nearest" },
 };
+
 
 const num = (v: unknown) => {
   const n = Number(v);
