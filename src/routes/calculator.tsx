@@ -1463,9 +1463,14 @@ function Calculator() {
                 ) : null}
               </div>
             ) : null}
+          </section>
+        ) : null}
 
-            {/* Row 3 — shared */}
-            <div className="mt-4 flex flex-wrap items-end gap-3 border-t-2 border-dashed border-[var(--ink)] pt-3">
+        {/* Row 3 + quick test — shared by both modes */}
+        {family && isAdmin ? (
+          <section className="border-2 border-dashed border-[var(--ink)] bg-card p-4">
+            <div className="flex flex-wrap items-end gap-3">
+
               <div>
                 <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                   עיגול מחיר ₪
