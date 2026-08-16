@@ -123,11 +123,6 @@ export type QtyDiscount = { min: number; mult: number };
 export type Family = {
   family: string;
   items_count: number | null;
-  rate_m2: number | null;
-  base_price: number | null;
-  min_charge: number | null;
-  qty_discounts: QtyDiscount[] | null;
-  qty_exponent?: number | null;
   cost_per_m2?: number | null;
   outsource_width_cm?: number | null;
   outsource_height_cm?: number | null;
