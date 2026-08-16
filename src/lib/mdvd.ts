@@ -138,96 +138,100 @@ export type Family = {
 
 /* ------------------------------------------------------------------ *
  * Customer pricing per family (stored in families.pricing_config.customer)
+ * Two methods only:
+ *   "area"       — דמי בסיס + ₪ למ״ר, with an optional above-threshold trio
+ *   "sheet_area" — גיליון עד הסף, מ״ר מעליו
  * ------------------------------------------------------------------ */
 
+export type PriceMethod = "area" | "sheet_area";
+
 export type PriceSide = { base: number; rate_m2: number; min: number };
+
+export type SheetOverride = { size: string; units: number };
 
 export type SheetConfig = {
   setup: number;
   price_per_sheet: number;
   cost_per_sheet: number;
-  units_per_sheet: number;
-  overrides: { size: string; units: number }[];
+  overrides: SheetOverride[];
 };
 
-export type PricingMode = "cost";
-
 export type CustomerPricing = {
-  mode: PricingMode;
-  margin_pct: number;
-  min_charge: number;
+  method: PriceMethod;
   below: PriceSide;
   above: PriceSide;
   min_per_linear_m: number;
-  sheet_mode: boolean;
   sheet: SheetConfig;
+  /** quantity packages offered to the customer; empty = free quantity input */
+  packages: number[];
   rounding: { step: number; direction: "nearest" | "up" | "down" };
 };
 
 export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
 
 export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
-  mode: "cost",
-  margin_pct: 0,
-  min_charge: 0,
+  method: "area",
   below: { ...EMPTY_SIDE },
   above: { ...EMPTY_SIDE },
   min_per_linear_m: 0,
-  sheet_mode: false,
-  sheet: {
-    setup: 0,
-    price_per_sheet: 0,
-    cost_per_sheet: 0,
-    units_per_sheet: 0,
-    overrides: [],
-  },
+  sheet: { setup: 0, price_per_sheet: 0, cost_per_sheet: 0, overrides: [] },
+  packages: [],
   rounding: { step: 5, direction: "nearest" },
 };
-
 
 const num = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
+/** "5x5" / "5×5" → normalized "5x5" key, order-insensitive. */
+export function sizeKey(w: number, h: number) {
+  const a = Math.max(w, h);
+  const b = Math.min(w, h);
+  return `${a}x${b}`;
+}
+function normalizeSizeText(s: string) {
+  const parts = String(s)
+    .replace(/[×*]/g, "x")
+    .split("x")
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n));
+  if (parts.length !== 2) return String(s).trim();
+  return sizeKey(parts[0] as number, parts[1] as number);
+}
+
 /** Read the customer-price block out of families.pricing_config, filling defaults. */
 export function readCustomerPricing(family: Family | undefined): CustomerPricing {
   const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
   const c = (raw?.["customer"] ?? null) as Record<string, unknown> | null;
-  if (!c)
-    return {
-      ...EMPTY_CUSTOMER_PRICING,
-      // nothing configured yet → the cost table is the simplest way to price
-      mode: "cost",
-      below: { ...EMPTY_SIDE },
-      above: { ...EMPTY_SIDE },
-    };
+  if (!c) return { ...EMPTY_CUSTOMER_PRICING, below: { ...EMPTY_SIDE }, above: { ...EMPTY_SIDE } };
   const side = (v: unknown): PriceSide => {
     const o = (v ?? {}) as Record<string, unknown>;
     return { base: num(o["base"]), rate_m2: num(o["rate_m2"]), min: num(o["min"]) };
   };
   const s = (c["sheet"] ?? {}) as Record<string, unknown>;
   const r = (c["rounding"] ?? {}) as Record<string, unknown>;
+  const method: PriceMethod =
+    c["method"] === "sheet_area" || c["sheet_mode"] === true ? "sheet_area" : "area";
   return {
-    mode: "cost",
-    margin_pct: num(c["margin_pct"]),
-    min_charge: num(c["min_charge"]),
+    method,
     below: side(c["below"]),
     above: side(c["above"]),
     min_per_linear_m: num(c["min_per_linear_m"]),
-    sheet_mode: c["sheet_mode"] === true,
     sheet: {
       setup: num(s["setup"]),
       price_per_sheet: num(s["price_per_sheet"]),
       cost_per_sheet: num(s["cost_per_sheet"]),
-      units_per_sheet: num(s["units_per_sheet"]),
       overrides: Array.isArray(s["overrides"])
         ? (s["overrides"] as unknown[]).map((o) => {
             const x = (o ?? {}) as Record<string, unknown>;
-            return { size: String(x["size"] ?? ""), units: num(x["units"]) };
+            return { size: normalizeSizeText(String(x["size"] ?? "")), units: num(x["units"]) };
           })
         : [],
     },
+    packages: Array.isArray(c["packages"])
+      ? (c["packages"] as unknown[]).map(num).filter((n) => n > 0)
+      : [],
     rounding: {
       step: num(r["step"]) > 0 ? num(r["step"]) : 5,
       direction:
@@ -238,10 +242,18 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   };
 }
 
-/** true when the family has a usable price configuration (either mode). */
-export function hasCustomerPricing(_cfg: CustomerPricing): boolean {
-  return true;
+/** "100, 150,200" → [100,150,200] */
+export function parsePackages(text: string): number[] {
+  return text
+    .split(/[,\s]+/)
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
 }
+export function formatPackages(list: number[]): string {
+  return list.join(",");
+}
+
 
 
 /**
