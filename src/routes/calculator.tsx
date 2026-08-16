@@ -8,8 +8,6 @@ import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
 import { businessConfigQuery, familiesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { SimpleFamilyPricing } from "@/components/pricing/SimpleFamilyPricing";
-import { configMap, priceJob } from "@/lib/pricing";
 
 import {
   buildAnchors,
@@ -384,45 +382,8 @@ function Calculator() {
     return match ? { p: match, unit: Number(match.final_price) } : null;
   }, [products, family, nw, nh, nq]);
 
-  /* ---- universal config-driven engine (wins whenever the family has a config) ---- */
-  const configs = useMemo(() => configMap(allFamilies), [allFamilies]);
-  const engineCatalog = useMemo(
-    () =>
-      products
-        .filter((p) => !isClosedOut(p) && p.width_cm && p.height_cm && Number(p.final_price) > 0)
-        .map((p) => ({
-          family: p.family,
-          width_cm: Number(p.width_cm),
-          height_cm: Number(p.height_cm),
-          qty: Math.max(1, Number(p.qty) || 1),
-          price: Number(p.final_price),
-        })),
-    [products],
-  );
-  const hasEngine = !!fam?.pricing_config?.tiers?.length;
-  const engine = useMemo(
-    () =>
-      hasEngine
-        ? priceJob({ family, w: nw, h: nh, qty: nq, configs, catalog: engineCatalog })
-        : null,
-    [hasEngine, family, nw, nh, nq, configs, engineCatalog],
-  );
-
-  const engineFloorDrives =
-    !!engine?.ok && !engine.fromCatalog && !overrideCurve && engine.costFloor > (engine.price ?? 0);
-  const legacyFloorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
-  const floorDrives = hasEngine ? engineFloorDrives : legacyFloorDrives;
-  const finalTotal = hasEngine
-    ? engine?.ok
-      ? engineFloorDrives
-        ? engine.costFloor
-        : (engine.price ?? 0)
-      : 0
-    : decided
-      ? decided.unit * nq
-      : legacyFloorDrives
-        ? floorPrice
-        : calc.total;
+  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
+  const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : calc.total;
   const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
 
 
@@ -647,30 +608,9 @@ function Calculator() {
                     מחיר לעבודה ({nq.toLocaleString()} יח׳)
                   </div>
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
-                    {hasEngine && !engine?.ok ? "—" : shekel(finalTotal)}
+                    {shekel(finalTotal)}
                   </div>
-                  {hasEngine ? (
-                    !engine?.ok ? (
-                      <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.5_0.2_25)]">
-                        {engine?.error}
-                      </div>
-                    ) : (
-                      <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
-                        {engine.fromCatalog ? "מחיר קטלוג" : engine.tierPath.join(" → ")}
-                        {engineFloorDrives ? (
-                          <span className="text-[oklch(0.5_0.16_45)]">
-                            {" "}
-                            · לפי עלות ייצור ·{" "}
-                            <span className="num font-normal line-through text-muted-foreground">
-                              {shekel(engine.price ?? 0)}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground"> · {engine.label}</span>
-                        )}
-                      </div>
-                    )
-                  ) : decided ? (
+                  {decided ? (
                     <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
                       מחיר שנקבע בקטלוג · {decided.p.name} ·{" "}
                       <span className="num font-normal text-muted-foreground">
@@ -725,30 +665,6 @@ function Calculator() {
           <>
             {/* calculation details + cost floor */}
             <section className="grid gap-4 lg:grid-cols-[1fr_auto]">
-              {hasEngine && engine ? (
-                <div className="border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
-                  {engine.ok ? (
-                    <>
-                      <div className="font-bold">
-                        שכבה: {engine.tierPath.join(" → ")} · {engine.label}
-                      </div>
-                      {engine.breakdown.map((line, i) => (
-                        <div key={i} className="text-muted-foreground">
-                          {line}
-                        </div>
-                      ))}
-                      <div className="text-muted-foreground">
-                        שטח מבוקש: {nw}×{nh} = {Math.round(area * 10000).toLocaleString()} סמ״ר
-                      </div>
-                      <div className="text-[11px] text-muted-foreground/70">
-                        מחיר לפי תצורת התמחור של המשפחה — ניתן לעריכה בהגדרות למטה.
-                      </div>
-                    </>
-                  ) : (
-                    <div className="font-bold text-[oklch(0.5_0.2_25)]">{engine.error}</div>
-                  )}
-                </div>
-              ) : (
               <div className="border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
                 <div className="font-bold">{calc.label}</div>
                 {calc.detail ? (
@@ -786,52 +702,8 @@ function Calculator() {
                   </div>
                 ) : null}
               </div>
-              )}
 
-              {hasEngine && engine?.ok ? (
-                engine.costFloor > 0 ? (
-                  <div
-                    className={`border-2 p-3 text-[13px] leading-relaxed ${
-                      (engine.price ?? 0) < engine.costFloor
-                        ? "border-[oklch(0.55_0.2_25)] bg-[oklch(0.55_0.2_25/0.08)]"
-                        : "border-[var(--ink)]"
-                    }`}
-                  >
-                    <div className="text-muted-foreground">
-                      עלות ייצור ישירה{" "}
-                      <span className="num font-bold text-foreground">
-                        {shekel(engine.directCost)}
-                      </span>{" "}
-                      · רצפת מחיר{" "}
-                      <span className="num font-bold text-foreground">
-                        {shekel(engine.costFloor)}
-                      </span>
-                    </div>
-                    {(engine.price ?? 0) < engine.costFloor ? (
-                      <div className="mt-2 flex flex-wrap items-center gap-3">
-                        <span className="font-bold text-[oklch(0.5_0.2_25)]">
-                          מחיר הנוסחה ({shekel(engine.price ?? 0)}) מתחת לרצפת המחיר
-                          {overrideCurve ? "" : " — הופעל מחיר לפי עלות"}
-                        </span>
-                        <button
-                          onClick={() => setOverrideCurve((v) => !v)}
-                          className="border-2 border-[var(--ink)] px-2 py-1 text-[11px] font-bold shadow-[2px_2px_0_0_var(--ink)]"
-                        >
-                          {overrideCurve
-                            ? `חזור לרצפת המחיר ${shekel(engine.costFloor)}`
-                            : `השתמש במחיר הנוסחה ${shekel(engine.price ?? 0)}`}
-                        </button>
-                      </div>
-                    ) : null}
-                    <div className="mt-1">
-                      רווח גולמי{" "}
-                      <span className="num font-bold">
-                        {shekel(Math.round(finalTotal - engine.directCost))}
-                      </span>
-                    </div>
-                  </div>
-                ) : null
-              ) : cost.hasCost ? (
+              {cost.hasCost ? (
                 <div
                   className={`border-2 p-3 text-[13px] leading-relaxed ${
                     calc.total < floorPrice
@@ -879,16 +751,6 @@ function Calculator() {
                 </div>
               ) : null}
             </section>
-
-            {isAdmin ? (
-              <SimpleFamilyPricing
-                family={family}
-                config={fam.pricing_config ?? null}
-                configs={configs}
-                familyNames={allFamilies.map((f) => f.family)}
-              />
-            ) : null}
-
 
             {/* quantity exponent */}
             <section className="flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">

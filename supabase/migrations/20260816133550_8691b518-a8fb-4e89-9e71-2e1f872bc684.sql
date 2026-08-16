@@ -1,1 +1,0 @@
-ALTER TABLE public.families ADD COLUMN IF NOT EXISTS pricing_config jsonb;
