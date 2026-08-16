@@ -237,6 +237,14 @@ export function SimpleFamilyPricing({
         </div>
       </div>
 
+      {collapsed ? (
+        <p className="mb-4 border-2 border-dashed border-[var(--ink)] p-2 text-[11px] font-bold">
+          למשפחה הזו היו כללים ישנים ומורכבים. הם קופלו כאן לתצורה אחת — בדקו את המספרים
+          ולחצו «שמור» כדי לקבע אותם (או פתחו «הגדרות מתקדמות» לכללים המקוריים).
+        </p>
+      ) : null}
+
+
       {/* ---- size threshold ---- */}
       <div className="mb-5 border-2 border-dashed border-[var(--ink)] p-3">
         <div className="mb-2 text-xs font-black">סף גודל</div>
