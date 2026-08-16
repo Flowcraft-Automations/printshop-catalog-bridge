@@ -8,7 +8,7 @@ import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
 import { businessConfigQuery, familiesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { TierEditor } from "@/components/TierEditor";
+import { SimpleFamilyPricing } from "@/components/pricing/SimpleFamilyPricing";
 import { configMap, priceJob } from "@/lib/pricing";
 
 import {
@@ -881,13 +881,14 @@ function Calculator() {
             </section>
 
             {isAdmin ? (
-              <TierEditor
+              <SimpleFamilyPricing
                 family={family}
                 config={fam.pricing_config ?? null}
                 configs={configs}
                 familyNames={allFamilies.map((f) => f.family)}
               />
             ) : null}
+
 
             {/* quantity exponent */}
             <section className="flex flex-wrap items-end gap-3 border-2 border-dashed border-[var(--ink)] p-3">
