@@ -7,7 +7,7 @@ Queried the 180 items in family מדבקות:
 - 150 of 180 are fully closed out (נמחק / כפילות / לא רלוונטי). Only **30 items are live**.
 - **0 anchors** (`is_anchor`) in this family — so the pricing curve produces nothing usable here.
 - **68 items have no width/height**. Of the 30 live items, only **9** carry real sizes; the rest are "קוטר X" items with size embedded in the name only.
-- Family settings: `rate_m2 = 146`, `base_price = 0`, `qty_exponent = 0.85`, **`cost_per_m2 = 0`**, no outsourcing rate. With cost 0, no cost floor protects this family at all.
+- Family settings: `rate_m2 = 146`, `base_price = 0`, `qty_exponent = 0.85`, **`cost_per_m2 = 0`**, `min_charge = 0`. With cost 0 and no minimum, nothing protects this family.
 - **10 live items have מחיר אתר = 0** (all the "קוטר N-N" logo stickers) while סנזיי holds 115–187 ₪.
 - **11 items have a סנזיי/אתר price gap.**
 
@@ -25,44 +25,60 @@ Queried the 180 items in family מדבקות:
 140×140 ₪120   →   61 ₪/m²
 ```
 
-The small end is priced sanely; the large end collapses to a flat ~60 ₪/m² and is close to flat in absolute money (120×80 and 100×100 both ₪60, 140×140 only ₪120 for 3× the area). Large stickers are the loss-makers.
+## What the meeting settled
+
+מדבקות is **two products with a hard break at 20 cm**:
+
+- **Below 20 cm — sheet product.** Small stickers are ganged onto a slightly-larger-than-A3 sheet and plotter-cut. Direct cost per sheet ≈ ₪4 (₪3 material + ₪1 cut). Capacity example: ⌀5 cm → ~30 per sheet → ≈ ₪0.13 direct per sticker, sellable at ~₪20 per sheet's worth.
+- **20 cm and up — roll product.** Produced and priced exactly like שמשונית, with a hard **₪70 minimum** for any large sticker (confirmed for 20×20 and for 100×100).
+- Material waste jumps sharply above 20 cm — that is why the break sits there and not at some area threshold.
+
+### The loss confirmed against live data
+
+Site sells 100×100 at ₪60 and 120×80 at ₪60 against a ₪70 floor; 70×20 sits at ₪29 and 56×17 at ₪50. Every large sticker in the catalog is at or below cost. Current small prices were copied from a competitor ("פיקס") with no cost check.
 
 ### The 9×9 bundle ladder
 
 Site ladder: 100→154, 150→163, 200→179, 250→199, 500→280, 1000→450. Sensible curve, but **all six rows store `qty = 100`**, so the bundle exponent can never reproduce it, and סנזיי holds a flat ₪154 for every one of them.
 
-## Suggested price adjustments
+## Plan
 
-1. **Set anchors** for מדבקות so the curve works (mark `is_anchor`):
-   - 30×20 → ₪60 (keep, matches market)
-   - 70×50 → ₪95
-   - 100×100 → ₪150
-   - 140×140 → ₪260
-   This yields a power curve of roughly `price ≈ 300 × area^0.5`, i.e. ~₪930/m² at 0.06 m² down to ~₪133/m² at 2 m² — sub-linear but no longer collapsing.
+### 1. Split the family in two
 
-2. **Reprice the large sizes** (the main leak):
+Create **מדבקות גיליון** (< 20 cm) and **מדבקות רול** (≥ 20 cm) as separate families, and reassign each live item by its size. One curve cannot serve both — one is priced per sheet slot, the other per m².
+
+### 2. Configure מדבקות רול like שמשונית
+
+Copy the שמשונית economics (`cost_per_m2 = 20`, outsourcing at 150×160 cm at ₪80/m², `qty_exponent = 0.85`) and set **`min_charge = 70`**. Mark anchors mirroring the שמשונית ladder so the curve matches the product it shares a press with.
+
+Resulting reprice of the live large items:
 
 ```text
-120×80   ₪60  → ₪165
-100×100  ₪60  → ₪150
-130×130  ₪100 → ₪230
-140×140  ₪120 → ₪260
-80×60    ₪70  → ₪105
-70×20    ₪29  → ₪60   (below any sane minimum today)
-56×17    ₪50  → ₪60
+20×20    (new) → ₪70   floor
+70×20    ₪29   → ₪70   floor
+56×17    ₪50   → ₪70   floor (roll-printed despite the 17 cm side)
+30×20    ₪60   → ₪70   floor
+70×50    ₪60   → ₪75
+80×60    ₪70   → ₪80
+120×80   ₪60   → ₪90   (matches שמשונית 120/80)
+100×100  ₪60   → ₪70–90  see open item below
+130×130  ₪100  → ₪140
+140×140  ₪120  → ₪150
 ```
 
-3. **Introduce a minimum charge of ₪60** for the family (`min_charge`) — nothing in מדבקות should leave the shop under that.
+Open item: Gena settled 100×100 at ₪70, but the שמשונית curve puts 120×80 — a slightly smaller area — at ₪90. Confirm whether ₪70 is the true price for 100×100 or was shorthand for "at least 70"; the rest of the ladder follows either way.
 
-4. **Fix the 10 items with מחיר אתר = 0** — copy the סנזיי price (115–187) to the site so the website stops showing free products.
+### 3. מדבקות גיליון — blocked on the units-per-sheet table
 
-5. **Fix the 9×9 bundle rows**: set `qty` to the real bundle count (100/150/200/250/500/1000) instead of 100 everywhere, and align סנזיי to the site ladder instead of flat ₪154. With correct qty the exponent 0.85 reproduces the ladder closely.
+The correct model is per sheet, not per m²: `price = ceil(qty / units_per_sheet) × sheet_price`, with direct cost ₪4 per sheet. The missing input is the **units-per-sheet count per size** (3×3, 4×4, 5×5, 6×6 … 15×15) that you are to build with Gena. Only ⌀5 → ~30/sheet is known, which prices one sheet's worth at ~₪20.
 
-6. **Close the size gap**: parse the diameter out of the "קוטר N-N" names into width/height so those 20 items join the curve instead of floating free.
+Until that table exists, hold the small-sticker prices where they are rather than guessing, and set `min_charge = 20` for the sheet family so nothing sells below one sheet's worth.
 
-### Needs your input
+### 4. Data hygiene, independent of pricing
 
-`cost_per_m2` for מדבקות is 0, so I cannot verify any of the above against real production cost. Give me Genadi's material + print cost per m² for sticker vinyl and I will re-derive the floor and adjust the numbers where the curve dips under it.
+- Fix the 10 items with **מחיר אתר = 0** — copy the סנזיי price (115–187).
+- Fix the 9×9 bundle rows: set `qty` to the real bundle count (100/150/200/250/500/1000) instead of 100 everywhere, and align סנזיי to the site ladder instead of flat ₪154.
+- Parse the diameter out of the "קוטר N-N" names into width/height so those ~20 items get a size and land on the right side of the 20 cm break.
 
 ## Also: the dashboard
 
@@ -72,6 +88,7 @@ Fix: add a "לוח בקרה" link pointing at `/` as the first nav item in `src/
 
 ## Technical notes
 
-- Price/anchor changes above are data edits (`products`, `families` rows), applied through the catalog UI or a migration — no pricing-logic changes needed.
-- Editing prices will auto-set the statuses to עלה/ירד via the existing rule.
-- Only code change in this plan: the nav entry in `src/components/AppShell.tsx`.
+- Family split, price edits and anchor marks are data changes to `products` / `families`, applied through the catalog UI or a data migration — no pricing-logic changes required for the roll side.
+- The sheet model (`ceil(qty / units_per_sheet) × sheet_price`) is **new logic** in `src/lib/mdvd.ts` plus a `units_per_sheet` mapping per size; it is out of scope until Gena's table arrives.
+- Editing prices auto-sets statuses to עלה/ירד via the existing rule.
+- Only code change in this round: the nav entry in `src/components/AppShell.tsx`.
