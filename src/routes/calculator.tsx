@@ -1168,6 +1168,60 @@ function Calculator() {
                   onChange={(e) => setOvhInput(e.target.value)}
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                  מצב תמחור
+                </label>
+                <div className="flex border-2 border-[var(--ink)]">
+                  {(
+                    [
+                      ["cost", "לפי עלות"],
+                      ["customer", "לפי מחיר ללקוח"],
+                    ] as const
+                  ).map(([m, label]) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setCust((p) => ({ ...p, mode: m }))}
+                      className={`px-3 py-2 text-xs font-bold ${
+                        cust.mode === m
+                          ? "bg-[var(--ink)] text-[var(--paper,white)]"
+                          : "bg-transparent"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {costMode ? (
+                <>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                      רווח % (מעל התקורה)
+                    </label>
+                    <input
+                      className={`${inputCls} num w-28`}
+                      value={cust.margin_pct}
+                      onChange={(e) =>
+                        setCust((p) => ({ ...p, margin_pct: Number(e.target.value) || 0 }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                      מחיר מינימום ₪
+                    </label>
+                    <input
+                      className={`${inputCls} num w-28`}
+                      value={cust.min_charge}
+                      onChange={(e) =>
+                        setCust((p) => ({ ...p, min_charge: Number(e.target.value) || 0 }))
+                      }
+                    />
+                  </div>
+                </>
+              ) : null}
               <button
                 onClick={() => saveCosts.mutate()}
                 className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
@@ -1176,21 +1230,28 @@ function Calculator() {
               </button>
               <button
                 onClick={() => saveOverhead.mutate(overhead)}
-                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+                className="border-2 border-[var(--ink)] px-3 py-2 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
               >
                 שמור תקורה
               </button>
+              <button
+                onClick={() => savePricing.mutate()}
+                className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
+              >
+                שמור מצב תמחור
+              </button>
               <p className="text-[11px] text-muted-foreground">
-                תקורה ×{overhead} — מחיר חייב לכסות פי {overhead} מהעלות הישירה כדי לשאת עבודה
-                והוצאות (₪{Number(bizCfg?.monthly_cost ?? 200000).toLocaleString()} חודשי מול ₪
-                {Number(bizCfg?.monthly_revenue ?? 175000).toLocaleString()} מחזור).
+                {costMode
+                  ? `מחיר = עלות ישירה × תקורה ${overhead}${cust.margin_pct > 0 ? ` × רווח ${cust.margin_pct}%` : ""}, לא פחות ממחיר המינימום.`
+                  : `תקורה ×${overhead} — מחיר חייב לכסות פי ${overhead} מהעלות הישירה כדי לשאת עבודה והוצאות (₪${Number(bizCfg?.monthly_cost ?? 200000).toLocaleString()} חודשי מול ₪${Number(bizCfg?.monthly_revenue ?? 175000).toLocaleString()} מחזור).`}
               </p>
             </div>
           </section>
         ) : null}
 
         {/* Row 2 — customer price per family */}
-        {family && isAdmin ? (
+        {family && isAdmin && !costMode ? (
+
           <section className="border-2 border-dashed border-[var(--ink)] bg-card p-4">
             <div className="mb-2 text-xs font-black">מחיר ללקוח למשפחה</div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
