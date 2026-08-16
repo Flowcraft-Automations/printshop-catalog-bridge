@@ -150,7 +150,7 @@ export type SheetConfig = {
   overrides: { size: string; units: number }[];
 };
 
-export type PricingMode = "cost" | "customer";
+export type PricingMode = "cost";
 
 export type CustomerPricing = {
   mode: PricingMode;
@@ -167,7 +167,7 @@ export type CustomerPricing = {
 export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
 
 export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
-  mode: "customer",
+  mode: "cost",
   margin_pct: 0,
   min_charge: 0,
   below: { ...EMPTY_SIDE },
@@ -209,7 +209,7 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   const s = (c["sheet"] ?? {}) as Record<string, unknown>;
   const r = (c["rounding"] ?? {}) as Record<string, unknown>;
   return {
-    mode: c["mode"] === "cost" ? "cost" : "customer",
+    mode: "cost",
     margin_pct: num(c["margin_pct"]),
     min_charge: num(c["min_charge"]),
     below: side(c["below"]),
@@ -239,17 +239,8 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
 }
 
 /** true when the family has a usable price configuration (either mode). */
-export function hasCustomerPricing(cfg: CustomerPricing): boolean {
-  if (cfg.mode === "cost") return true;
-  return (
-    cfg.below.base > 0 ||
-    cfg.below.rate_m2 > 0 ||
-    cfg.below.min > 0 ||
-    cfg.above.base > 0 ||
-    cfg.above.rate_m2 > 0 ||
-    cfg.above.min > 0 ||
-    (cfg.sheet_mode && cfg.sheet.price_per_sheet > 0)
-  );
+export function hasCustomerPricing(_cfg: CustomerPricing): boolean {
+  return true;
 }
 
 
@@ -285,70 +276,6 @@ export type ConfigPricing = {
   sheets: number | null;
   detail: string;
 };
-
-/**
- * Customer price from the family's configured numbers:
- * total = דמי בסיס + ₪ למ״ר × שטח × כמות, never below the minimum
- * (nor below מינימום למטר אורך × meters × כמות when set).
- * Sheet mode (below-threshold only): setup + sheets × price per sheet.
- */
-export function priceFromConfig(
-  family: Family | undefined,
-  cfg: CustomerPricing,
-  w: number,
-  h: number,
-  qty: number,
-): ConfigPricing {
-  const units = Math.max(1, qty || 1);
-  const area = (w * h) / 10000;
-  const inside = fitsInBox(w, h, family);
-  const side = inside ? "below" : "above";
-  const s = inside ? cfg.below : cfg.above;
-
-  if (inside && cfg.sheet_mode && cfg.sheet.price_per_sheet > 0) {
-    const key = `${w}x${h}`;
-    const ov = cfg.sheet.overrides.find(
-      (o) => o.size.replace(/[×*]/g, "x").replace(/\s/g, "") === key,
-    );
-    const perSheet = ov && ov.units > 0 ? ov.units : cfg.sheet.units_per_sheet;
-    const sheets = perSheet > 0 ? Math.ceil(units / perSheet) : 1;
-    const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
-    const minApplied = raw < s.min;
-    const total = applyRounding(Math.max(raw, s.min), cfg.rounding);
-    return {
-      total,
-      unit: total / units,
-      side,
-      minApplied,
-      linearApplied: false,
-      sheets,
-      detail: `מצב גיליון · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + דמי הכנה ${shekel(cfg.sheet.setup)}`,
-    };
-  }
-
-  const raw = s.base + s.rate_m2 * area * units;
-  const meters = (Math.max(w, h) / 100) * units;
-  const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
-  const floorValue = Math.max(s.min, linearMin);
-  const minApplied = raw < s.min && s.min >= linearMin;
-  const linearApplied = raw < linearMin && linearMin > s.min;
-  const total = applyRounding(Math.max(raw, floorValue), cfg.rounding);
-  return {
-    total,
-    unit: total / units,
-    side,
-    minApplied,
-    linearApplied,
-    sheets: null,
-    detail: `${inside ? "בתוך הסף" : "מעל הסף"} · דמי בסיס ${shekel(s.base)} + ${shekel(s.rate_m2)} למ״ר × ${area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""} = ${shekel(Math.round(raw))}${
-      linearApplied
-        ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
-        : minApplied
-          ? ` → מחיר מינימום ${shekel(s.min)}`
-          : ""
-    }`,
-  };
-}
 
 /**
  * Cost-driven price: the cost table alone sets the customer price.
