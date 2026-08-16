@@ -150,7 +150,12 @@ export type SheetConfig = {
   overrides: { size: string; units: number }[];
 };
 
+export type PricingMode = "cost" | "customer";
+
 export type CustomerPricing = {
+  mode: PricingMode;
+  margin_pct: number;
+  min_charge: number;
   below: PriceSide;
   above: PriceSide;
   min_per_linear_m: number;
@@ -162,6 +167,9 @@ export type CustomerPricing = {
 export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
 
 export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
+  mode: "customer",
+  margin_pct: 0,
+  min_charge: 0,
   below: { ...EMPTY_SIDE },
   above: { ...EMPTY_SIDE },
   min_per_linear_m: 0,
@@ -175,6 +183,7 @@ export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
   },
   rounding: { step: 5, direction: "nearest" },
 };
+
 
 const num = (v: unknown) => {
   const n = Number(v);
