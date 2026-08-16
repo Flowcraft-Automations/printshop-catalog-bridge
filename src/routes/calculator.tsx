@@ -468,13 +468,23 @@ function Calculator() {
           </div>
 
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
-          <div className="mt-6 text-xs font-bold text-muted-foreground">
-            {cfg.method === "area"
-              ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
-              : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+            <div className="text-xs font-bold text-muted-foreground">
+              {cfg.method === "area"
+                ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
+                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+            </div>
+            <div className="w-56">
+              <label className={labelCls}>חיפוש לפי שם</label>
+              <input
+                className={inputCls}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="הקלידו חלק משם הפריט..."
+              />
+            </div>
           </div>
 
-          <div className="mt-2 max-h-[26rem] overflow-y-auto">
           <table className="w-full">
             <thead className="sticky top-0 bg-background">
               <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
