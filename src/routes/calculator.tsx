@@ -157,9 +157,11 @@ function Calculator() {
 
   /** every approved (non-deleted / relevant) item of the family — the anchor table body */
   const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return products
       .filter((p) => (p.family ?? "").trim() === family.trim())
       .filter((p) => !isClosedOut(p))
+      .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
       .map((p) => {
         const w = Number(p.width_cm) || 0;
         const h = Number(p.height_cm) || 0;
@@ -177,7 +179,8 @@ function Calculator() {
       })
       .filter((r) => r.w > 0 && r.h > 0)
       .sort((a, b) => a.area - b.area || a.qty - b.qty);
-  }, [products, family]);
+  }, [products, family, search]);
+
 
   /* ---------------- mutations ---------------- */
 
