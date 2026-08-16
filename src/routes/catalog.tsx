@@ -24,18 +24,15 @@ import {
   STATUSES,
   STATUS_CLASS,
   STATUS_LABEL,
-  buildAnchors,
-  costFloor,
+  familyAnchors,
+  readFamilyPricing,
+  priceJob,
   displayFieldValue,
   familyColor,
-  fitPowerCurve,
-  curveRefPrice,
   isClosedOut,
-  jobCost,
   parseFieldValue,
   priceGap,
-  qtyFactor,
-  DEFAULT_QTY_EXPONENT,
+
   shekel,
   slugify,
   type Product,
@@ -396,76 +393,66 @@ function Catalog() {
     return map;
   }, [allNotes]);
 
-  // Per-family fitted curve → a suggested price for every sized item,
-  // at that item's own bundle quantity.
-  const curveByProduct = useMemo(() => {
-    const round5 = (n: number) => Math.round(n / 5) * 5;
-    const fams = [...new Set(products.map((p) => (p.family ?? "").trim()).filter(Boolean))];
-    const out: Record<string, CurveSuggestion> = {};
-    for (const fam of fams) {
-      const c =
-        Number(families.find((f) => f.family === fam)?.qty_exponent) ||
-        DEFAULT_QTY_EXPONENT;
-      const { anchors } = buildAnchors(products, fam, c);
-      if (anchors.length < 1) continue;
-      const fit = fitPowerCurve(anchors);
-      if (!fit) continue;
-      for (const p of products) {
-        if ((p.family ?? "").trim() !== fam) continue;
-        const w = Number(p.width_cm);
-        const h = Number(p.height_cm);
-        if (!w || !h) continue;
-        const cur = currentPrice(p);
-        if (cur === null) continue;
-        // A pinned anchor defines the curve — it can never deviate from it.
-        if (p.is_anchor) {
-          out[p.id] = { suggested: cur, current: cur, dev: 0 };
-          continue;
-        }
-        const qty = Math.max(1, Number(p.qty) || 1);
-        const suggested = round5(
-          Math.max(
-            curveRefPrice(anchors, fit, (w * h) / 10000).ref * qtyFactor(qty, c),
-            0,
-          ),
-        );
-        if (suggested <= 0) continue;
-        out[p.id] = { suggested, current: cur, dev: ((suggested - cur) / cur) * 100 };
-      }
+  // Anchor engine → a suggested price for every sized item, plus its cost line.
+  const engineByFamily = useMemo(() => {
+    const out: Record<string, { cfg: ReturnType<typeof readFamilyPricing>; anchors: ReturnType<typeof familyAnchors> }> = {};
+    for (const f of families) {
+      out[f.family] = { cfg: readFamilyPricing(f), anchors: familyAnchors(products, f.family) };
     }
-CURVE = out;
     return out;
-  }, [products, families]);
+  }, [families, products]);
 
-  // Cost floor per product: direct cost (in-house or outsourced) × overhead factor.
+  const curveByProduct = useMemo(() => {
+    const out: Record<string, CurveSuggestion> = {};
+    for (const p of products) {
+      const e = engineByFamily[(p.family ?? "").trim()];
+      const w = Number(p.width_cm);
+      const h = Number(p.height_cm);
+      const cur = currentPrice(p);
+      if (!e || !w || !h || cur === null) continue;
+      if (p.is_anchor) {
+        out[p.id] = { suggested: cur, current: cur, dev: 0 };
+        continue;
+      }
+      const job = priceJob(e.cfg, e.anchors, w, h, Math.max(1, Number(p.qty) || 1));
+      if (!job || job.total <= 0) continue;
+      out[p.id] = { suggested: job.total, current: cur, dev: ((job.total - cur) / cur) * 100 };
+    }
+    CURVE = out;
+    return out;
+  }, [products, engineByFamily]);
+
+  // Below-cost line per product: production cost × מקדם רווח.
   const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
   const floorByProduct = useMemo(() => {
     const out: Record<string, CostInfo> = {};
     for (const p of products) {
-      const fam = families.find((f) => f.family === (p.family ?? "").trim());
+      const e = engineByFamily[(p.family ?? "").trim()];
       const w = Number(p.width_cm);
       const h = Number(p.height_cm);
-      if (!fam || !w || !h) continue;
+      if (!e || !w || !h) continue;
       const area = (w * h) / 10000;
-      const cost = jobCost(fam, w, h, Math.max(1, Number(p.qty) || 1));
-      const floor = Math.round(costFloor(cost.directCost, overheadFactor));
+      const job = priceJob(e.cfg, e.anchors, w, h, Math.max(1, Number(p.qty) || 1));
+      if (!job) continue;
+      const floor = Math.round(job.costFloorValue);
       const cur = currentPrice(p);
       out[p.id] = {
         area,
-        directCost: cost.directCost,
-        ratePerM2: cost.ratePerM2,
+        directCost: job.cost,
+        ratePerM2: job.above ? e.cfg.outsourceCost : e.cfg.cost,
         floor,
-        hasCost: cost.hasCost,
-        below: cost.hasCost && cur !== null && cur < floor,
-        thresholdW: cost.thresholdW,
-        thresholdH: cost.thresholdH,
-        aboveThreshold: cost.outsourced,
-        outsourceRate: Number(fam.outsource_cost_per_m2 ?? 0) || 0,
+        hasCost: job.cost > 0,
+        below: job.cost > 0 && cur !== null && cur < floor,
+        thresholdW: e.cfg.thresholdW,
+        thresholdH: e.cfg.thresholdH,
+        aboveThreshold: job.above,
+        outsourceRate: e.cfg.outsourceCost,
       };
     }
     COST = out;
     return out;
-  }, [products, families, overheadFactor]);
+  }, [products, engineByFamily]);
+
 
 
 

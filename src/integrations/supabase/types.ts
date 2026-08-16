@@ -55,52 +55,34 @@ export type Database = {
       }
       families: {
         Row: {
-          base_price: number
           cost_per_m2: number
           family: string
           items_count: number | null
-          min_charge: number | null
           notes: string | null
-          outsource_area_m2: number | null
           outsource_cost_per_m2: number | null
           outsource_height_cm: number | null
           outsource_width_cm: number | null
           pricing_config: Json | null
-          qty_discounts: Json | null
-          qty_exponent: number
-          rate_m2: number | null
         }
         Insert: {
-          base_price?: number
           cost_per_m2?: number
           family: string
           items_count?: number | null
-          min_charge?: number | null
           notes?: string | null
-          outsource_area_m2?: number | null
           outsource_cost_per_m2?: number | null
           outsource_height_cm?: number | null
           outsource_width_cm?: number | null
           pricing_config?: Json | null
-          qty_discounts?: Json | null
-          qty_exponent?: number
-          rate_m2?: number | null
         }
         Update: {
-          base_price?: number
           cost_per_m2?: number
           family?: string
           items_count?: number | null
-          min_charge?: number | null
           notes?: string | null
-          outsource_area_m2?: number | null
           outsource_cost_per_m2?: number | null
           outsource_height_cm?: number | null
           outsource_width_cm?: number | null
           pricing_config?: Json | null
-          qty_discounts?: Json | null
-          qty_exponent?: number
-          rate_m2?: number | null
         }
         Relationships: []
       }

@@ -123,11 +123,6 @@ export type QtyDiscount = { min: number; mult: number };
 export type Family = {
   family: string;
   items_count: number | null;
-  rate_m2: number | null;
-  base_price: number | null;
-  min_charge: number | null;
-  qty_discounts: QtyDiscount[] | null;
-  qty_exponent?: number | null;
   cost_per_m2?: number | null;
   outsource_width_cm?: number | null;
   outsource_height_cm?: number | null;
@@ -136,66 +131,12 @@ export type Family = {
   pricing_config?: unknown;
 };
 
-/* ------------------------------------------------------------------ *
- * Customer pricing per family (stored in families.pricing_config.customer)
- * Two methods only:
- *   "area"       — דמי בסיס + ₪ למ״ר, with an optional above-threshold trio
- *   "sheet_area" — גיליון עד הסף, מ״ר מעליו
- * ------------------------------------------------------------------ */
-
-export type PriceMethod = "area" | "sheet_area";
-
-export type PriceSide = { base: number; rate_m2: number; min: number };
-
-export type SheetOverride = { size: string; units: number };
-
-export type SheetConfig = {
-  setup: number;
-  price_per_sheet: number;
-  cost_per_sheet: number;
-  overrides: SheetOverride[];
-};
-
-/** manual price for a specific size + package (wins over the formula) */
-export type PriceAnchor = { size: string; qty: number; price: number };
-
-export type CustomerPricing = {
-  method: PriceMethod;
-  below: PriceSide;
-  above: PriceSide;
-  min_per_linear_m: number;
-  sheet: SheetConfig;
-  /** משולב, מעל הסף: עלות לעמוד × כמות × מקדם תקורה */
-  above_page_cost: number;
-  above_min: number;
-  anchors: PriceAnchor[];
-  /** quantity packages offered to the customer; empty = free quantity input */
-  packages: number[];
-  rounding: { step: number; direction: "nearest" | "up" | "down" };
-};
-
-export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
-
-export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
-  method: "area",
-  below: { ...EMPTY_SIDE },
-  above: { ...EMPTY_SIDE },
-  min_per_linear_m: 0,
-  sheet: { setup: 0, price_per_sheet: 0, cost_per_sheet: 0, overrides: [] },
-  above_page_cost: 0,
-  above_min: 0,
-  anchors: [],
-  packages: [],
-  rounding: { step: 5, direction: "nearest" },
-};
-
-
 const num = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
-/** "5x5" / "5×5" → normalized "5x5" key, order-insensitive. */
+/** "5x5" / "5x5" -> normalized key, order-insensitive. */
 export function sizeKey(w: number, h: number) {
   const a = Math.max(w, h);
   const b = Math.min(w, h);
@@ -203,7 +144,7 @@ export function sizeKey(w: number, h: number) {
 }
 function normalizeSizeText(s: string) {
   const parts = String(s)
-    .replace(/[×*]/g, "x")
+    .replace(/[\u00d7*]/g, "x")
     .split("x")
     .map((x) => Number(x.trim()))
     .filter((n) => Number.isFinite(n));
@@ -211,250 +152,10 @@ function normalizeSizeText(s: string) {
   return sizeKey(parts[0] as number, parts[1] as number);
 }
 
-/** Read the customer-price block out of families.pricing_config, filling defaults. */
-export function readCustomerPricing(family: Family | undefined): CustomerPricing {
-  const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
-  const c = (raw?.["customer"] ?? null) as Record<string, unknown> | null;
-  if (!c) return { ...EMPTY_CUSTOMER_PRICING, below: { ...EMPTY_SIDE }, above: { ...EMPTY_SIDE } };
-  const side = (v: unknown): PriceSide => {
-    const o = (v ?? {}) as Record<string, unknown>;
-    return { base: num(o["base"]), rate_m2: num(o["rate_m2"]), min: num(o["min"]) };
-  };
-  const s = (c["sheet"] ?? {}) as Record<string, unknown>;
-  const r = (c["rounding"] ?? {}) as Record<string, unknown>;
-  const method: PriceMethod =
-    c["method"] === "sheet_area" || c["sheet_mode"] === true ? "sheet_area" : "area";
-  return {
-    method,
-    below: side(c["below"]),
-    above: side(c["above"]),
-    min_per_linear_m: num(c["min_per_linear_m"]),
-    sheet: {
-      setup: num(s["setup"]),
-      price_per_sheet: num(s["price_per_sheet"]),
-      cost_per_sheet: num(s["cost_per_sheet"]),
-      overrides: Array.isArray(s["overrides"])
-        ? (s["overrides"] as unknown[]).map((o) => {
-            const x = (o ?? {}) as Record<string, unknown>;
-            return { size: normalizeSizeText(String(x["size"] ?? "")), units: num(x["units"]) };
-          })
-        : [],
-    },
-    above_page_cost: num(c["above_page_cost"]),
-    above_min: num(c["above_min"]),
-    anchors: Array.isArray(c["anchors"])
-      ? (c["anchors"] as unknown[])
-          .map((o) => {
-            const x = (o ?? {}) as Record<string, unknown>;
-            return {
-              size: normalizeSizeText(String(x["size"] ?? "")),
-              qty: num(x["qty"]),
-              price: num(x["price"]),
-            };
-          })
-          .filter((a) => a.size !== "" && a.price > 0)
-      : [],
-    packages: Array.isArray(c["packages"])
-      ? (c["packages"] as unknown[]).map(num).filter((n) => n > 0)
-      : [],
-    rounding: {
-      step: num(r["step"]) > 0 ? num(r["step"]) : 5,
-      direction:
-        r["direction"] === "up" || r["direction"] === "down"
-          ? (r["direction"] as "up" | "down")
-          : "nearest",
-    },
-  };
-}
-
-/** "100, 150,200" → [100,150,200] */
-export function parsePackages(text: string): number[] {
-  return text
-    .split(/[,\s]+/)
-    .map((x) => Number(x.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0)
-    .sort((a, b) => a - b);
-}
-export function formatPackages(list: number[]): string {
-  return list.join(",");
-}
-
-
-
-/**
- * "Fits in the box": the item's longer side is within סף רוחב and its shorter
- * side within סף גובה. No thresholds configured → always inside.
- */
-export function fitsInBox(w: number, h: number, family: Family | undefined): boolean {
-  const bw = Number(family?.outsource_width_cm ?? 0) || 0;
-  const bh = Number(family?.outsource_height_cm ?? 0) || 0;
-  if (bw <= 0 || bh <= 0) return true;
-  const long = Math.max(w, h);
-  const short = Math.min(w, h);
-  return long <= bw && short <= bh;
-}
-
-export function applyRounding(
-  value: number,
-  rounding: { step: number; direction: "nearest" | "up" | "down" },
-) {
-  const step = rounding.step > 0 ? rounding.step : 1;
-  if (rounding.direction === "up") return Math.ceil(value / step) * step;
-  if (rounding.direction === "down") return Math.floor(value / step) * step;
-  return Math.round(value / step) * step;
-}
-
-export type ConfigPricing = {
-  total: number;
-  unit: number;
-  side: "below" | "above";
-  minApplied: boolean;
-  linearApplied: boolean;
-  sheets: number | null;
-  detail: string;
-};
-
 /** Printing sheet used for sticker nesting. */
 export const SHEET_W_CM = 45;
 export const SHEET_H_CM = 32;
 export const SHEET_GAP_CM = 0.5;
-
-/** How many items of w×h fit on one sheet (both orientations), or a manual override. */
-export function unitsPerSheet(
-  w: number,
-  h: number,
-  overrides: SheetOverride[] = [],
-): number {
-  const key = sizeKey(w, h);
-  const hit = overrides.find((o) => normalizeSizeText(o.size) === key);
-  if (hit && hit.units > 0) return Math.floor(hit.units);
-  if (w <= 0 || h <= 0) return 0;
-  const g = SHEET_GAP_CM;
-  const fit = (iw: number, ih: number) =>
-    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
-  return Math.max(fit(w, h), fit(h, w));
-}
-
-/** Quantity-discount multiplier from the family tiers (1 when none apply). */
-export function qtyDiscountMult(family: Family | undefined, qty: number): number {
-  const tiers = (family?.qty_discounts ?? [])
-    .filter((t) => qty >= t.min)
-    .sort((a, b) => b.min - a.min);
-  return tiers[0]?.mult ?? 1;
-}
-
-/** Manual anchor price for an exact size + package, if one is configured. */
-export function findAnchor(
-  anchors: PriceAnchor[],
-  w: number,
-  h: number,
-  qty: number,
-): PriceAnchor | undefined {
-  const key = sizeKey(w, h);
-  return anchors.find((a) => a.size === key && Math.round(a.qty) === Math.round(qty));
-}
-
-/**
- * The family price list.
- *  - method "area": (base + ₪/m² × area) per unit × qty × quantity discount,
- *    never below מחיר מינימום nor below מינימום למטר אורך × meters.
- *    A configured size threshold switches to the second trio.
- *  - method "sheet_area": inside the threshold the job is priced as
- *    דמי הכנה + גיליונות × מחיר לגיליון (a manual anchor for the exact
- *    size + package wins); above it, one page per unit at
- *    עלות לעמוד × כמות × מקדם תקורה, floored by מחיר מינימום.
- */
-export function priceFromConfig(
-  family: Family | undefined,
-  cfg: CustomerPricing,
-  w: number,
-  h: number,
-  qty: number,
-  overheadFactor: number = DEFAULT_OVERHEAD_FACTOR,
-): ConfigPricing {
-  const units = Math.max(1, qty || 1);
-  const inside = fitsInBox(w, h, family);
-  const side: "below" | "above" = inside ? "below" : "above";
-  const area = (w * h) / 10000;
-
-  if (cfg.method === "sheet_area" && inside) {
-    const anchor = findAnchor(cfg.anchors, w, h, units);
-    if (anchor) {
-      return {
-        total: anchor.price,
-        unit: anchor.price / units,
-        side,
-        minApplied: false,
-        linearApplied: false,
-        sheets: null,
-        detail: `מחיר עוגן ידני · ${anchor.size} × ${anchor.qty.toLocaleString()} יח׳ = ${shekel(anchor.price)}`,
-      };
-    }
-    const per = unitsPerSheet(w, h, cfg.sheet.overrides);
-    const sheets = per > 0 ? Math.ceil(units / per) : 0;
-    const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
-    const total = applyRounding(raw, cfg.rounding);
-    return {
-      total,
-      unit: total / units,
-      side,
-      minApplied: false,
-      linearApplied: false,
-      sheets,
-      detail: `גיליון · ${per} יח׳ בגיליון (${SHEET_W_CM}×${SHEET_H_CM}) · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + הכנה ${shekel(cfg.sheet.setup)} = ${shekel(total)}`,
-    };
-  }
-
-  if (cfg.method === "sheet_area") {
-    const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
-    const raw = cfg.above_page_cost * units * ovh;
-    const minCharge = cfg.above_min > 0 ? cfg.above_min * units : 0;
-    const minApplied = raw < minCharge;
-    const total = applyRounding(Math.max(raw, minCharge), cfg.rounding);
-    return {
-      total,
-      unit: total / units,
-      side,
-      minApplied,
-      linearApplied: false,
-      sheets: units,
-      detail: `מעל הסף · עמוד אחד לפריט · עלות לעמוד ${shekel(cfg.above_page_cost)} × ${units.toLocaleString()} × תקורה ${ovh} = ${shekel(Math.round(raw))}${
-        minApplied ? ` → מחיר מינימום ${shekel(cfg.above_min)}` : ""
-      }`,
-    };
-  }
-
-
-  const trio = inside ? cfg.below : cfg.above;
-  const perUnitRaw = trio.base + trio.rate_m2 * area;
-  const mult = qtyDiscountMult(family, units);
-  const raw = perUnitRaw * units * mult;
-  const meters = (Math.max(w, h) / 100) * units;
-  const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
-  const minCharge = trio.min > 0 ? trio.min * units : 0;
-  const floorValue = Math.max(minCharge, linearMin);
-  const minApplied = raw < minCharge && minCharge >= linearMin;
-  const linearApplied = raw < linearMin && linearMin > minCharge;
-  const total = applyRounding(Math.max(raw, floorValue), cfg.rounding);
-  return {
-    total,
-    unit: total / units,
-    side,
-    minApplied,
-    linearApplied,
-    sheets: null,
-    detail: `${inside ? "בתוך הסף" : "מעל הסף"} · דמי בסיס ${shekel(trio.base)} + ${shekel(trio.rate_m2)} למ״ר × ${area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""}${mult !== 1 ? ` × הנחת כמות ${mult}` : ""} = ${shekel(Math.round(raw))}${
-      linearApplied
-        ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
-        : minApplied
-          ? ` → מחיר מינימום ${shekel(trio.min)}`
-          : ""
-    }`,
-  };
-}
-
-
-
 
 export type BusinessConfig = {
   id: number;
@@ -464,89 +165,6 @@ export type BusinessConfig = {
 };
 
 export const DEFAULT_OVERHEAD_FACTOR = 2;
-
-export type JobCost = {
-  area: number;
-  ratePerM2: number;
-  directCost: number;
-  outsourced: boolean;
-  thresholdW: number | null;
-  thresholdH: number | null;
-  hasCost: boolean;
-};
-
-/** Direct material + print cost of a job, switching to the outsourcing rate when both dimensions pass the family threshold. */
-export function jobCost(
-  family: Family | undefined,
-  w: number,
-  h: number,
-  qty: number,
-): JobCost {
-  const base = Number(family?.cost_per_m2 ?? 0) || 0;
-  const thresholdW =
-    family?.outsource_width_cm != null && Number(family.outsource_width_cm) > 0
-      ? Number(family.outsource_width_cm)
-      : null;
-  const thresholdH =
-    family?.outsource_height_cm != null && Number(family.outsource_height_cm) > 0
-      ? Number(family.outsource_height_cm)
-      : null;
-  const outRate = Number(family?.outsource_cost_per_m2 ?? 0) || 0;
-  const area = (w * h) / 10000;
-  // "fits in the box" — longer side within the width threshold and shorter side
-  // within the height threshold. Anything that does not fit goes to outsourcing.
-  const outsourced =
-    thresholdW != null && thresholdH != null && outRate > 0 && !fitsInBox(w, h, family);
-  const ratePerM2 = outsourced ? outRate : base;
-  const units = qty > 0 ? qty : 1;
-
-  // sheet families cost per printed sheet / per outsourced page, not per m²
-  const cfg = readCustomerPricing(family);
-  if (cfg.method === "sheet_area") {
-    const inside = fitsInBox(w, h, family);
-    if (inside) {
-      const per = unitsPerSheet(w, h, cfg.sheet.overrides);
-      const sheets = per > 0 ? Math.ceil(units / per) : 0;
-      const direct = sheets * cfg.sheet.cost_per_sheet;
-      return {
-        area,
-        ratePerM2: 0,
-        directCost: direct,
-        outsourced: false,
-        thresholdW,
-        thresholdH,
-        hasCost: direct > 0,
-      };
-    }
-    const direct = cfg.above_page_cost * units;
-    return {
-      area,
-      ratePerM2: 0,
-      directCost: direct,
-      outsourced: true,
-      thresholdW,
-      thresholdH,
-      hasCost: direct > 0,
-    };
-  }
-
-  return {
-    area,
-    ratePerM2,
-    directCost: area * ratePerM2 * units,
-    outsourced,
-    thresholdW,
-    thresholdH,
-    hasCost: ratePerM2 > 0 && area > 0,
-  };
-}
-
-
-/** Minimum sale price that covers direct cost plus labor/overhead. */
-export function costFloor(directCost: number, overheadFactor: number) {
-  const f = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
-  return directCost * f;
-}
 
 
 export const STATUSES = [
@@ -656,583 +274,6 @@ export function slugify(s: string) {
   return s.trim().replace(/\s+/g, "-").slice(0, 60);
 }
 
-export function computePrice(
-  family: Family | undefined,
-  w: number,
-  h: number,
-  qty: number,
-) {
-  const rate = family?.rate_m2 ?? 0;
-  const min = family?.min_charge ?? 0;
-  const area = (w * h) / 10000;
-  const raw = rate * area;
-  const beforeDiscount = Math.max(raw, min);
-  const tiers = (family?.qty_discounts ?? [])
-    .filter((t) => qty >= t.min)
-    .sort((a, b) => b.min - a.min);
-  const mult = tiers[0]?.mult ?? 1;
-  const unit = Math.round(beforeDiscount * mult);
-  return {
-    area,
-    raw,
-    min,
-    beforeDiscount,
-    mult,
-    unit,
-    total: unit * qty,
-    tier: tiers[0] ?? null,
-  };
-}
-
-/** Reference bundle size all anchor prices are normalised to. */
-export const QTY_REF = 1000;
-
-export const DEFAULT_QTY_EXPONENT = 0.85;
-
-export type Anchor = {
-  area: number;
-  /** the real catalog price, for the bundle quantity below */
-  price: number;
-  /** bundle quantity this price is for */
-  qty: number;
-  /** price normalised to QTY_REF units */
-  refPrice: number;
-  w: number;
-  h: number;
-  fromFinal: boolean;
-  name?: string;
-  /** true when the user explicitly pinned this item as the family's עוגן */
-  pinned?: boolean;
-  id?: string;
-};
-
-/** Where the family curve came from. */
-export type FitSource = "anchors" | "single-anchor" | "all-items";
-
-export const FIT_SOURCE_LABEL: Record<FitSource, string> = {
-  anchors: "עקומה מעוגנים שסימנת",
-  "single-anchor": "עקומה מעוגן יחיד (מחיר יחסי לשטח)",
-  "all-items": "עקומה מכל פריטי המשפחה",
-};
-
-
-export type AnchorPricing = {
-  unit: number;
-  total: number;
-  basis: "catalog" | "catalog-scaled" | "line" | "rate";
-  label: string;
-  detail: string | null;
-  anchors: Anchor[];
-  skipped: number;
-  mult: number;
-  tier: QtyDiscount | null;
-  minApplied: boolean;
-  floorApplied: boolean;
-  base: number;
-};
-
-const sizeLabel = (a: Anchor) => `${a.w}×${a.h}`;
-
-const median = (nums: number[]) => {
-  const s = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
-};
-
-/** quantity scaling factor relative to the 1000-unit reference */
-export const qtyFactor = (qty: number, c: number) =>
-  Math.pow(Math.max(1, qty) / QTY_REF, c);
-
-export type QtyExponentFit = {
-  c: number;
-  /** number of same-size groups that contributed a slope */
-  groups: number;
-};
-
-/**
- * Fit the family's volume-discount exponent: log(price) vs log(qty) inside
- * groups of identical size, median of the per-group slopes, clamped to 0.3–1.
- */
-export function fitQtyExponent(products: Product[], family: string): QtyExponentFit {
-  const groups = new Map<string, { qty: number; price: number }[]>();
-  for (const p of products) {
-    if (p.family !== family || isClosedOut(p)) continue;
-    const w = Number(p.width_cm);
-    const h = Number(p.height_cm);
-    const qty = Number(p.qty);
-    const price = Number(p.final_price ?? p.senzey_price);
-    if (!w || !h || !qty || qty < 1 || !price || price <= 0) continue;
-    const key = `${w}x${h}`;
-    const arr = groups.get(key) ?? [];
-    arr.push({ qty, price });
-    groups.set(key, arr);
-  }
-  const slopes: number[] = [];
-  for (const arr of groups.values()) {
-    const uniq = new Map<number, number>();
-    for (const it of arr) {
-      const prev = uniq.get(it.qty);
-      if (prev === undefined || it.price < prev) uniq.set(it.qty, it.price);
-    }
-    const pts = [...uniq.entries()].map(([qty, price]) => ({
-      x: Math.log(qty),
-      y: Math.log(price),
-    }));
-    if (pts.length < 2) continue;
-    const n = pts.length;
-    const mx = pts.reduce((s, p) => s + p.x, 0) / n;
-    const my = pts.reduce((s, p) => s + p.y, 0) / n;
-    let num = 0;
-    let den = 0;
-    for (const p of pts) {
-      num += (p.x - mx) * (p.y - my);
-      den += (p.x - mx) ** 2;
-    }
-    if (den === 0) continue;
-    const slope = num / den;
-    if (!Number.isFinite(slope)) continue;
-    slopes.push(slope);
-  }
-  if (slopes.length === 0) return { c: DEFAULT_QTY_EXPONENT, groups: 0 };
-  const c = Math.min(1, Math.max(0.3, median(slopes)));
-  return { c: Math.round(c * 100) / 100, groups: slopes.length };
-}
-
-/**
- * Build price anchors for a family, normalised to QTY_REF units.
- * When the user pinned items as עוגן, ONLY those define the curve (verbatim).
- * Otherwise falls back to all sized+priced items, dropping anomalies whose
- * normalised price-per-m² deviates more than ×2.5 from the family median.
- */
-export function buildAnchors(
-  products: Product[],
-  family: string,
-  c: number = DEFAULT_QTY_EXPONENT,
-): { anchors: Anchor[]; skipped: number; dropped: Anchor[]; source: FitSource } {
-  const toAnchor = (p: Product): Anchor | null => {
-    const w = Number(p.width_cm);
-    const h = Number(p.height_cm);
-    if (!w || !h) return null;
-    const qty = Math.max(1, Number(p.qty) || 0);
-    if (!Number(p.qty)) return null;
-    const fromFinal = p.final_price !== null && p.final_price !== undefined;
-    const price = Number(fromFinal ? p.final_price : p.senzey_price);
-    if (!price || Number.isNaN(price) || price <= 0) return null;
-    return {
-      area: (w * h) / 10000,
-      price,
-      qty,
-      refPrice: price / qtyFactor(qty, c),
-      w,
-      h,
-      fromFinal,
-      name: p.name,
-      id: p.id,
-      pinned: !!p.is_anchor,
-    };
-  };
-
-  const fam = products.filter((p) => p.family === family && !isClosedOut(p));
-
-  // 1. Pinned anchors win outright.
-  const pinned = fam
-    .filter((p) => p.is_anchor)
-    .map(toAnchor)
-    .filter((a): a is Anchor => a !== null)
-    .sort((a, b) => a.area - b.area);
-  if (pinned.length > 0) {
-    return {
-      anchors: pinned,
-      skipped: 0,
-      dropped: [],
-      source: pinned.length === 1 ? "single-anchor" : "anchors",
-    };
-  }
-
-  // 2. Fallback: derive from the whole family (any bundle quantity).
-  const byKey = new Map<string, Anchor>();
-  for (const p of fam) {
-    const cand = toAnchor(p);
-    if (!cand) continue;
-    const key = `${cand.area.toFixed(4)}|${cand.qty}`;
-    const prev = byKey.get(key);
-    if (
-      !prev ||
-      (cand.fromFinal && !prev.fromFinal) ||
-      (cand.fromFinal === prev.fromFinal && cand.price < prev.price)
-    ) {
-      byKey.set(key, cand);
-    }
-  }
-  const all = [...byKey.values()].sort((a, b) => a.area - b.area);
-  if (all.length < 3) return { anchors: all, skipped: 0, dropped: [], source: "all-items" };
-
-  const med = median(all.map((a) => a.refPrice / a.area));
-  const keep = (a: Anchor) => {
-    const ppm = a.refPrice / a.area;
-    return ppm <= med * 2.5 && ppm >= med / 2.5;
-  };
-  const anchors = all.filter(keep);
-  const dropped = all.filter((a) => !keep(a));
-  return { anchors, skipped: dropped.length, dropped, source: "all-items" };
-}
-
-
-export type FamilyFit = {
-  base: number;
-  rate: number;
-  /** average absolute % deviation of anchors from the fitted line */
-  deviation: number;
-  count: number;
-};
-
-/**
- * Least-squares fit of refPrice (price at QTY_REF units) = base + rate × area,
- * with base clamped to >= 0.
- */
-export function fitFamilyLine(anchors: Anchor[]): FamilyFit | null {
-  const n = anchors.length;
-  if (n === 0) return null;
-  let base = 0;
-  let rate = 0;
-  if (n === 1) {
-    rate = anchors[0]!.refPrice / anchors[0]!.area;
-  } else {
-    const mx = anchors.reduce((s, a) => s + a.area, 0) / n;
-    const my = anchors.reduce((s, a) => s + a.refPrice, 0) / n;
-    let num = 0;
-    let den = 0;
-    for (const a of anchors) {
-      num += (a.area - mx) * (a.refPrice - my);
-      den += (a.area - mx) ** 2;
-    }
-    rate = den === 0 ? my / (mx || 1) : num / den;
-    base = my - rate * mx;
-    if (base < 0 || rate <= 0) {
-      // refit through the origin
-      base = 0;
-      const sxx = anchors.reduce((s, a) => s + a.area * a.area, 0);
-      const sxy = anchors.reduce((s, a) => s + a.area * a.refPrice, 0);
-      rate = sxx === 0 ? 0 : sxy / sxx;
-    }
-  }
-  const deviation =
-    anchors.reduce((s, a) => {
-      const fit = base + rate * a.area;
-      return s + Math.abs(fit - a.refPrice) / a.refPrice;
-    }, 0) /
-    n *
-    100;
-  return {
-    base: Math.round(base * 100) / 100,
-    rate: Math.round(rate * 100) / 100,
-    deviation,
-    count: n,
-  };
-}
-
-const round5 = (n: number) => Math.round(n / 5) * 5;
-
-/**
- * Price a requested size + bundle quantity from the fitted family curve:
- * price = (base + rate × area) × (qty / 1000)^c
- */
-export function priceFromLine(
-  anchors: Anchor[],
-  skipped: number,
-  family: Family | undefined,
-  fit: FamilyFit | null,
-  w: number,
-  h: number,
-  qty: number,
-  c: number = DEFAULT_QTY_EXPONENT,
-): AnchorPricing {
-  const area = (w * h) / 10000;
-  const min = family?.min_charge ?? 0;
-  const base = fit ? fit.base : 0;
-  const rate = fit ? fit.rate : (family?.rate_m2 ?? 0);
-  const f = qtyFactor(qty, c);
-  const sameSize = anchors.filter((a) => Math.abs(a.area - area) <= a.area * 0.02);
-
-  // exact catalog hit: same size AND same quantity
-  const exact = sameSize.find((a) => a.qty === qty);
-  if (exact && area) {
-    const minApplied = exact.price < min;
-    const unit = minApplied ? round5(Math.max(exact.price, min)) : exact.price;
-    return {
-      unit,
-      total: unit,
-      basis: "catalog",
-      label: "מחיר קטלוג",
-      detail: `נמצאה מידה וכמות זהות במחירון: ${sizeLabel(exact)} · ${exact.qty.toLocaleString()} יח׳ = ${shekel(exact.price)}`,
-      anchors: [exact],
-      skipped,
-      mult: 1,
-      tier: null,
-      minApplied,
-      floorApplied: false,
-      base: exact.price,
-    };
-  }
-
-  // same size, different quantity: scale the catalog price by the volume curve
-  const near = sameSize.sort(
-    (a, b) => Math.abs(Math.log(a.qty / qty)) - Math.abs(Math.log(b.qty / qty)),
-  )[0];
-  if (near && area) {
-    const scaled = near.price * (qtyFactor(qty, c) / qtyFactor(near.qty, c));
-    const minApplied = scaled < min;
-    const unit = round5(Math.max(scaled, min));
-    return {
-      unit,
-      total: unit,
-      basis: "catalog-scaled",
-      label: "מחיר קטלוג מותאם לכמות",
-      detail: `${sizeLabel(near)} · ${near.qty.toLocaleString()} יח׳ = ${shekel(near.price)} → מותאם ל־${qty.toLocaleString()} יח׳ (מקדם כמות ${c})`,
-      anchors: [near],
-      skipped,
-      mult: 1,
-      tier: null,
-      minApplied,
-      floorApplied: false,
-      base: scaled,
-    };
-  }
-
-  const refPrice = base + rate * area;
-  const raw = refPrice * f;
-  const cheapest = anchors.length
-    ? anchors.reduce((m, a) => Math.min(m, a.refPrice), Infinity) * f
-    : 0;
-  const floorApplied = cheapest > 0 && raw < cheapest;
-  const afterFloor = Math.max(raw, cheapest);
-  const minApplied = afterFloor < min;
-  const beforeMin = Math.max(afterFloor, min);
-  const unit = round5(beforeMin);
-
-  return {
-    unit,
-    total: unit,
-    basis: fit ? "line" : "rate",
-    label: fit ? "מחיר מחושב" : "חישוב לפי תעריף לסמ״ר",
-    detail: `מחיר ל־${QTY_REF.toLocaleString()} יח׳: בסיס ${shekel(base)} + ${(rate / 10000).toFixed(4)}₪ לסמ״ר × ${Math.round(area * 10000).toLocaleString()} סמ״ר = ${shekel(Math.round(refPrice))} → מותאם ל־${qty.toLocaleString()} יח׳ (מקדם ${c}) = ${shekel(Math.round(raw))}`,
-    anchors: [],
-    skipped,
-    mult: 1,
-    tier: null,
-    minApplied,
-    floorApplied,
-    base: raw,
-  };
-}
-
-/* ------------------------------------------------------------------ *
- * Power curve: price = a × area^b  (b < 1 → sub-linear, print-typical)
- * ------------------------------------------------------------------ */
-
-export const DEFAULT_CURVE_EXPONENT = 0.6;
-
-export type FamilyCurve = {
-  /** price at 1 m² for QTY_REF units */
-  a: number;
-  /** area exponent */
-  b: number;
-  /** average absolute % deviation of anchors from the curve */
-  deviation: number;
-  count: number;
-};
-
-/** Least-squares fit of log(refPrice) = log a + b·log(area), b clamped to 0.3–1. */
-export function fitPowerCurve(anchors: Anchor[]): FamilyCurve | null {
-  const pts = anchors.filter((x) => x.area > 0 && x.refPrice > 0);
-  const n = pts.length;
-  if (n === 0) return null;
-  let b = DEFAULT_CURVE_EXPONENT;
-  let a: number;
-  if (n === 1) {
-    a = pts[0]!.refPrice / Math.pow(pts[0]!.area, b);
-  } else {
-    const xs = pts.map((p) => Math.log(p.area));
-    const ys = pts.map((p) => Math.log(p.refPrice));
-    const mx = xs.reduce((s, v) => s + v, 0) / n;
-    const my = ys.reduce((s, v) => s + v, 0) / n;
-    let num = 0;
-    let den = 0;
-    for (let i = 0; i < n; i++) {
-      num += (xs[i]! - mx) * (ys[i]! - my);
-      den += (xs[i]! - mx) ** 2;
-    }
-    const slope = den === 0 ? DEFAULT_CURVE_EXPONENT : num / den;
-    b = Math.min(1, Math.max(0.3, Number.isFinite(slope) ? slope : DEFAULT_CURVE_EXPONENT));
-    a = Math.exp(my - b * mx);
-  }
-  const deviation =
-    (pts.reduce((s, p) => {
-      const fitv = a * Math.pow(p.area, b);
-      return s + Math.abs(fitv - p.refPrice) / p.refPrice;
-    }, 0) /
-      n) *
-    100;
-  return { a: Math.round(a * 100) / 100, b: Math.round(b * 1000) / 1000, deviation, count: n };
-}
-
-/** Evaluate the piecewise curve (exact through anchors) at a given area. */
-export function curveRefPrice(
-  anchors: Anchor[],
-  curve: FamilyCurve | null,
-  area: number,
-): { ref: number; lo: Anchor | null; hi: Anchor | null; b: number } {
-  const fallbackB = curve?.b ?? DEFAULT_CURVE_EXPONENT;
-  if (area <= 0) return { ref: 0, lo: null, hi: null, b: fallbackB };
-  const pts = anchors
-    .filter((x) => x.area > 0 && x.refPrice > 0)
-    .sort((x, y) => x.area - y.area);
-  if (pts.length === 0) {
-    return { ref: curve ? curve.a * Math.pow(area, curve.b) : 0, lo: null, hi: null, b: fallbackB };
-  }
-  if (pts.length === 1) {
-    const p = pts[0]!;
-    return {
-      ref: p.refPrice * Math.pow(area / p.area, fallbackB),
-      lo: p,
-      hi: null,
-      b: fallbackB,
-    };
-  }
-  const seg = (lo: Anchor, hi: Anchor) => {
-    const b =
-      lo.area === hi.area
-        ? fallbackB
-        : Math.log(hi.refPrice / lo.refPrice) / Math.log(hi.area / lo.area);
-    const bb = Number.isFinite(b) ? b : fallbackB;
-    return { ref: lo.refPrice * Math.pow(area / lo.area, bb), lo, hi, b: bb };
-  };
-  if (area <= pts[0]!.area) return seg(pts[0]!, pts[1]!);
-  if (area >= pts[pts.length - 1]!.area) return seg(pts[pts.length - 2]!, pts[pts.length - 1]!);
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (area >= pts[i]!.area && area <= pts[i + 1]!.area) return seg(pts[i]!, pts[i + 1]!);
-  }
-  return seg(pts[0]!, pts[1]!);
-}
-
-/**
- * Price a requested size + bundle quantity from the family's power curve:
- * refPrice interpolated geometrically between neighbouring anchors,
- * then scaled by the volume factor (qty / QTY_REF)^c.
- */
-export function priceFromCurve(
-  anchors: Anchor[],
-  skipped: number,
-  family: Family | undefined,
-  curve: FamilyCurve | null,
-  w: number,
-  h: number,
-  qty: number,
-  c: number = DEFAULT_QTY_EXPONENT,
-): AnchorPricing {
-  const area = (w * h) / 10000;
-  const min = family?.min_charge ?? 0;
-  const f = qtyFactor(qty, c);
-  const sameSize = anchors.filter((a) => Math.abs(a.area - area) <= a.area * 0.02);
-
-  const exact = sameSize.find((a) => a.qty === qty);
-  if (exact && area) {
-    const minApplied = exact.price < min;
-    const unit = minApplied ? round5(Math.max(exact.price, min)) : exact.price;
-    return {
-      unit,
-      total: unit,
-      basis: "catalog",
-      label: "מחיר קטלוג",
-      detail: `נמצאה מידה וכמות זהות במחירון: ${sizeLabel(exact)} · ${exact.qty.toLocaleString()} יח׳ = ${shekel(exact.price)}`,
-      anchors: [exact],
-      skipped,
-      mult: 1,
-      tier: null,
-      minApplied,
-      floorApplied: false,
-      base: exact.price,
-    };
-  }
-
-  const near = sameSize.sort(
-    (a, b) => Math.abs(Math.log(a.qty / qty)) - Math.abs(Math.log(b.qty / qty)),
-  )[0];
-  if (near && area) {
-    const scaled = near.price * (qtyFactor(qty, c) / qtyFactor(near.qty, c));
-    const minApplied = scaled < min;
-    const unit = round5(Math.max(scaled, min));
-    return {
-      unit,
-      total: unit,
-      basis: "catalog-scaled",
-      label: "מחיר קטלוג מותאם לכמות",
-      detail: `${sizeLabel(near)} · ${near.qty.toLocaleString()} יח׳ = ${shekel(near.price)} → מותאם ל־${qty.toLocaleString()} יח׳ (מקדם כמות ${c})`,
-      anchors: [near],
-      skipped,
-      mult: 1,
-      tier: null,
-      minApplied,
-      floorApplied: false,
-      base: scaled,
-    };
-  }
-
-  if (anchors.length === 0 && !curve) {
-    // no curve at all — legacy flat rate per m²
-    const rate = family?.rate_m2 ?? 0;
-    const raw = rate * area * f;
-    const minApplied = raw < min;
-    const unit = round5(Math.max(raw, min));
-    return {
-      unit,
-      total: unit,
-      basis: "rate",
-      label: "חישוב לפי תעריף לסמ״ר",
-      detail: `${(rate / 10000).toFixed(4)}₪ לסמ״ר × ${Math.round(area * 10000).toLocaleString()} סמ״ר`,
-      anchors: [],
-      skipped,
-      mult: 1,
-      tier: null,
-      minApplied,
-      floorApplied: false,
-      base: raw,
-    };
-  }
-
-  const { ref, lo, hi, b } = curveRefPrice(anchors, curve, area);
-  const raw = ref * f;
-  const cheapest = anchors.length
-    ? anchors.reduce((m, a) => Math.min(m, a.refPrice), Infinity) * f
-    : 0;
-  const floorApplied = cheapest > 0 && raw < cheapest;
-  const afterFloor = Math.max(raw, cheapest);
-  const minApplied = afterFloor < min;
-  const unit = round5(Math.max(afterFloor, min));
-
-  const between =
-    lo && hi
-      ? `בין ${sizeLabel(lo)} (${shekel(Math.round(lo.refPrice * f))}) לבין ${sizeLabel(hi)} (${shekel(Math.round(hi.refPrice * f))})`
-      : lo
-        ? `מעוגן ${sizeLabel(lo)} (${shekel(Math.round(lo.refPrice * f))})`
-        : `עקומה כללית`;
-
-  return {
-    unit,
-    total: unit,
-    basis: "line",
-    label: "מחיר לפי עקומת חזקה",
-    detail: `${between} · מעריך שטח ${b.toFixed(2)} · שטח מבוקש ${area.toFixed(3)} מ״ר${qty !== QTY_REF ? ` · מותאם ל־${qty.toLocaleString()} יח׳ (מקדם ${c})` : ""} = ${shekel(Math.round(raw))}`,
-    anchors: [lo, hi].filter((x): x is Anchor => !!x),
-    skipped,
-    mult: 1,
-    tier: null,
-    minApplied,
-    floorApplied,
-    base: raw,
-  };
-}
-
 
 export type ProductNote = {
   id: string;
@@ -1242,3 +283,323 @@ export type ProductNote = {
   created_at: string;
   updated_at: string;
 };
+
+/* ------------------------------------------------------------------ *
+ * Anchor-based pricing engine (v3)
+ * Per family: one method + threshold + 3–4 numbers + anchor table.
+ * Anchors live in the catalog (products.is_anchor + price).
+ * ------------------------------------------------------------------ */
+
+export type FamilyMethod = "area" | "sheet";
+
+export type FamilyPricing = {
+  method: FamilyMethod;
+  thresholdW: number;
+  thresholdH: number;
+  /** ₪/m² (area) or ₪ per sheet (sheet) — below the threshold */
+  cost: number;
+  /** ₪/m² (area) or ₪ per unit (sheet) — above the threshold */
+  outsourceCost: number;
+  margin: number;
+  rounding: number;
+  packages: number[];
+  /** manual יחידות בגיליון per size key */
+  sheetUnits: Record<string, number>;
+};
+
+export const DEFAULT_MARGIN = 1.3;
+export const DEFAULT_ROUNDING = 5;
+
+export function readFamilyPricing(family: Family | undefined): FamilyPricing {
+  const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
+  const v = (raw?.["v3"] ?? null) as Record<string, unknown> | null;
+  const su: Record<string, number> = {};
+  const rawSu = (v?.["sheet_units"] ?? null) as Record<string, unknown> | null;
+  if (rawSu && typeof rawSu === "object") {
+    for (const [k, val] of Object.entries(rawSu)) {
+      const n = num(val);
+      if (n > 0) su[normalizeSizeText(k)] = Math.floor(n);
+    }
+  }
+  return {
+    method: v?.["method"] === "sheet" ? "sheet" : "area",
+    thresholdW: num(family?.outsource_width_cm),
+    thresholdH: num(family?.outsource_height_cm),
+    cost: num(family?.cost_per_m2),
+    outsourceCost: num(family?.outsource_cost_per_m2),
+    margin: num(v?.["margin"]) > 0 ? num(v?.["margin"]) : DEFAULT_MARGIN,
+    rounding: num(v?.["rounding"]) > 0 ? num(v?.["rounding"]) : DEFAULT_ROUNDING,
+    packages: Array.isArray(v?.["packages"])
+      ? (v?.["packages"] as unknown[]).map(num).filter((n) => n > 0).sort((a, b) => a - b)
+      : [],
+    sheetUnits: su,
+  };
+}
+
+/** The pricing_config JSON to persist for a family. */
+export function writeFamilyPricing(cfg: FamilyPricing) {
+  return {
+    v3: {
+      method: cfg.method,
+      margin: cfg.margin,
+      rounding: cfg.rounding,
+      packages: cfg.packages,
+      sheet_units: cfg.sheetUnits,
+    },
+  };
+}
+
+/** Auto (geometric) יחידות בגיליון, ignoring manual overrides. */
+export function autoUnitsPerSheet(w: number, h: number): number {
+  if (w <= 0 || h <= 0) return 0;
+  const g = SHEET_GAP_CM;
+  const fit = (iw: number, ih: number) =>
+    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
+  return Math.max(fit(w, h), fit(h, w));
+}
+
+export function sheetUnitsFor(cfg: FamilyPricing, w: number, h: number) {
+  const key = sizeKey(w, h);
+  const manual = cfg.sheetUnits[key];
+  if (manual && manual > 0) return { units: manual, manual: true };
+  return { units: autoUnitsPerSheet(w, h), manual: false };
+}
+
+export function fitsThreshold(cfg: FamilyPricing, w: number, h: number) {
+  if (cfg.thresholdW <= 0 || cfg.thresholdH <= 0) return true;
+  return Math.max(w, h) <= cfg.thresholdW && Math.min(w, h) <= cfg.thresholdH;
+}
+
+export type JobAnchor = {
+  id: string;
+  name: string;
+  w: number;
+  h: number;
+  area: number;
+  qty: number;
+  price: number;
+};
+
+export function anchorPrice(p: Product): number | null {
+  const v = p.final_price ?? p.senzey_price ?? p.site_price ?? null;
+  return v !== null && Number(v) > 0 ? Number(v) : null;
+}
+
+/** Catalog anchors for a family, sorted by area then quantity. */
+export function familyAnchors(products: Product[], family: string): JobAnchor[] {
+  const out: JobAnchor[] = [];
+  for (const p of products) {
+    if (!p.is_anchor) continue;
+    if ((p.family ?? "").trim() !== family.trim()) continue;
+    const w = Number(p.width_cm) || 0;
+    const h = Number(p.height_cm) || 0;
+    const price = anchorPrice(p);
+    if (!w || !h || price === null) continue;
+    out.push({
+      id: p.id,
+      name: p.name,
+      w,
+      h,
+      area: (w * h) / 10000,
+      qty: Math.max(1, Number(p.qty) || 1),
+      price,
+    });
+  }
+  return out.sort((a, b) => a.area - b.area || a.qty - b.qty);
+}
+
+/** Drop anchors cheaper than a smaller one (type A). */
+export function consistentAreaAnchors(anchors: JobAnchor[]) {
+  const kept: JobAnchor[] = [];
+  const bad: JobAnchor[] = [];
+  for (const a of anchors) {
+    const last = kept[kept.length - 1];
+    if (last && a.price < last.price) bad.push(a);
+    else kept.push(a);
+  }
+  return { kept, bad };
+}
+
+const roundUpTo = (v: number, step: number) =>
+  step > 0 ? Math.ceil(v / step) * step : Math.round(v);
+
+function interpolate(
+  points: { x: number; y: number }[],
+  x: number,
+): { y: number; label: string } {
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
+  if (points.length === 1) return { y: first.y, label: "עוגן יחיד" };
+  if (x <= first.x) return { y: first.y, label: "מתחת לעוגן הקטן — מחיר העוגן" };
+  if (x >= last.x) {
+    const prev = points[points.length - 2]!;
+    const slope = (last.y - prev.y) / (last.x - prev.x || 1);
+    return { y: last.y + slope * (x - last.x), label: "מעל העוגן הגדול — המשך השיפוע" };
+  }
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    if (x <= b.x) {
+      const t = (x - a.x) / (b.x - a.x || 1);
+      return { y: a.y + t * (b.y - a.y), label: "אינטרפולציה בין עוגנים" };
+    }
+  }
+  return { y: last.y, label: "עוגן" };
+}
+
+export type JobPrice = {
+  total: number;
+  unit: number;
+  above: boolean;
+  /** direct production cost of the whole job */
+  cost: number;
+  /** the below-cost line: cost × מקדם */
+  costFloorValue: number;
+  belowCost: boolean;
+  label: string;
+  detail: string;
+  sheets: number | null;
+  unitsPerSheet: number | null;
+  inconsistent: JobAnchor[];
+  hasAnchors: boolean;
+};
+
+/** The one pricing entry point. */
+export function priceJob(
+  cfg: FamilyPricing,
+  anchors: JobAnchor[],
+  w: number,
+  h: number,
+  qty: number,
+): JobPrice | null {
+  if (!(w > 0) || !(h > 0)) return null;
+  const units = Math.max(1, Math.round(qty) || 1);
+  const area = (w * h) / 10000;
+  const above = !fitsThreshold(cfg, w, h);
+  const margin = cfg.margin > 0 ? cfg.margin : DEFAULT_MARGIN;
+
+  const finish = (
+    raw: number,
+    cost: number,
+    label: string,
+    detail: string,
+    extra: Partial<JobPrice> = {},
+    noRound = false,
+  ): JobPrice => {
+    const total = noRound ? Math.max(raw, 0) : roundUpTo(Math.max(raw, 0), cfg.rounding);
+    const floorValue = cost * margin;
+    return {
+      total,
+      unit: total / units,
+      above,
+      cost,
+      costFloorValue: floorValue,
+      belowCost: cost > 0 && total < floorValue - 0.001,
+      label,
+      detail,
+      sheets: null,
+      unitsPerSheet: null,
+      inconsistent: [],
+      hasAnchors: anchors.length > 0,
+      ...extra,
+    };
+  };
+
+  if (cfg.method === "sheet") {
+    if (above) {
+      const cost = cfg.outsourceCost * units;
+      return finish(
+        cost * margin,
+        cost,
+        "מעל הסף — מיקור חוץ",
+        `${shekel(cfg.outsourceCost)} ליחידה × ${units.toLocaleString()} × מקדם ${margin}`,
+      );
+    }
+    const per = sheetUnitsFor(cfg, w, h);
+    const sheets = per.units > 0 ? units / per.units : 0;
+    const cost = Math.ceil(sheets) * cfg.cost;
+    const exactSheet = anchors.find(
+      (a) => Math.abs(a.area - area) <= area * 0.02 && a.qty === units,
+    );
+    if (exactSheet) {
+      return finish(
+        exactSheet.price,
+        cost,
+        "מחיר עוגן",
+        `${exactSheet.w}×${exactSheet.h} · ${units} יח׳`,
+        { sheets, unitsPerSheet: per.units },
+        true,
+      );
+    }
+    const pts = anchors
+      .map((a) => {
+        const u = sheetUnitsFor(cfg, a.w, a.h).units;
+        return u > 0 ? { x: a.qty / u, y: a.price } : null;
+      })
+      .filter((p): p is { x: number; y: number } => p !== null)
+      .sort((a, b) => a.x - b.x);
+    if (pts.length === 0 || sheets <= 0) {
+      return finish(
+        cost * margin,
+        cost,
+        "אין עוגנים — לפי עלות",
+        `${Math.ceil(sheets)} גיליונות × ${shekel(cfg.cost)} × מקדם ${margin}`,
+        { sheets, unitsPerSheet: per.units },
+      );
+    }
+    const r = interpolate(pts, sheets);
+    return finish(r.y, cost, r.label, `${sheets.toFixed(2)} גיליונות · ${per.units} יח׳ בגיליון`, {
+      sheets,
+      unitsPerSheet: per.units,
+    });
+  }
+
+  // area method
+  if (above) {
+    const cost = cfg.outsourceCost * area * units;
+    return finish(
+      cost * margin,
+      cost,
+      "מעל הסף — מיקור חוץ",
+      `${shekel(cfg.outsourceCost)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} × מקדם ${margin}`,
+    );
+  }
+  const cost = cfg.cost * area * units;
+  const { kept, bad } = consistentAreaAnchors(anchors);
+  if (kept.length === 0) {
+    return finish(
+      cost * margin,
+      cost,
+      "אין עוגנים — לפי עלות",
+      `${shekel(cfg.cost)} למ״ר × ${area.toFixed(2)} מ״ר × מקדם ${margin}`,
+      { inconsistent: bad },
+    );
+  }
+  const exact = kept.find((a) => Math.abs(a.area - area) <= area * 0.02);
+  if (exact) {
+    return finish(
+      exact.price * units,
+      cost,
+      "מחיר עוגן",
+      `${exact.w}×${exact.h} = ${shekel(exact.price)}`,
+      { inconsistent: bad },
+      true,
+    );
+  }
+  const largest = kept[kept.length - 1]!;
+  if (area > largest.area) {
+    const rate = largest.price / largest.area;
+    return finish(
+      rate * area * units,
+      cost,
+      "מעל העוגן הגדול — לפי ₪/מ״ר של העוגן",
+      `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר`,
+      { inconsistent: bad },
+    );
+  }
+  const r = interpolate(
+    kept.map((a) => ({ x: a.area, y: a.price })),
+    area,
+  );
+  return finish(r.y * units, cost, r.label, `${area.toFixed(3)} מ״ר`, { inconsistent: bad });
+}
