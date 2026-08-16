@@ -352,7 +352,10 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       margin: cfg.margin,
       rounding: cfg.rounding,
       packages: cfg.packages,
+      min_unit_area: cfg.minUnitArea,
+      qty_exponent: cfg.qtyExponent,
       sheet_units: cfg.sheetUnits,
+
     },
   };
 }
