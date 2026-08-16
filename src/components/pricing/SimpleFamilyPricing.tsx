@@ -114,7 +114,7 @@ export function SimpleFamilyPricing({
   }, [family, config]);
 
 
-  const representable = isSimpleConfig(draft);
+  
 
   const liveConfigs = useMemo(
     () => ({ ...configs, [family]: draft }),
