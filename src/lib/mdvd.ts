@@ -156,12 +156,19 @@ export type SheetConfig = {
   overrides: SheetOverride[];
 };
 
+/** manual price for a specific size + package (wins over the formula) */
+export type PriceAnchor = { size: string; qty: number; price: number };
+
 export type CustomerPricing = {
   method: PriceMethod;
   below: PriceSide;
   above: PriceSide;
   min_per_linear_m: number;
   sheet: SheetConfig;
+  /** משולב, מעל הסף: עלות לעמוד × כמות × מקדם תקורה */
+  above_page_cost: number;
+  above_min: number;
+  anchors: PriceAnchor[];
   /** quantity packages offered to the customer; empty = free quantity input */
   packages: number[];
   rounding: { step: number; direction: "nearest" | "up" | "down" };
@@ -175,9 +182,13 @@ export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
   above: { ...EMPTY_SIDE },
   min_per_linear_m: 0,
   sheet: { setup: 0, price_per_sheet: 0, cost_per_sheet: 0, overrides: [] },
+  above_page_cost: 0,
+  above_min: 0,
+  anchors: [],
   packages: [],
   rounding: { step: 5, direction: "nearest" },
 };
+
 
 const num = (v: unknown) => {
   const n = Number(v);
@@ -229,6 +240,20 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
           })
         : [],
     },
+    above_page_cost: num(c["above_page_cost"]),
+    above_min: num(c["above_min"]),
+    anchors: Array.isArray(c["anchors"])
+      ? (c["anchors"] as unknown[])
+          .map((o) => {
+            const x = (o ?? {}) as Record<string, unknown>;
+            return {
+              size: normalizeSizeText(String(x["size"] ?? "")),
+              qty: num(x["qty"]),
+              price: num(x["price"]),
+            };
+          })
+          .filter((a) => a.size !== "" && a.price > 0)
+      : [],
     packages: Array.isArray(c["packages"])
       ? (c["packages"] as unknown[]).map(num).filter((n) => n > 0)
       : [],
@@ -318,13 +343,26 @@ export function qtyDiscountMult(family: Family | undefined, qty: number): number
   return tiers[0]?.mult ?? 1;
 }
 
+/** Manual anchor price for an exact size + package, if one is configured. */
+export function findAnchor(
+  anchors: PriceAnchor[],
+  w: number,
+  h: number,
+  qty: number,
+): PriceAnchor | undefined {
+  const key = sizeKey(w, h);
+  return anchors.find((a) => a.size === key && Math.round(a.qty) === Math.round(qty));
+}
+
 /**
  * The family price list.
  *  - method "area": (base + ₪/m² × area) per unit × qty × quantity discount,
  *    never below מחיר מינימום nor below מינימום למטר אורך × meters.
  *    A configured size threshold switches to the second trio.
  *  - method "sheet_area": inside the threshold the job is priced as
- *    דמי הכנה + גיליונות × מחיר לגיליון; above it, the area trio applies.
+ *    דמי הכנה + גיליונות × מחיר לגיליון (a manual anchor for the exact
+ *    size + package wins); above it, one page per unit at
+ *    עלות לעמוד × כמות × מקדם תקורה, floored by מחיר מינימום.
  */
 export function priceFromConfig(
   family: Family | undefined,
@@ -332,6 +370,7 @@ export function priceFromConfig(
   w: number,
   h: number,
   qty: number,
+  overheadFactor: number = DEFAULT_OVERHEAD_FACTOR,
 ): ConfigPricing {
   const units = Math.max(1, qty || 1);
   const inside = fitsInBox(w, h, family);
@@ -339,6 +378,18 @@ export function priceFromConfig(
   const area = (w * h) / 10000;
 
   if (cfg.method === "sheet_area" && inside) {
+    const anchor = findAnchor(cfg.anchors, w, h, units);
+    if (anchor) {
+      return {
+        total: anchor.price,
+        unit: anchor.price / units,
+        side,
+        minApplied: false,
+        linearApplied: false,
+        sheets: null,
+        detail: `מחיר עוגן ידני · ${anchor.size} × ${anchor.qty.toLocaleString()} יח׳ = ${shekel(anchor.price)}`,
+      };
+    }
     const per = unitsPerSheet(w, h, cfg.sheet.overrides);
     const sheets = per > 0 ? Math.ceil(units / per) : 0;
     const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
@@ -353,6 +404,26 @@ export function priceFromConfig(
       detail: `גיליון · ${per} יח׳ בגיליון (${SHEET_W_CM}×${SHEET_H_CM}) · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + הכנה ${shekel(cfg.sheet.setup)} = ${shekel(total)}`,
     };
   }
+
+  if (cfg.method === "sheet_area") {
+    const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
+    const raw = cfg.above_page_cost * units * ovh;
+    const minCharge = cfg.above_min > 0 ? cfg.above_min * units : 0;
+    const minApplied = raw < minCharge;
+    const total = applyRounding(Math.max(raw, minCharge), cfg.rounding);
+    return {
+      total,
+      unit: total / units,
+      side,
+      minApplied,
+      linearApplied: false,
+      sheets: units,
+      detail: `מעל הסף · עמוד אחד לפריט · עלות לעמוד ${shekel(cfg.above_page_cost)} × ${units.toLocaleString()} × תקורה ${ovh} = ${shekel(Math.round(raw))}${
+        minApplied ? ` → מחיר מינימום ${shekel(cfg.above_min)}` : ""
+      }`,
+    };
+  }
+
 
   const trio = inside ? cfg.below : cfg.above;
   const perUnitRaw = trio.base + trio.rate_m2 * area;
@@ -428,6 +499,37 @@ export function jobCost(
     thresholdW != null && thresholdH != null && outRate > 0 && !fitsInBox(w, h, family);
   const ratePerM2 = outsourced ? outRate : base;
   const units = qty > 0 ? qty : 1;
+
+  // sheet families cost per printed sheet / per outsourced page, not per m²
+  const cfg = readCustomerPricing(family);
+  if (cfg.method === "sheet_area") {
+    const inside = fitsInBox(w, h, family);
+    if (inside) {
+      const per = unitsPerSheet(w, h, cfg.sheet.overrides);
+      const sheets = per > 0 ? Math.ceil(units / per) : 0;
+      const direct = sheets * cfg.sheet.cost_per_sheet;
+      return {
+        area,
+        ratePerM2: 0,
+        directCost: direct,
+        outsourced: false,
+        thresholdW,
+        thresholdH,
+        hasCost: direct > 0,
+      };
+    }
+    const direct = cfg.above_page_cost * units;
+    return {
+      area,
+      ratePerM2: 0,
+      directCost: direct,
+      outsourced: true,
+      thresholdW,
+      thresholdH,
+      hasCost: direct > 0,
+    };
+  }
+
   return {
     area,
     ratePerM2,
@@ -438,6 +540,7 @@ export function jobCost(
     hasCost: ratePerM2 > 0 && area > 0,
   };
 }
+
 
 /** Minimum sale price that covers direct cost plus labor/overhead. */
 export function costFloor(directCost: number, overheadFactor: number) {
