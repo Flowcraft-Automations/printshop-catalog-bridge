@@ -284,7 +284,7 @@ function Calculator() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-4 pb-24">
-      <PageTitle title="מחשבון מידות" subtitle="תמחור לפי עוגנים" />
+      <PageTitle title="מחשבון מידות" sub="תמחור לפי עוגנים" />
 
       {/* family picker */}
       <div className="flex flex-wrap gap-2">
