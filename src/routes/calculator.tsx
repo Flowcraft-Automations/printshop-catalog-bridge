@@ -275,8 +275,29 @@ function Calculator() {
 
   const custHas = true;
   const priceHere = (tw: number, th: number, tq: number) =>
-    priceFromCost(costFamily, cust, tw, th, tq, overhead);
+    priceFromConfig(costFamily, cust, tw, th, tq);
   const configPrice = custHas && nw > 0 && nh > 0 ? priceHere(nw, nh, nq) : null;
+
+  // quantity packages offered by the family (empty = free quantity input)
+  const packages = cust.packages;
+  const [pkgInput, setPkgInput] = useState("");
+  useEffect(() => {
+    setPkgInput(formatPackages(readCustomerPricing(fam).packages));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [family, fam?.pricing_config]);
+  useEffect(() => {
+    if (packages.length > 0 && !packages.includes(Number(qty))) {
+      setQty(String(packages[0]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [family, packages.join(",")]);
+
+  // the quantity ladder pasted into iStores / Senzey
+  const ladder = useMemo(() => {
+    if (!nw || !nh || packages.length === 0) return [];
+    return packages.map((p) => ({ qty: p, price: priceHere(nw, nh, p).total }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages.join(","), nw, nh, cust, costInput, outWInput, outHInput, outCostInput]);
 
   // quick test box (admin, uses the live unsaved values)
   const [qtW, setQtW] = useState("");
@@ -289,6 +310,7 @@ function Calculator() {
     const tq = Math.max(1, Number(qtQ) || 1);
     return priceHere(tw, th, tq);
   })();
+
 
 
 
