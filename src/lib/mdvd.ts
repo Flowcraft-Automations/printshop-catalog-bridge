@@ -576,14 +576,18 @@ export function priceJob(
 
   // area method
   if (above) {
-    const cost = cfg.outsourceCost * area * units;
+    const billedUnitArea = Math.max(minUnitArea, area);
+    const cost = cfg.outsourceCost * billedUnitArea * qtyFactor;
     return finish(
       cost * margin,
       cost,
       "מעל הסף — מיקור חוץ",
-      `${shekel(cfg.outsourceCost)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} × מקדם ${margin}`,
+      `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
+        area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
+      } × ${units.toLocaleString()} יח׳${qtyExp !== 1 ? `^${qtyExp}` : ""} × מקדם ${margin}`,
     );
   }
+
   const cost = cfg.cost * area * units;
   const { kept, bad } = consistentAreaAnchors(anchors);
   if (kept.length === 0) {
