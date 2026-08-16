@@ -303,9 +303,14 @@ export type FamilyPricing = {
   margin: number;
   rounding: number;
   packages: number[];
+  /** מ״ר מינימלי לחיוב לכל יחידה (מעל הסף) */
+  minUnitArea: number;
+  /** מקדם כמות: העלות מוכפלת ב-units^qtyExponent (1 = ליניארי, <1 = הנחת כמות) */
+  qtyExponent: number;
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
 };
+
 
 export const DEFAULT_MARGIN = 1.3;
 export const DEFAULT_ROUNDING = 5;
