@@ -8,6 +8,8 @@ import { CurveChart } from "@/components/CurveChart";
 import { supabase } from "@/integrations/supabase/client";
 import { businessConfigQuery, familiesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
+import { TierEditor } from "@/components/TierEditor";
+import { configMap, priceJob } from "@/lib/pricing";
 
 import {
   buildAnchors,
