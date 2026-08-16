@@ -289,29 +289,78 @@ export type ConfigPricing = {
   detail: string;
 };
 
+/** Printing sheet used for sticker nesting. */
+export const SHEET_W_CM = 45;
+export const SHEET_H_CM = 32;
+export const SHEET_GAP_CM = 0.5;
+
+/** How many items of w×h fit on one sheet (both orientations), or a manual override. */
+export function unitsPerSheet(
+  w: number,
+  h: number,
+  overrides: SheetOverride[] = [],
+): number {
+  const key = sizeKey(w, h);
+  const hit = overrides.find((o) => normalizeSizeText(o.size) === key);
+  if (hit && hit.units > 0) return Math.floor(hit.units);
+  if (w <= 0 || h <= 0) return 0;
+  const g = SHEET_GAP_CM;
+  const fit = (iw: number, ih: number) =>
+    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
+  return Math.max(fit(w, h), fit(h, w));
+}
+
+/** Quantity-discount multiplier from the family tiers (1 when none apply). */
+export function qtyDiscountMult(family: Family | undefined, qty: number): number {
+  const tiers = (family?.qty_discounts ?? [])
+    .filter((t) => qty >= t.min)
+    .sort((a, b) => b.min - a.min);
+  return tiers[0]?.mult ?? 1;
+}
+
 /**
- * Cost-driven price: the cost table alone sets the customer price.
- * total = direct cost × מקדם תקורה × (1 + רווח%), never below מחיר מינימום
- * (nor below מינימום למטר אורך × meters when set).
+ * The family price list.
+ *  - method "area": (base + ₪/m² × area) per unit × qty × quantity discount,
+ *    never below מחיר מינימום nor below מינימום למטר אורך × meters.
+ *    A configured size threshold switches to the second trio.
+ *  - method "sheet_area": inside the threshold the job is priced as
+ *    דמי הכנה + גיליונות × מחיר לגיליון; above it, the area trio applies.
  */
-export function priceFromCost(
+export function priceFromConfig(
   family: Family | undefined,
   cfg: CustomerPricing,
   w: number,
   h: number,
   qty: number,
-  overheadFactor: number,
 ): ConfigPricing {
   const units = Math.max(1, qty || 1);
   const inside = fitsInBox(w, h, family);
-  const side = inside ? "below" : "above";
-  const job = jobCost(family, w, h, units);
-  const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
-  const margin = 1 + (cfg.margin_pct > 0 ? cfg.margin_pct : 0) / 100;
-  const raw = job.directCost * ovh * margin;
+  const side: "below" | "above" = inside ? "below" : "above";
+  const area = (w * h) / 10000;
+
+  if (cfg.method === "sheet_area" && inside) {
+    const per = unitsPerSheet(w, h, cfg.sheet.overrides);
+    const sheets = per > 0 ? Math.ceil(units / per) : 0;
+    const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
+    const total = applyRounding(raw, cfg.rounding);
+    return {
+      total,
+      unit: total / units,
+      side,
+      minApplied: false,
+      linearApplied: false,
+      sheets,
+      detail: `גיליון · ${per} יח׳ בגיליון (${SHEET_W_CM}×${SHEET_H_CM}) · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + הכנה ${shekel(cfg.sheet.setup)} = ${shekel(total)}`,
+    };
+  }
+
+  const trio = inside ? cfg.below : cfg.above;
+  const perUnitRaw = trio.base + trio.rate_m2 * area;
+  const mult = qtyDiscountMult(family, units);
+  const raw = perUnitRaw * units * mult;
   const meters = (Math.max(w, h) / 100) * units;
   const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
-  const minCharge = cfg.min_charge > 0 ? cfg.min_charge : 0;
+  const minCharge = trio.min > 0 ? trio.min * units : 0;
   const floorValue = Math.max(minCharge, linearMin);
   const minApplied = raw < minCharge && minCharge >= linearMin;
   const linearApplied = raw < linearMin && linearMin > minCharge;
@@ -323,15 +372,16 @@ export function priceFromCost(
     minApplied,
     linearApplied,
     sheets: null,
-    detail: `לפי עלות · ${inside ? "בתוך הסף" : "מעל הסף"} · ${shekel(job.ratePerM2)} למ״ר × ${job.area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""} = ${shekel(Math.round(job.directCost))} × תקורה ${ovh}${cfg.margin_pct > 0 ? ` × רווח ${cfg.margin_pct}%` : ""} = ${shekel(Math.round(raw))}${
+    detail: `${inside ? "בתוך הסף" : "מעל הסף"} · דמי בסיס ${shekel(trio.base)} + ${shekel(trio.rate_m2)} למ״ר × ${area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""}${mult !== 1 ? ` × הנחת כמות ${mult}` : ""} = ${shekel(Math.round(raw))}${
       linearApplied
         ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
         : minApplied
-          ? ` → מחיר מינימום ${shekel(minCharge)}`
+          ? ` → מחיר מינימום ${shekel(trio.min)}`
           : ""
     }`,
   };
 }
+
 
 
 
