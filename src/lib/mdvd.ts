@@ -366,12 +366,10 @@ export function jobCost(
       : null;
   const outRate = Number(family?.outsource_cost_per_m2 ?? 0) || 0;
   const area = (w * h) / 10000;
+  // "fits in the box" — longer side within the width threshold and shorter side
+  // within the height threshold. Anything that does not fit goes to outsourcing.
   const outsourced =
-    thresholdW != null &&
-    thresholdH != null &&
-    w >= thresholdW &&
-    h >= thresholdH &&
-    outRate > 0;
+    thresholdW != null && thresholdH != null && outRate > 0 && !fitsInBox(w, h, family);
   const ratePerM2 = outsourced ? outRate : base;
   const units = qty > 0 ? qty : 1;
   return {
