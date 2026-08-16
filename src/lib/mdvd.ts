@@ -337,9 +337,12 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     packages: Array.isArray(v?.["packages"])
       ? (v?.["packages"] as unknown[]).map(num).filter((n) => n > 0).sort((a, b) => a - b)
       : [],
+    minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
+    qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
     sheetUnits: su,
   };
 }
+
 
 /** The pricing_config JSON to persist for a family. */
 export function writeFamilyPricing(cfg: FamilyPricing) {
