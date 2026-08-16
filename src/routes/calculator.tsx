@@ -727,8 +727,10 @@ function Calculator() {
             {/* calculation details + cost floor */}
             <section className="grid gap-4 lg:grid-cols-[1fr_auto]">
               <div className="border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
-                <div className="font-bold">{calc.label}</div>
-                {calc.detail ? (
+                <div className="font-bold">{configPrice ? "מחירון המשפחה" : calc.label}</div>
+                {configPrice ? (
+                  <div className="text-muted-foreground">{configPrice.detail}</div>
+                ) : calc.detail ? (
                   <div className="text-muted-foreground">{calc.detail}</div>
                 ) : null}
                 <div className="text-muted-foreground">
