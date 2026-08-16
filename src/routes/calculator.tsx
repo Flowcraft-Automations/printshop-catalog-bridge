@@ -1184,7 +1184,11 @@ function Calculator() {
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setCust((p) => ({ ...p, mode: m }))}
+                      onClick={() => {
+                        const next = { ...cust, mode: m };
+                        setCust(next);
+                        savePricing.mutate(next);
+                      }}
                       className={`px-3 py-2 text-xs font-bold ${
                         cust.mode === m
                           ? "bg-[var(--ink)] text-[var(--paper,white)]"
