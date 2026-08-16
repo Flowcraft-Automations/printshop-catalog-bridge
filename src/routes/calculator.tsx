@@ -14,7 +14,6 @@ import {
   costFloor,
   fitPowerCurve,
   fitQtyExponent,
-  hasCustomerPricing,
   isClosedOut,
   jobCost,
   priceFromCost,
@@ -27,7 +26,6 @@ import {
   DEFAULT_QTY_EXPONENT,
   QTY_REF,
   type CustomerPricing,
-  type PriceSide,
   type Product,
 } from "@/lib/mdvd";
 
@@ -267,15 +265,12 @@ function Calculator() {
   /* ---- customer pricing per family (families.pricing_config.customer) ---- */
   const savedCust = useMemo(() => readCustomerPricing(fam), [fam]);
   const [cust, setCust] = useState<CustomerPricing>(savedCust);
-  const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => {
     setCust(readCustomerPricing(fam));
-    setMoreOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [family, fam?.pricing_config]);
 
-  const custHas = hasCustomerPricing(cust);
-  const costMode = true;
+  const custHas = true;
   const priceHere = (tw: number, th: number, tq: number) =>
     priceFromCost(costFamily, cust, tw, th, tq, overhead);
   const configPrice = custHas && nw > 0 && nh > 0 ? priceHere(nw, nh, nq) : null;
