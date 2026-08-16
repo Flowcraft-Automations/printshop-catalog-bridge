@@ -633,24 +633,31 @@ function Calculator() {
                     מחיר לעבודה ({nq.toLocaleString()} יח׳)
                   </div>
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
-                    {shekel(finalTotal)}
+                    {noSize ? (
+                      <span className="text-xl text-muted-foreground">הזינו מידות</span>
+                    ) : (
+                      shekel(finalTotal)
+                    )}
                   </div>
-                  {decided ? (
+                  {noSize ? null : decided ? (
                     <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
                       מחיר שנקבע בקטלוג · {decided.p.name} ·{" "}
                       <span className="num font-normal text-muted-foreground">
-                        עקומה {shekel(calc.total)}
+                        {configPrice ? "מחירון" : "עקומה"} {shekel(basePrice)}
                       </span>
                     </div>
                   ) : floorDrives ? (
                     <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.5_0.16_45)]">
                       לפי עלות ייצור ·{" "}
                       <span className="num font-normal line-through text-muted-foreground">
-                        {shekel(calc.total)}
+                        {shekel(basePrice)}
                       </span>
                     </div>
+                  ) : configPrice ? (
+                    <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
+                      מחירון המשפחה · {configPrice.side === "below" ? "בתוך הסף" : "מעל הסף"}
+                    </div>
                   ) : null}
-
                 </div>
                 <div className="text-left">
                   <div className="text-xs font-bold text-muted-foreground">ליחידה</div>
