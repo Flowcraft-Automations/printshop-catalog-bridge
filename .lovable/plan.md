@@ -1,65 +1,57 @@
-# Generic size thresholds for every family
+# Size tiers for every family
 
-## Plain English — what this is
+## What we're building, in plain English
 
-Right now each family has exactly one threshold, and it only does one thing: "above 150×160 cm we send the print out, so cost per m² jumps to 80". Everything else — the minimum charge, the cost per m², the quantity discount curve — is a single set of numbers for the whole family, no matter the size.
+Today a family has one set of numbers: one cost per m², one minimum price, one quantity discount, plus a single "above this size we outsource" rule. That is too simple. A sticker under 20 cm and a sticker over 20 cm are two different products made on two different machines at two different costs.
 
-But מדבקות proved that's not how the shop works. A sticker under 20 cm and a sticker over 20 cm are two different products, made on two different machines, with two different costs. Gena's words: from 20 cm and up a sticker is produced like a שמשונית and priced like one, minimum ₪70; below 20 cm it's ganged onto an A3-ish sheet costing ₪4 (₪3 material + ₪1 cut) and cut out.
+So each family gets **size tiers**: a list of size bands, and each band carries its own cost, its own minimum price, its own quantity curve, and its own price anchors. The calculator looks at the size you typed, picks the matching band, and prices from that band. The old outsourcing rule becomes just the top band of שמשונית — nothing special anymore.
 
-Instead of hardcoding that for stickers, the family gets **size tiers**: a list of size bands, each with its own cost, its own minimum price, and its own anchors. The existing outsourcing threshold becomes just one tier among others. Then שמשונית, מדבקות, and anything Gena invents next all use the same mechanism.
+## How a tier is defined
 
-## How a tier works
-
-A family holds an ordered list of tiers. Each tier says **when it applies** and **how it prices**:
+Each tier says when it applies and how it prices:
 
 ```text
-tier = {
-  label:      "מדבקות גיליון"        what to show in the calculator
-  applies:    up to 20 cm on both sides   (or: from X cm, or: from area Y m²)
-  cost mode:  per m²  →  cost_per_m2
-              per sheet → sheet_cost + units_per_sheet   (new)
-  min_charge: minimum price for anything in this band
-  qty_exponent: bundle discount curve for this band
-}
+label:        name shown in the calculator
+applies:      up to N cm / from N cm / from N m²
+cost mode:    per m²    -> cost per m²
+              per sheet -> sheet cost + units per sheet
+min charge:   the floor price inside this band
+qty exponent: bundle discount curve inside this band
 ```
 
-The calculator picks the first tier whose size rule matches the entered width × height, then everything downstream — cost floor, minimum charge, bundle discount, which anchors feed the curve — reads from that tier instead of from the family row. Anchors already live on products; they get grouped by which tier their size falls into, so each band fits its own curve and a small sticker never drags a large one down.
+Anchors already live on products, so each anchor automatically belongs to the band its size falls into. Each band fits its own curve, so a small sticker can no longer drag a large one down.
 
-Outsourcing stops being special: it is simply the top tier of שמשונית, "from 150×160 cm, cost 80 ₪/m²".
+## The two families we can configure now
 
-## Configuration for the two families we know
-
-**שמשונית** — same numbers as today, expressed as tiers:
+שמשונית, exactly today's numbers rewritten as tiers:
 
 ```text
-1. up to 150×160 cm   per m² ₪20   min ₪25   qty exp 0.85
-2. from 150×160 cm    per m² ₪80   min ₪25   qty exp 0.85
+1. up to 150x160 cm   per m2 20    min 25    qty exp 0.85
+2. from 150x160 cm    per m2 80    min 25    qty exp 0.85
 ```
 
-**מדבקות** — the split the meeting settled:
+מדבקות, the split the meeting settled:
 
 ```text
-1. under 20 cm   per sheet: ₪4 per sheet, units per sheet from Gena's table   min ₪20
-2. from 20 cm    per m² ₪20 (same press as שמשונית)                            min ₪70
+1. under 20 cm   per sheet: 4 per sheet, units per sheet from Gena's table   min 20
+2. from 20 cm    per m2 20 (same press as שמשונית)                            min 70
 ```
 
-Tier 2 immediately flags every large sticker we sell under ₪70 — 100×100 at ₪60, 120×80 at ₪60, 70×20 at ₪29, 56×17 at ₪50 — as below floor.
+Band 2 immediately flags the large stickers being sold below cost: 100x100 at 60, 120x80 at 60, 70x20 at 29, 56x17 at 50 — all under the 70 floor.
 
-Tier 1 is configured but incomplete: the units-per-sheet count per size (3×3, 4×4, 5×5 … 15×15) is the table you're building with Gena. Only ⌀5 → ~30 per sheet is known. Until it lands, tier 1 prices stay as they are and only the ₪20 minimum applies.
+Band 1 stays configured but incomplete. The units-per-sheet count per size (3x3, 4x4, 5x5 up to 15x15) is the table you're building with Gena; only 5 cm diameter at about 30 per sheet is known. Until it arrives, small sticker prices stay untouched and only the 20 minimum applies.
 
-## Where this shows up in the app
+## What changes on screen
 
-- **Calculator** — a line under the size inputs saying which tier the entered size landed in and why ("מגודל 20 ס״מ — מיוצר כשמשונית"), with the cost floor and minimum from that tier. Admin tier settings replace the current single outsourcing block.
-- **Catalog** — the cost floor column uses the item's tier, so the below-floor warning is finally correct for large stickers.
-- **Curve chart** — a marker at each tier boundary, and one fitted curve per tier instead of one across the whole family.
+- Calculator: a line under the size inputs naming the band the size landed in and why, with that band's cost floor and minimum. The admin panel edits the list of bands instead of the single outsourcing block.
+- Catalog: the cost floor column uses each item's own band, so the below-floor warning is finally right for large stickers.
+- Curve chart: a marker at each band boundary, and one fitted curve per band.
+- Header: a "לוח בקרה" link is added so the dashboard page is reachable — it exists at `/` but nothing links to it.
 
 ## Technical notes
 
-- Schema: add a `tiers` jsonb column to `families`, and migrate the existing `outsource_*` and `cost_per_m2` / `min_charge` values into a two-tier default per family so nothing changes behaviour on day one. The old columns stay readable until the UI is fully switched over.
-- `src/lib/mdvd.ts`: `jobCost()` gains a tier lookup (`pickTier(family, w, h)`) and a per-sheet cost mode; `buildAnchors()` / `fitPowerCurve()` get grouped per tier.
-- `src/routes/calculator.tsx`, `src/routes/catalog.tsx`, `src/components/CurveChart.tsx` read tier values instead of the flat family fields.
-- Sticker family data (assigning items to the right side of the 20 cm break, fixing the 10 items with מחיר אתר = 0, and fixing the 9×9 bundle rows that all store `qty = 100`) is a separate data pass after the tiers exist.
-
-## Also: the dashboard
-
-The dashboard exists at `/` but the header nav only lists קטלוג, מחשבון מידות and משתמשים, so there's no way to reach it. Adding a "לוח בקרה" link as the first nav item in `src/components/AppShell.tsx` fixes it.
+- Add a `tiers` jsonb column to `families`, and seed it from the existing cost, minimum and outsourcing fields so behaviour is identical on day one. The old columns stay in place until the UI is fully moved over.
+- `src/lib/mdvd.ts`: `jobCost()` gains a tier lookup and a per-sheet cost mode; `buildAnchors()` and `fitPowerCurve()` group anchors per tier.
+- `src/routes/calculator.tsx`, `src/routes/catalog.tsx` and `src/components/CurveChart.tsx` read tier values instead of the flat family fields.
+- `src/components/AppShell.tsx`: add the dashboard nav link.
+- Sticker data cleanup — assigning items to the correct side of the 20 cm break, fixing the 10 items priced 0 on the website, and fixing the 9x9 bundle rows that all store qty 100 — is a separate pass once the tiers exist.
