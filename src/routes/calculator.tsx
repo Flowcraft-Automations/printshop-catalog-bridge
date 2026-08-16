@@ -368,6 +368,7 @@ function Calculator() {
 
   const saveCosts = useMutation({
     mutationFn: async () => {
+      const prev = (fam?.pricing_config ?? {}) as Record<string, unknown>;
       const { error } = await supabase
         .from("families")
         .update({
@@ -375,6 +376,7 @@ function Calculator() {
           outsource_width_cm: outWInput === "" ? null : Number(outWInput),
           outsource_height_cm: outHInput === "" ? null : Number(outHInput),
           outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
+          pricing_config: { ...prev, customer: cust },
         })
         .eq("family", family);
       if (error) throw error;
@@ -387,11 +389,11 @@ function Calculator() {
   });
 
   const savePricing = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (next?: CustomerPricing) => {
       const prev = (fam?.pricing_config ?? {}) as Record<string, unknown>;
       const { error } = await supabase
         .from("families")
-        .update({ pricing_config: { ...prev, customer: cust } })
+        .update({ pricing_config: { ...prev, customer: next ?? cust } })
         .eq("family", family);
       if (error) throw error;
     },
