@@ -17,7 +17,6 @@ import {
   hasCustomerPricing,
   isClosedOut,
   jobCost,
-  priceFromConfig,
   priceFromCost,
 
   priceFromCurve,
@@ -275,15 +274,10 @@ function Calculator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [family, fam?.pricing_config]);
 
-  const setSide = (side: "below" | "above", key: keyof PriceSide, v: string) =>
-    setCust((p) => ({ ...p, [side]: { ...p[side], [key]: Number(v) || 0 } }));
-
   const custHas = hasCustomerPricing(cust);
-  const costMode = cust.mode === "cost";
+  const costMode = true;
   const priceHere = (tw: number, th: number, tq: number) =>
-    costMode
-      ? priceFromCost(costFamily, cust, tw, th, tq, overhead)
-      : priceFromConfig(costFamily, cust, tw, th, tq);
+    priceFromCost(costFamily, cust, tw, th, tq, overhead);
   const configPrice = custHas && nw > 0 && nh > 0 ? priceHere(nw, nh, nq) : null;
 
   // quick test box (admin, uses the live unsaved values)
@@ -446,7 +440,7 @@ function Calculator() {
   const basePrice = configPrice ? configPrice.total : calc.total;
   const floorDrives =
     !decided &&
-    !(configPrice && costMode) &&
+    !configPrice &&
     cost.hasCost &&
     !overrideCurve &&
     floorPrice > basePrice;
@@ -1171,38 +1165,6 @@ function Calculator() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
-                  מצב תמחור
-                </label>
-                <div className="flex border-2 border-[var(--ink)]">
-                  {(
-                    [
-                      ["cost", "לפי עלות"],
-                      ["customer", "לפי מחיר ללקוח"],
-                    ] as const
-                  ).map(([m, label]) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => {
-                        const next = { ...cust, mode: m };
-                        setCust(next);
-                        savePricing.mutate(next);
-                      }}
-                      className={`px-3 py-2 text-xs font-bold ${
-                        cust.mode === m
-                          ? "bg-[var(--ink)] text-[var(--paper,white)]"
-                          : "bg-transparent"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {costMode ? (
-                <>
-                  <div>
                     <label className="mb-1 block text-[11px] font-bold text-muted-foreground">
                       רווח % (מעל התקורה)
                     </label>
