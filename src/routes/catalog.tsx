@@ -439,6 +439,7 @@ CURVE = out;
 
   // Cost floor per product: direct cost (in-house or outsourced) × overhead factor.
   const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
+  const pricingConfigs = useMemo(() => configMap(families), [families]);
   const floorByProduct = useMemo(() => {
     const out: Record<string, CostInfo> = {};
     for (const p of products) {
@@ -447,9 +448,28 @@ CURVE = out;
       const h = Number(p.height_cm);
       if (!fam || !w || !h) continue;
       const area = (w * h) / 10000;
-      const cost = jobCost(fam, w, h, Math.max(1, Number(p.qty) || 1));
-      const floor = Math.round(costFloor(cost.directCost, overheadFactor));
+      const qty = Math.max(1, Number(p.qty) || 1);
       const cur = currentPrice(p);
+      // families with a pricing config get their floor from the universal engine
+      if (fam.pricing_config?.tiers?.length) {
+        const res = priceJob({ family: fam.family, w, h, qty, configs: pricingConfigs });
+        const floorC = Math.round(res.costFloor);
+        out[p.id] = {
+          area,
+          directCost: res.directCost,
+          ratePerM2: area > 0 ? res.directCost / (area * qty) : 0,
+          floor: floorC,
+          hasCost: res.costFloor > 0,
+          below: res.costFloor > 0 && cur !== null && cur < floorC,
+          thresholdW: null,
+          thresholdH: null,
+          aboveThreshold: false,
+          outsourceRate: 0,
+        };
+        continue;
+      }
+      const cost = jobCost(fam, w, h, qty);
+      const floor = Math.round(costFloor(cost.directCost, overheadFactor));
       out[p.id] = {
         area,
         directCost: cost.directCost,
