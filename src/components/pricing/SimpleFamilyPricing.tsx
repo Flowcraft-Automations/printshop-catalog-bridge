@@ -1,26 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Settings2, Trash2 } from "lucide-react";
+import { Settings2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { shekel } from "@/lib/mdvd";
-import { priceJob, type PricingConfig, type PricingMethod, type Tier } from "@/lib/pricing";
+import { priceJob, type PricingConfig, type Tier } from "@/lib/pricing";
 import { DEFAULT_CONFIG, TierEditor } from "@/components/TierEditor";
 
 /* ------------------------------------------------------------------ *
- * Simple mode writes the very same pricing_config the engine reads.
- * It only hides the parameters a non-technical user never touches.
+ * One simple card per family: a size threshold, the customer price on
+ * each side of it, and the production cost on each side of it.
+ * Writes the very same pricing_config the engine reads.
  * ------------------------------------------------------------------ */
-
-const SIMPLE_METHODS: {
-  value: PricingMethod;
-  title: string;
-  hint: string;
-}[] = [
-  { value: "area_linear", title: "לפי גודל", hint: "כל מטר רבוע עולה סכום קבוע" },
-  { value: "per_sheet", title: "לפי גיליון", hint: "מוצרים קטנים — כמה יוצאים מגיליון" },
-  { value: "reference", title: "כמו משפחה אחרת", hint: "השתמש בתמחור של משפחה קיימת" },
-];
 
 const field =
   "w-full border-b-2 border-[var(--ink)] bg-transparent px-2 py-1 text-sm outline-none focus:border-[var(--accent-raw)]";
@@ -32,22 +23,32 @@ const num = (v: string): number | undefined => {
   return Number.isFinite(x) ? x : undefined;
 };
 
-/** A config is "simple" when every band is a plain size range (both sides). */
+/**
+ * Simple = at most two size bands, first one optionally capped by a single
+ * threshold (both sides), last one the catch-all, no running-metre and no
+ * reference tiers.
+ */
 export function isSimpleConfig(cfg: PricingConfig): boolean {
-  return cfg.tiers.every((t) => {
-    const m = t.match ?? {};
-    if (m.max_h != null && m.max_w != null && m.max_h !== m.max_w) return false;
-    if (m.max_h != null && m.max_w == null) return false;
-    if (m.min_h != null && m.min_h !== m.min_w) return false;
-    return t.method !== "per_running_meter";
-  });
+  const tiers = cfg.tiers ?? [];
+  if (tiers.length === 0 || tiers.length > 2) return false;
+  for (const t of tiers) {
+    if (t.method === "per_running_meter" || t.method === "reference") return false;
+  }
+  const last = tiers[tiers.length - 1]!;
+  const lm = last.match ?? {};
+  if (lm.max_w != null || lm.max_h != null) return false;
+  if (tiers.length === 2) {
+    const first = tiers[0]!;
+    const fm = first.match ?? {};
+    if (fm.max_w == null) return false;
+    if (last.method !== "area_linear") return false;
+  }
+  return true;
 }
 
-
-
-function newTier(): Tier {
+function areaTier(name: string): Tier {
   return {
-    name: "טווח חדש",
+    name,
     match: {},
     method: "area_linear",
     params: { base: 0, rate_m2: 0, min: 0 },
@@ -114,35 +115,52 @@ export function SimpleFamilyPricing({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const patch = (i: number, p: Partial<Tier>) =>
-    setDraft((d) => ({ ...d, tiers: d.tiers.map((t, idx) => (idx === i ? { ...t, ...p } : t)) }));
+  /* ---------------- derived simple view ---------------- */
 
-  const params = (t: Tier) => (t.params ?? {}) as Record<string, unknown>;
+  const tiers = draft.tiers ?? [];
+  const lower = tiers[0] ?? areaTier("עד הסף");
+  const upper = tiers.length > 1 ? tiers[1]! : null;
+  const sheetMode = lower.method === "per_sheet";
+  const lp = (lower.params ?? {}) as Record<string, unknown>;
+  const up = (upper?.params ?? {}) as Record<string, unknown>;
+  const thW = lower.match?.max_w;
+  const thH = lower.match?.max_h;
 
-  /** One cut-off number drives max of this band and min of the next. */
-  const setCutoff = (i: number, value: number | undefined) =>
+  const patchTier = (idx: number, p: Partial<Tier>) =>
     setDraft((d) => ({
       ...d,
-      tiers: d.tiers.map((t, idx) => {
-        if (idx !== i && idx !== i + 1) return t;
-        const m: Record<string, number> = {};
-        for (const [k, v] of Object.entries(t.match ?? {})) if (v != null) m[k] = v as number;
-        const keys = idx === i ? ["max_w", "max_h"] : ["min_w", "min_h"];
-        for (const key of keys) {
-          // keep the paired short-side rule in sync only when it already exists
-          if (!(key in m) && key.endsWith("_h")) continue;
-          if (value == null) delete m[key];
-          else m[key] = value;
-        }
-        return { ...t, match: m };
-
-      }),
+      tiers: d.tiers.map((t, i) => (i === idx ? { ...t, ...p } : t)),
     }));
 
+  const setThreshold = (w: number | undefined, h: number | undefined) =>
+    setDraft((d) => {
+      const t0 = d.tiers[0] ?? areaTier("עד הסף");
+      if (w == null && h == null) {
+        return { ...d, tiers: [{ ...t0, name: "כל המידות", match: {} }] };
+      }
+      const big = Math.max(w ?? h ?? 0, h ?? w ?? 0);
+      const small = Math.min(w ?? h ?? 0, h ?? w ?? 0);
+      const first: Tier = {
+        ...t0,
+        name: `עד ${big}×${small} ס״מ`,
+        match: { max_w: big, max_h: small },
+      };
+      const second: Tier = d.tiers[1]
+        ? { ...d.tiers[1], name: "מעל הסף", match: {} }
+        : { ...areaTier("מעל הסף"), params: { base: 0, rate_m2: 0, min: 0 } };
+      return { ...d, tiers: [first, second] };
+    });
 
-  const qtyTiers =
-    draft.qty_model?.type === "tiers" ? (draft.qty_model.tiers ?? []) : [];
+  const setMode = (mode: "area" | "sheet") =>
+    patchTier(0, {
+      method: mode === "area" ? "area_linear" : "per_sheet",
+      params:
+        mode === "area"
+          ? { base: 0, rate_m2: 0, min: 0 }
+          : { sheet_w: 45, sheet_h: 32, gap_cm: 0.5, sheet_rate: 8, sheet_cost: 4, min: 0 },
+    });
 
+  const qtyTiers = draft.qty_model?.type === "tiers" ? (draft.qty_model.tiers ?? []) : [];
   const setQtyTiers = (rows: { min_qty: number; mult: number }[]) =>
     setDraft((d) => ({ ...d, qty_model: { type: "tiers", tiers: rows } }));
 
@@ -158,7 +176,8 @@ export function SimpleFamilyPricing({
         </button>
         {!representable ? (
           <p className="text-[11px] font-bold text-muted-foreground">
-            התמחור של משפחה זו משתמש בכללים מיוחדים, לכן הוא מוצג במצב המתקדם בלבד.
+            התמחור של משפחה זו משתמש בכללים מיוחדים (יותר משני טווחים, מחיר למטר אורך או הפניה
+            למשפחה אחרת), לכן הוא מוצג במצב המתקדם בלבד.
           </p>
         ) : null}
         <TierEditor
@@ -191,285 +210,191 @@ export function SimpleFamilyPricing({
         </div>
       </div>
 
-      {/* ---- size bands ---- */}
-      <div className="space-y-3">
-        {draft.tiers.map((tier, i) => {
-          const p = params(tier);
-          const last = i === draft.tiers.length - 1;
-          const from = tier.match?.min_w;
-          const to = tier.match?.max_w;
-          return (
-            <div key={i} className="border-2 border-dashed border-[var(--ink)] p-3">
-              <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-bold">
-                <span>
-                  {from != null && to != null
-                    ? `מידה ${from}–${to} ס״מ`
-                    : to != null
-                      ? `מידה עד ${to} ס״מ`
-                      : from != null
-                        ? `מידה מ־${from} ס״מ ומעלה`
-                        : "כל המידות"}
-                </span>
-                {!last ? (
-                  <label className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
-                    עד (ס״מ)
-                    <input
-                      className={`${field} num w-20`}
-                      value={to ?? ""}
-                      onChange={(e) => setCutoff(i, num(e.target.value))}
-                    />
-                  </label>
-                ) : null}
-                {draft.tiers.length > 1 ? (
-                  <button
-                    onClick={() =>
-                      setDraft((d) => ({ ...d, tiers: d.tiers.filter((_, x) => x !== i) }))
-                    }
-                    className="ms-auto border-2 border-[var(--ink)] p-1 text-[oklch(0.5_0.2_25)]"
-                    aria-label="מחק טווח"
-                  >
-                    <Trash2 className="size-3" />
-                  </button>
-                ) : null}
-              </div>
-
-              {/* method chooser */}
-              <div className="mb-3 grid gap-2 sm:grid-cols-3">
-                {SIMPLE_METHODS.map((m) => {
-                  const on = tier.method === m.value;
-                  return (
-                    <button
-                      key={m.value}
-                      onClick={() =>
-                        patch(i, {
-                          method: m.value,
-                          params:
-                            m.value === tier.method
-                              ? (tier.params ?? {})
-                              : m.value === "area_linear"
-                                ? { base: 0, rate_m2: 0, min: 0 }
-                                : m.value === "per_sheet"
-                                  ? {
-                                      sheet_w: 45,
-                                      sheet_h: 32,
-                                      gap_cm: 0.5,
-                                      sheet_rate: 8,
-                                      sheet_cost: 4,
-                                      min: 0,
-                                    }
-                                  : { family: "" },
-                        })
-                      }
-                      className={`border-2 border-[var(--ink)] p-2 text-right ${
-                        on
-                          ? "bg-[var(--accent-raw)] text-white shadow-[3px_3px_0_0_var(--ink)]"
-                          : "bg-transparent"
-                      }`}
-                    >
-                      <div className="text-xs font-black">{m.title}</div>
-                      <div
-                        className={`text-[11px] ${on ? "opacity-90" : "text-muted-foreground"}`}
-                      >
-                        {m.hint}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* the two or three numbers that matter */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {tier.method === "area_linear" ? (
-                  <>
-                    <div>
-                      <label className={lbl}>מחיר למטר רבוע ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(p['rate_m2'] ?? "")}
-                        onChange={(e) =>
-                          patch(i, { params: { ...p, rate_m2: num(e.target.value) } })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={lbl}>מחיר מינימום ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(p['min'] ?? "")}
-                        onChange={(e) => patch(i, { params: { ...p, min: num(e.target.value) } })}
-                      />
-                    </div>
-                    <div>
-                      <label className={lbl}>עלות חומר למ״ר ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(tier.cost?.cost_per_m2 ?? "")}
-                        onChange={(e) =>
-                          patch(i, {
-                            cost: {
-                              ...(tier.cost ?? {}),
-                              cost_per_m2: num(e.target.value) ?? 0,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                {tier.method === "per_sheet" ? (
-                  <>
-                    <div>
-                      <label className={lbl}>מחיר גיליון ללקוח ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(p['sheet_rate'] ?? "")}
-                        onChange={(e) =>
-                          patch(i, { params: { ...p, sheet_rate: num(e.target.value) } })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={lbl}>עלות גיליון ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(p['sheet_cost'] ?? "")}
-                        onChange={(e) =>
-                          patch(i, { params: { ...p, sheet_cost: num(e.target.value) } })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className={lbl}>מחיר מינימום ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(p['min'] ?? "")}
-                        onChange={(e) => patch(i, { params: { ...p, min: num(e.target.value) } })}
-                      />
-                    </div>
-                  </>
-                ) : null}
-
-                {tier.method === "reference" ? (
-                  <>
-                    <div>
-                      <label className={lbl}>לפי המשפחה</label>
-                      <select
-                        className={field}
-                        value={String(p['family'] ?? "")}
-                        onChange={(e) => patch(i, { params: { ...p, family: e.target.value } })}
-                      >
-                        <option value="">בחר משפחה…</option>
-                        {familyNames
-                          .filter((f) => f !== family)
-                          .map((f) => (
-                            <option key={f} value={f}>
-                              {f}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={lbl}>מחיר מינימום ₪</label>
-                      <input
-                        className={`${field} num`}
-                        value={String(
-                          ((p['overrides'] as Record<string, unknown>) ?? {})['min'] ?? "",
-                        )}
-                        onChange={(e) =>
-                          patch(i, {
-                            params: {
-                              ...p,
-                              overrides: {
-                                ...((p['overrides'] as Record<string, unknown>) ?? {}),
-                                min: num(e.target.value),
-                              },
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-
-        <button
-          onClick={() =>
-            setDraft((d) => {
-              const tiers = [...d.tiers];
-              const prev = tiers[tiers.length - 1];
-              const cut = prev?.match?.max_w;
-              tiers.push({ ...newTier(), match: cut != null ? { min_w: cut } : {} });
-              return { ...d, tiers };
-            })
-          }
-          className="flex items-center gap-1 border-2 border-[var(--ink)] px-3 py-1.5 text-xs font-bold shadow-[3px_3px_0_0_var(--ink)]"
-        >
-          <Plus className="size-3" /> הוסף טווח גודל
-        </button>
-      </div>
-
-      {/* ---- quantity discount + rounding ---- */}
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div>
-          <div className="mb-2 text-xs font-black">הנחת כמות</div>
-          <div className="space-y-2">
-            {qtyTiers.map((row, i) => (
-              <div key={i} className="flex items-end gap-2">
-                <label className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
-                  מכמות
-                  <input
-                    className={`${field} num w-20`}
-                    value={String(row.min_qty)}
-                    onChange={(e) =>
-                      setQtyTiers(
-                        qtyTiers.map((x, idx) =>
-                          idx === i ? { ...x, min_qty: num(e.target.value) ?? 0 } : x,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
-                  מחיר ליחידה
-                  <input
-                    className={`${field} num w-20`}
-                    value={String(row.mult)}
-                    onChange={(e) =>
-                      setQtyTiers(
-                        qtyTiers.map((x, idx) =>
-                          idx === i ? { ...x, mult: num(e.target.value) ?? 1 } : x,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <span className="pb-1 text-[11px] text-muted-foreground">
-                  ({Math.round((1 - row.mult) * 100)}% הנחה)
-                </span>
-                <button
-                  onClick={() => setQtyTiers(qtyTiers.filter((_, idx) => idx !== i))}
-                  className="border-2 border-[var(--ink)] p-1 text-[oklch(0.5_0.2_25)]"
-                  aria-label="מחק שורה"
-                >
-                  <Trash2 className="size-3" />
-                </button>
-              </div>
-            ))}
+      {/* ---- size threshold ---- */}
+      <div className="mb-5 border-2 border-dashed border-[var(--ink)] p-3">
+        <div className="mb-2 text-xs font-black">סף גודל</div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-[11px] font-bold text-muted-foreground">
+            רוחב (ס״מ)
+            <input
+              className={`${field} num w-24`}
+              value={thW ?? ""}
+              onChange={(e) => setThreshold(num(e.target.value), thH)}
+            />
+          </label>
+          <label className="text-[11px] font-bold text-muted-foreground">
+            גובה (ס״מ)
+            <input
+              className={`${field} num w-24`}
+              value={thH ?? ""}
+              onChange={(e) => setThreshold(thW, num(e.target.value))}
+            />
+          </label>
+          {upper ? (
             <button
-              onClick={() => setQtyTiers([...qtyTiers, { min_qty: 10, mult: 0.9 }])}
+              onClick={() => setThreshold(undefined, undefined)}
               className="border-2 border-[var(--ink)] px-3 py-1 text-[11px] font-bold"
             >
-              הוסף שורת הנחה
+              בטל סף
             </button>
+          ) : null}
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {upper
+            ? "מעל המידה הזו ההדפסה יוצאת למיקור חוץ ומחושבת לפי המחיר והעלות של «מעל הסף»."
+            : "בלי סף — אותו מחיר ואותה עלות לכל המידות. מלאו רוחב וגובה כדי לפצל."}
+        </p>
+      </div>
+
+      {/* ---- below the threshold ---- */}
+      <div className="border-2 border-[var(--ink)] p-3">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="text-xs font-black">
+            {upper ? `עד ${thW}×${thH} ס״מ` : "כל המידות"}
+          </div>
+          <div className="flex gap-2">
+            {(
+              [
+                { v: "area", t: "לפי גודל" },
+                { v: "sheet", t: "לפי גיליון" },
+              ] as const
+            ).map((m) => (
+              <button
+                key={m.v}
+                onClick={() => setMode(m.v)}
+                className={`border-2 border-[var(--ink)] px-3 py-1 text-[11px] font-black ${
+                  (m.v === "sheet") === sheetMode
+                    ? "bg-[var(--accent-raw)] text-white shadow-[3px_3px_0_0_var(--ink)]"
+                    : ""
+                }`}
+              >
+                {m.t}
+              </button>
+            ))}
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {sheetMode ? (
+            <>
+              <div>
+                <label className={lbl}>מחיר גיליון ללקוח ₪</label>
+                <input
+                  className={`${field} num`}
+                  value={String(lp['sheet_rate'] ?? "")}
+                  onChange={(e) =>
+                    patchTier(0, { params: { ...lp, sheet_rate: num(e.target.value) } })
+                  }
+                />
+              </div>
+              <div>
+                <label className={lbl}>עלות גיליון ₪</label>
+                <input
+                  className={`${field} num`}
+                  value={String(lp['sheet_cost'] ?? "")}
+                  onChange={(e) =>
+                    patchTier(0, { params: { ...lp, sheet_cost: num(e.target.value) } })
+                  }
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className={lbl}>מחיר למ״ר ללקוח ₪</label>
+                <input
+                  className={`${field} num`}
+                  value={String(lp['rate_m2'] ?? "")}
+                  onChange={(e) =>
+                    patchTier(0, { params: { ...lp, rate_m2: num(e.target.value) } })
+                  }
+                />
+              </div>
+              <div>
+                <label className={lbl}>עלות ייצור למ״ר ₪</label>
+                <input
+                  className={`${field} num`}
+                  value={String(lower.cost?.cost_per_m2 ?? "")}
+                  onChange={(e) =>
+                    patchTier(0, {
+                      cost: { ...(lower.cost ?? {}), cost_per_m2: num(e.target.value) ?? 0 },
+                    })
+                  }
+                />
+              </div>
+            </>
+          )}
+          <div>
+            <label className={lbl}>מחיר מינימום ₪</label>
+            <input
+              className={`${field} num`}
+              value={String(lp['min'] ?? "")}
+              onChange={(e) => patchTier(0, { params: { ...lp, min: num(e.target.value) } })}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ---- above the threshold ---- */}
+      {upper ? (
+        <div className="mt-3 border-2 border-[var(--ink)] p-3">
+          <div className="mb-3 text-xs font-black">מעל {thW}×{thH} ס״מ</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <label className={lbl}>מחיר למ״ר ללקוח ₪</label>
+              <input
+                className={`${field} num`}
+                value={String(up['rate_m2'] ?? "")}
+                onChange={(e) =>
+                  patchTier(1, { params: { ...up, rate_m2: num(e.target.value) } })
+                }
+              />
+            </div>
+            <div>
+              <label className={lbl}>עלות ייצור למ״ר ₪</label>
+              <input
+                className={`${field} num`}
+                value={String(upper.cost?.cost_per_m2 ?? "")}
+                onChange={(e) =>
+                  patchTier(1, {
+                    cost: { ...(upper.cost ?? {}), cost_per_m2: num(e.target.value) ?? 0 },
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label className={lbl}>מחיר מינימום ₪</label>
+              <input
+                className={`${field} num`}
+                value={String(up['min'] ?? "")}
+                onChange={(e) => patchTier(1, { params: { ...up, min: num(e.target.value) } })}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ---- overhead, rounding, quantity ---- */}
+      <div className="mt-5 grid gap-4 sm:grid-cols-3">
         <div>
-          <div className="mb-2 text-xs font-black">עיגול מחיר</div>
+          <label className={lbl}>מקדם תקורה</label>
+          <input
+            className={`${field} num max-w-32`}
+            value={String(draft.cost?.overhead_mult ?? "")}
+            onChange={(e) =>
+              setDraft((d) => ({
+                ...d,
+                cost: { ...(d.cost ?? {}), overhead_mult: num(e.target.value) ?? 1 },
+              }))
+            }
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            רצפת המחיר = עלות הייצור × המקדם.
+          </p>
+        </div>
+
+        <div>
+          <label className={lbl}>עיגול מחיר</label>
           <select
             className={`${field} max-w-48`}
             value={String(draft.rounding?.step ?? 1)}
@@ -487,6 +412,59 @@ export function SimpleFamilyPricing({
             <option value="5">לעגל ל־5 ₪</option>
             <option value="10">לעגל ל־10 ₪</option>
           </select>
+        </div>
+
+        <div>
+          <div className="mb-2 text-xs font-black">הנחת כמות</div>
+          <div className="space-y-2">
+            {qtyTiers.map((row, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <label className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+                  מכמות
+                  <input
+                    className={`${field} num w-16`}
+                    value={String(row.min_qty)}
+                    onChange={(e) =>
+                      setQtyTiers(
+                        qtyTiers.map((x, idx) =>
+                          idx === i ? { ...x, min_qty: num(e.target.value) ?? 0 } : x,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+                <label className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+                  הנחה %
+                  <input
+                    className={`${field} num w-16`}
+                    value={String(Math.round((1 - row.mult) * 100))}
+                    onChange={(e) =>
+                      setQtyTiers(
+                        qtyTiers.map((x, idx) =>
+                          idx === i
+                            ? { ...x, mult: 1 - (num(e.target.value) ?? 0) / 100 }
+                            : x,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+                <button
+                  onClick={() => setQtyTiers(qtyTiers.filter((_, idx) => idx !== i))}
+                  className="border-2 border-[var(--ink)] p-1 text-[oklch(0.5_0.2_25)]"
+                  aria-label="מחק שורה"
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setQtyTiers([...qtyTiers, { min_qty: 10, mult: 0.9 }])}
+              className="border-2 border-[var(--ink)] px-3 py-1 text-[11px] font-bold"
+            >
+              הוסף שורת הנחה
+            </button>
+          </div>
         </div>
       </div>
 
