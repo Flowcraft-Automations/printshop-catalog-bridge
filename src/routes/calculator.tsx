@@ -280,6 +280,18 @@ function Calculator() {
   const configPrice =
     custHas && nw > 0 && nh > 0 ? priceFromConfig(costFamily, cust, nw, nh, nq) : null;
 
+  // quick test box (admin, uses the live unsaved values)
+  const [qtW, setQtW] = useState("");
+  const [qtH, setQtH] = useState("");
+  const [qtQ, setQtQ] = useState("1");
+  const quickTest = (() => {
+    const tw = Number(qtW) || 0;
+    const th = Number(qtH) || 0;
+    if (!tw || !th) return null;
+    const tq = Math.max(1, Number(qtQ) || 1);
+    return priceFromConfig(costFamily, cust, tw, th, tq);
+  })();
+
 
 
   const qtyFit = useMemo(
