@@ -499,6 +499,37 @@ export function jobCost(
     thresholdW != null && thresholdH != null && outRate > 0 && !fitsInBox(w, h, family);
   const ratePerM2 = outsourced ? outRate : base;
   const units = qty > 0 ? qty : 1;
+
+  // sheet families cost per printed sheet / per outsourced page, not per m²
+  const cfg = readCustomerPricing(family);
+  if (cfg.method === "sheet_area") {
+    const inside = fitsInBox(w, h, family);
+    if (inside) {
+      const per = unitsPerSheet(w, h, cfg.sheet.overrides);
+      const sheets = per > 0 ? Math.ceil(units / per) : 0;
+      const direct = sheets * cfg.sheet.cost_per_sheet;
+      return {
+        area,
+        ratePerM2: 0,
+        directCost: direct,
+        outsourced: false,
+        thresholdW,
+        thresholdH,
+        hasCost: direct > 0,
+      };
+    }
+    const direct = cfg.above_page_cost * units;
+    return {
+      area,
+      ratePerM2: 0,
+      directCost: direct,
+      outsourced: true,
+      thresholdW,
+      thresholdH,
+      hasCost: direct > 0,
+    };
+  }
+
   return {
     area,
     ratePerM2,
@@ -509,6 +540,7 @@ export function jobCost(
     hasCost: ratePerM2 > 0 && area > 0,
   };
 }
+
 
 /** Minimum sale price that covers direct cost plus labor/overhead. */
 export function costFloor(directCost: number, overheadFactor: number) {
