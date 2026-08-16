@@ -42,6 +42,7 @@ import {
   type ProductHistory,
   type ProductNote,
 } from "@/lib/mdvd";
+import { configMap, priceJob } from "@/lib/pricing";
 
 
 
