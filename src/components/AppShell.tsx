@@ -7,6 +7,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { isAdmin, email, signOut } = useAuth();
   const qc = useQueryClient();
   const nav = [
+    { to: "/", label: "לוח בקרה" },
     { to: "/catalog", label: "קטלוג" },
     { to: "/calculator", label: "מחשבון מידות" },
     ...(isAdmin ? [{ to: "/admin", label: "משתמשים" }] : []),
@@ -26,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={n.to}
                 to={n.to}
-                activeOptions={{ exact: false }}
+                activeOptions={{ exact: n.to === "/" }}
                 className="px-3 py-1.5 text-sm font-semibold text-white/70 transition-colors hover:text-white"
                 activeProps={{ className: "!text-white bg-white/15" }}
               >

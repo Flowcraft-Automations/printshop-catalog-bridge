@@ -132,6 +132,8 @@ export type Family = {
   outsource_width_cm?: number | null;
   outsource_height_cm?: number | null;
   outsource_cost_per_m2?: number | null;
+  /** universal, configuration-driven pricing rules (tiers, qty model, rounding, cost) */
+  pricing_config?: import("./pricing").PricingConfig | null;
   notes: string | null;
 };
 
