@@ -120,6 +120,9 @@ function Calculator() {
     margin: String(DEFAULT_MARGIN),
     rounding: String(DEFAULT_ROUNDING),
     packages: "",
+    minUnitArea: "1",
+    qtyExponent: "1",
+
   });
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
 
