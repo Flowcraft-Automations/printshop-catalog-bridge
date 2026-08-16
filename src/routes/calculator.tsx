@@ -368,6 +368,7 @@ function Calculator() {
 
   const saveCosts = useMutation({
     mutationFn: async () => {
+      const prev = (fam?.pricing_config ?? {}) as Record<string, unknown>;
       const { error } = await supabase
         .from("families")
         .update({
@@ -375,6 +376,7 @@ function Calculator() {
           outsource_width_cm: outWInput === "" ? null : Number(outWInput),
           outsource_height_cm: outHInput === "" ? null : Number(outHInput),
           outsource_cost_per_m2: outCostInput === "" ? null : Number(outCostInput),
+          pricing_config: { ...prev, customer: cust },
         })
         .eq("family", family);
       if (error) throw error;
@@ -387,11 +389,11 @@ function Calculator() {
   });
 
   const savePricing = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (next?: CustomerPricing) => {
       const prev = (fam?.pricing_config ?? {}) as Record<string, unknown>;
       const { error } = await supabase
         .from("families")
-        .update({ pricing_config: { ...prev, customer: cust } })
+        .update({ pricing_config: { ...prev, customer: next ?? cust } })
         .eq("family", family);
       if (error) throw error;
     },
@@ -1182,7 +1184,11 @@ function Calculator() {
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setCust((p) => ({ ...p, mode: m }))}
+                      onClick={() => {
+                        const next = { ...cust, mode: m };
+                        setCust(next);
+                        savePricing.mutate(next);
+                      }}
                       className={`px-3 py-2 text-xs font-bold ${
                         cust.mode === m
                           ? "bg-[var(--ink)] text-[var(--paper,white)]"
@@ -1235,7 +1241,7 @@ function Calculator() {
                 שמור תקורה
               </button>
               <button
-                onClick={() => savePricing.mutate()}
+                onClick={() => savePricing.mutate(undefined)}
                 className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
               >
                 שמור מצב תמחור
@@ -1504,7 +1510,7 @@ function Calculator() {
                 חשב מהנתונים ({qtyFit.c})
               </button>
               <button
-                onClick={() => savePricing.mutate()}
+                onClick={() => savePricing.mutate(undefined)}
                 className="border-2 border-[var(--ink)] bg-[var(--accent-raw)] px-3 py-2 text-xs font-bold text-[var(--ink)] shadow-[3px_3px_0_0_var(--ink)]"
               >
                 שמור מחירון
