@@ -767,7 +767,50 @@ function Calculator() {
               </div>
               )}
 
-              {cost.hasCost ? (
+              {hasEngine && engine?.ok ? (
+                engine.costFloor > 0 ? (
+                  <div
+                    className={`border-2 p-3 text-[13px] leading-relaxed ${
+                      (engine.price ?? 0) < engine.costFloor
+                        ? "border-[oklch(0.55_0.2_25)] bg-[oklch(0.55_0.2_25/0.08)]"
+                        : "border-[var(--ink)]"
+                    }`}
+                  >
+                    <div className="text-muted-foreground">
+                      עלות ייצור ישירה{" "}
+                      <span className="num font-bold text-foreground">
+                        {shekel(engine.directCost)}
+                      </span>{" "}
+                      · רצפת מחיר{" "}
+                      <span className="num font-bold text-foreground">
+                        {shekel(engine.costFloor)}
+                      </span>
+                    </div>
+                    {(engine.price ?? 0) < engine.costFloor ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <span className="font-bold text-[oklch(0.5_0.2_25)]">
+                          מחיר הנוסחה ({shekel(engine.price ?? 0)}) מתחת לרצפת המחיר
+                          {overrideCurve ? "" : " — הופעל מחיר לפי עלות"}
+                        </span>
+                        <button
+                          onClick={() => setOverrideCurve((v) => !v)}
+                          className="border-2 border-[var(--ink)] px-2 py-1 text-[11px] font-bold shadow-[2px_2px_0_0_var(--ink)]"
+                        >
+                          {overrideCurve
+                            ? `חזור לרצפת המחיר ${shekel(engine.costFloor)}`
+                            : `השתמש במחיר הנוסחה ${shekel(engine.price ?? 0)}`}
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className="mt-1">
+                      רווח גולמי{" "}
+                      <span className="num font-bold">
+                        {shekel(Math.round(finalTotal - engine.directCost))}
+                      </span>
+                    </div>
+                  </div>
+                ) : null
+              ) : cost.hasCost ? (
                 <div
                   className={`border-2 p-3 text-[13px] leading-relaxed ${
                     calc.total < floorPrice
