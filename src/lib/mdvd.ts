@@ -240,6 +240,20 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
           })
         : [],
     },
+    above_page_cost: num(c["above_page_cost"]),
+    above_min: num(c["above_min"]),
+    anchors: Array.isArray(c["anchors"])
+      ? (c["anchors"] as unknown[])
+          .map((o) => {
+            const x = (o ?? {}) as Record<string, unknown>;
+            return {
+              size: normalizeSizeText(String(x["size"] ?? "")),
+              qty: num(x["qty"]),
+              price: num(x["price"]),
+            };
+          })
+          .filter((a) => a.size !== "" && a.price > 0)
+      : [],
     packages: Array.isArray(c["packages"])
       ? (c["packages"] as unknown[]).map(num).filter((n) => n > 0)
       : [],
