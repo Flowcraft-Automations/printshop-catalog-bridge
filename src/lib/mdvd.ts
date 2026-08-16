@@ -350,6 +350,52 @@ export function priceFromConfig(
   };
 }
 
+/**
+ * Cost-driven price: the cost table alone sets the customer price.
+ * total = direct cost × מקדם תקורה × (1 + רווח%), never below מחיר מינימום
+ * (nor below מינימום למטר אורך × meters when set).
+ */
+export function priceFromCost(
+  family: Family | undefined,
+  cfg: CustomerPricing,
+  w: number,
+  h: number,
+  qty: number,
+  overheadFactor: number,
+): ConfigPricing {
+  const units = Math.max(1, qty || 1);
+  const inside = fitsInBox(w, h, family);
+  const side = inside ? "below" : "above";
+  const job = jobCost(family, w, h, units);
+  const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
+  const margin = 1 + (cfg.margin_pct > 0 ? cfg.margin_pct : 0) / 100;
+  const raw = job.directCost * ovh * margin;
+  const meters = (Math.max(w, h) / 100) * units;
+  const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
+  const minCharge = cfg.min_charge > 0 ? cfg.min_charge : 0;
+  const floorValue = Math.max(minCharge, linearMin);
+  const minApplied = raw < minCharge && minCharge >= linearMin;
+  const linearApplied = raw < linearMin && linearMin > minCharge;
+  const total = applyRounding(Math.max(raw, floorValue), cfg.rounding);
+  return {
+    total,
+    unit: total / units,
+    side,
+    minApplied,
+    linearApplied,
+    sheets: null,
+    detail: `לפי עלות · ${inside ? "בתוך הסף" : "מעל הסף"} · ${shekel(job.ratePerM2)} למ״ר × ${job.area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""} = ${shekel(Math.round(job.directCost))} × תקורה ${ovh}${cfg.margin_pct > 0 ? ` × רווח ${cfg.margin_pct}%` : ""} = ${shekel(Math.round(raw))}${
+      linearApplied
+        ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
+        : minApplied
+          ? ` → מחיר מינימום ${shekel(minCharge)}`
+          : ""
+    }`,
+  };
+}
+
+
+
 export type BusinessConfig = {
   id: number;
   monthly_cost: number;
