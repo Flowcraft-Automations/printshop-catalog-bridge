@@ -404,9 +404,12 @@ function Calculator() {
     return match ? { p: match, unit: Number(match.final_price) } : null;
   }, [products, family, nw, nh, nq]);
 
-  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
-  const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : calc.total;
+  // headline precedence: decided catalog price > configured family price > curve
+  const basePrice = configPrice ? configPrice.total : calc.total;
+  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > basePrice;
+  const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : basePrice;
   const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
+  const noSize = !nw || !nh;
 
 
 
