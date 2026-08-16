@@ -704,6 +704,30 @@ function Calculator() {
           <>
             {/* calculation details + cost floor */}
             <section className="grid gap-4 lg:grid-cols-[1fr_auto]">
+              {hasEngine && engine ? (
+                <div className="border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
+                  {engine.ok ? (
+                    <>
+                      <div className="font-bold">
+                        שכבה: {engine.tierPath.join(" → ")} · {engine.label}
+                      </div>
+                      {engine.breakdown.map((line, i) => (
+                        <div key={i} className="text-muted-foreground">
+                          {line}
+                        </div>
+                      ))}
+                      <div className="text-muted-foreground">
+                        שטח מבוקש: {nw}×{nh} = {Math.round(area * 10000).toLocaleString()} סמ״ר
+                      </div>
+                      <div className="text-[11px] text-muted-foreground/70">
+                        מחיר לפי תצורת התמחור של המשפחה — ניתן לעריכה בהגדרות למטה.
+                      </div>
+                    </>
+                  ) : (
+                    <div className="font-bold text-[oklch(0.5_0.2_25)]">{engine.error}</div>
+                  )}
+                </div>
+              ) : (
               <div className="border-s-4 border-[var(--accent-raw)] ps-3 text-[13px] leading-relaxed">
                 <div className="font-bold">{calc.label}</div>
                 {calc.detail ? (
@@ -741,6 +765,7 @@ function Calculator() {
                   </div>
                 ) : null}
               </div>
+              )}
 
               {cost.hasCost ? (
                 <div
