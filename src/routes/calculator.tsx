@@ -258,6 +258,23 @@ function Calculator() {
     setOverrideCurve(false);
   }, [family, w, h, qty]);
 
+  /* ---- customer pricing per family (families.pricing_config.customer) ---- */
+  const savedCust = useMemo(() => readCustomerPricing(fam), [fam]);
+  const [cust, setCust] = useState<CustomerPricing>(savedCust);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => {
+    setCust(readCustomerPricing(fam));
+    setMoreOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [family, fam?.pricing_config]);
+
+  const setSide = (side: "below" | "above", key: keyof PriceSide, v: string) =>
+    setCust((p) => ({ ...p, [side]: { ...p[side], [key]: Number(v) || 0 } }));
+
+  const custHas = hasCustomerPricing(cust);
+  const configPrice =
+    custHas && nw > 0 && nh > 0 ? priceFromConfig(costFamily, cust, nw, nh, nq) : null;
+
 
 
   const qtyFit = useMemo(
