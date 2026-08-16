@@ -343,13 +343,26 @@ export function qtyDiscountMult(family: Family | undefined, qty: number): number
   return tiers[0]?.mult ?? 1;
 }
 
+/** Manual anchor price for an exact size + package, if one is configured. */
+export function findAnchor(
+  anchors: PriceAnchor[],
+  w: number,
+  h: number,
+  qty: number,
+): PriceAnchor | undefined {
+  const key = sizeKey(w, h);
+  return anchors.find((a) => a.size === key && Math.round(a.qty) === Math.round(qty));
+}
+
 /**
  * The family price list.
  *  - method "area": (base + ₪/m² × area) per unit × qty × quantity discount,
  *    never below מחיר מינימום nor below מינימום למטר אורך × meters.
  *    A configured size threshold switches to the second trio.
  *  - method "sheet_area": inside the threshold the job is priced as
- *    דמי הכנה + גיליונות × מחיר לגיליון; above it, the area trio applies.
+ *    דמי הכנה + גיליונות × מחיר לגיליון (a manual anchor for the exact
+ *    size + package wins); above it, one page per unit at
+ *    עלות לעמוד × כמות × מקדם תקורה, floored by מחיר מינימום.
  */
 export function priceFromConfig(
   family: Family | undefined,
@@ -357,6 +370,7 @@ export function priceFromConfig(
   w: number,
   h: number,
   qty: number,
+  overheadFactor: number = DEFAULT_OVERHEAD_FACTOR,
 ): ConfigPricing {
   const units = Math.max(1, qty || 1);
   const inside = fitsInBox(w, h, family);
@@ -364,6 +378,18 @@ export function priceFromConfig(
   const area = (w * h) / 10000;
 
   if (cfg.method === "sheet_area" && inside) {
+    const anchor = findAnchor(cfg.anchors, w, h, units);
+    if (anchor) {
+      return {
+        total: anchor.price,
+        unit: anchor.price / units,
+        side,
+        minApplied: false,
+        linearApplied: false,
+        sheets: null,
+        detail: `מחיר עוגן ידני · ${anchor.size} × ${anchor.qty.toLocaleString()} יח׳ = ${shekel(anchor.price)}`,
+      };
+    }
     const per = unitsPerSheet(w, h, cfg.sheet.overrides);
     const sheets = per > 0 ? Math.ceil(units / per) : 0;
     const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
@@ -378,6 +404,26 @@ export function priceFromConfig(
       detail: `גיליון · ${per} יח׳ בגיליון (${SHEET_W_CM}×${SHEET_H_CM}) · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + הכנה ${shekel(cfg.sheet.setup)} = ${shekel(total)}`,
     };
   }
+
+  if (cfg.method === "sheet_area") {
+    const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
+    const raw = cfg.above_page_cost * units * ovh;
+    const minCharge = cfg.above_min > 0 ? cfg.above_min * units : 0;
+    const minApplied = raw < minCharge;
+    const total = applyRounding(Math.max(raw, minCharge), cfg.rounding);
+    return {
+      total,
+      unit: total / units,
+      side,
+      minApplied,
+      linearApplied: false,
+      sheets: units,
+      detail: `מעל הסף · עמוד אחד לפריט · עלות לעמוד ${shekel(cfg.above_page_cost)} × ${units.toLocaleString()} × תקורה ${ovh} = ${shekel(Math.round(raw))}${
+        minApplied ? ` → מחיר מינימום ${shekel(cfg.above_min)}` : ""
+      }`,
+    };
+  }
+
 
   const trio = inside ? cfg.below : cfg.above;
   const perUnitRaw = trio.base + trio.rate_m2 * area;
