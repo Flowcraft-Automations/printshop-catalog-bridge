@@ -82,7 +82,10 @@ type Draft = {
   margin: string;
   rounding: string;
   packages: string;
+  minUnitArea: string;
+  qtyExponent: string;
 };
+
 
 function Calculator() {
   const qc = useQueryClient();
