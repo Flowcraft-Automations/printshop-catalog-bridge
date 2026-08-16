@@ -277,8 +277,12 @@ function Calculator() {
     setCust((p) => ({ ...p, [side]: { ...p[side], [key]: Number(v) || 0 } }));
 
   const custHas = hasCustomerPricing(cust);
-  const configPrice =
-    custHas && nw > 0 && nh > 0 ? priceFromConfig(costFamily, cust, nw, nh, nq) : null;
+  const costMode = cust.mode === "cost";
+  const priceHere = (tw: number, th: number, tq: number) =>
+    costMode
+      ? priceFromCost(costFamily, cust, tw, th, tq, overhead)
+      : priceFromConfig(costFamily, cust, tw, th, tq);
+  const configPrice = custHas && nw > 0 && nh > 0 ? priceHere(nw, nh, nq) : null;
 
   // quick test box (admin, uses the live unsaved values)
   const [qtW, setQtW] = useState("");
@@ -289,8 +293,9 @@ function Calculator() {
     const th = Number(qtH) || 0;
     if (!tw || !th) return null;
     const tq = Math.max(1, Number(qtQ) || 1);
-    return priceFromConfig(costFamily, cust, tw, th, tq);
+    return priceHere(tw, th, tq);
   })();
+
 
 
 
