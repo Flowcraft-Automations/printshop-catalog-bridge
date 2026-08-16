@@ -346,20 +346,29 @@ function Calculator() {
         <div className="flex flex-wrap items-end gap-6">
           <Field label='רוחב (ס"מ)' value={w} onChange={setW} />
           <Field label='גובה (ס"מ)' value={h} onChange={setH} />
-          {cfg.packages.length ? (
-            <div className="w-44">
-              <label className={labelCls}>חבילה</label>
-              <select className={`${inputCls} text-base`} value={qty} onChange={(e) => setQty(e.target.value)}>
-                {packagePrices.map((p) => (
-                  <option key={p.qty} value={p.qty}>
-                    {p.qty.toLocaleString()} יח׳{p.job ? ` — ${shekel(p.job.total)}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
+          <div className="w-56">
             <Field label="כמות" value={qty} onChange={setQty} />
-          )}
+            {cfg.packages.length ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {packagePrices.map((p) => (
+                  <button
+                    key={p.qty}
+                    type="button"
+                    onClick={() => setQty(String(p.qty))}
+                    className={`border-2 px-2 py-0.5 text-[11px] font-bold ${
+                      Number(qty) === p.qty
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-background"
+                        : "border-[var(--line,#c9d4de)] text-muted-foreground"
+                    }`}
+                    title={p.job ? shekel(p.job.total) : ""}
+                  >
+                    {p.qty.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
 
           <div className="mr-auto text-left">
             {!nw || !nh ? (
