@@ -442,7 +442,13 @@ function Calculator() {
 
   // headline precedence: decided catalog price > configured family price > curve
   const basePrice = configPrice ? configPrice.total : calc.total;
-  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > basePrice;
+  const floorDrives =
+    !decided &&
+    !(configPrice && costMode) &&
+    cost.hasCost &&
+    !overrideCurve &&
+    floorPrice > basePrice;
+
   const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : basePrice;
   const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
   const noSize = !nw || !nh;
