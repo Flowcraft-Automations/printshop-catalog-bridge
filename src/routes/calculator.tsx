@@ -275,7 +275,7 @@ function Calculator() {
 
   const custHas = true;
   const priceHere = (tw: number, th: number, tq: number) =>
-    priceFromConfig(costFamily, cust, tw, th, tq);
+    priceFromConfig(costFamily, cust, tw, th, tq, overhead);
   const configPrice = custHas && nw > 0 && nh > 0 ? priceHere(nw, nh, nq) : null;
 
   // quantity packages offered by the family (empty = free quantity input)
