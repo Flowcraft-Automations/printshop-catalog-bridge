@@ -485,7 +485,9 @@ function Calculator() {
             </div>
           </div>
 
+          <div className="mt-2 max-h-[26rem] overflow-y-auto">
           <table className="w-full">
+
             <thead className="sticky top-0 bg-background">
               <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
                 <th className="w-10 p-2 text-right font-medium">⚓</th>
