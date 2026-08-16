@@ -90,8 +90,6 @@ function normalizeFamily(r: Row) {
   return {
     family: str(r['family']) ?? "",
     items_count: num(r['items_count']),
-    rate_m2: num(r['rate_m2']),
-    min_charge: num(r['min_charge']),
     notes: str(r['notes']),
   };
 }
