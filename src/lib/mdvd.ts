@@ -507,14 +507,19 @@ export function priceJob(
 
   if (cfg.method === "sheet") {
     if (above) {
-      const cost = cfg.outsourceCost * units;
+      const orderArea = area * units;
+      const billed = Math.max(1, orderArea);
+      const cost = cfg.outsourceCost * billed;
       return finish(
         cost * margin,
         cost,
         "מעל הסף — מיקור חוץ",
-        `${shekel(cfg.outsourceCost)} ליחידה × ${units.toLocaleString()} × מקדם ${margin}`,
+        `${shekel(cfg.outsourceCost)} למ״ר × ${billed.toFixed(2)} מ״ר${
+          orderArea < 1 ? " (מינימום 1 מ״ר)" : ""
+        } × מקדם ${margin}`,
       );
     }
+
     const per = sheetUnitsFor(cfg, w, h);
     const sheets = per.units > 0 ? units / per.units : 0;
     const cost = Math.ceil(sheets) * cfg.cost;
