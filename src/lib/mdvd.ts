@@ -1242,3 +1242,304 @@ export type ProductNote = {
   created_at: string;
   updated_at: string;
 };
+
+/* ------------------------------------------------------------------ *
+ * Anchor-based pricing engine (v3)
+ * Per family: one method + threshold + 3–4 numbers + anchor table.
+ * Anchors live in the catalog (products.is_anchor + price).
+ * ------------------------------------------------------------------ */
+
+export type FamilyMethod = "area" | "sheet";
+
+export type FamilyPricing = {
+  method: FamilyMethod;
+  thresholdW: number;
+  thresholdH: number;
+  /** ₪/m² (area) or ₪ per sheet (sheet) — below the threshold */
+  cost: number;
+  /** ₪/m² (area) or ₪ per unit (sheet) — above the threshold */
+  outsourceCost: number;
+  margin: number;
+  rounding: number;
+  packages: number[];
+  /** manual יחידות בגיליון per size key */
+  sheetUnits: Record<string, number>;
+};
+
+export const DEFAULT_MARGIN = 1.3;
+export const DEFAULT_ROUNDING = 5;
+
+export function readFamilyPricing(family: Family | undefined): FamilyPricing {
+  const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
+  const v = (raw?.["v3"] ?? null) as Record<string, unknown> | null;
+  const su: Record<string, number> = {};
+  const rawSu = (v?.["sheet_units"] ?? null) as Record<string, unknown> | null;
+  if (rawSu && typeof rawSu === "object") {
+    for (const [k, val] of Object.entries(rawSu)) {
+      const n = num(val);
+      if (n > 0) su[normalizeSizeText(k)] = Math.floor(n);
+    }
+  }
+  return {
+    method: v?.["method"] === "sheet" ? "sheet" : "area",
+    thresholdW: num(family?.outsource_width_cm),
+    thresholdH: num(family?.outsource_height_cm),
+    cost: num(family?.cost_per_m2),
+    outsourceCost: num(family?.outsource_cost_per_m2),
+    margin: num(v?.["margin"]) > 0 ? num(v?.["margin"]) : DEFAULT_MARGIN,
+    rounding: num(v?.["rounding"]) > 0 ? num(v?.["rounding"]) : DEFAULT_ROUNDING,
+    packages: Array.isArray(v?.["packages"])
+      ? (v?.["packages"] as unknown[]).map(num).filter((n) => n > 0).sort((a, b) => a - b)
+      : [],
+    sheetUnits: su,
+  };
+}
+
+/** The pricing_config JSON to persist for a family. */
+export function writeFamilyPricing(cfg: FamilyPricing) {
+  return {
+    v3: {
+      method: cfg.method,
+      margin: cfg.margin,
+      rounding: cfg.rounding,
+      packages: cfg.packages,
+      sheet_units: cfg.sheetUnits,
+    },
+  };
+}
+
+/** Auto (geometric) יחידות בגיליון, ignoring manual overrides. */
+export function autoUnitsPerSheet(w: number, h: number): number {
+  if (w <= 0 || h <= 0) return 0;
+  const g = SHEET_GAP_CM;
+  const fit = (iw: number, ih: number) =>
+    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
+  return Math.max(fit(w, h), fit(h, w));
+}
+
+export function sheetUnitsFor(cfg: FamilyPricing, w: number, h: number) {
+  const key = sizeKey(w, h);
+  const manual = cfg.sheetUnits[key];
+  if (manual && manual > 0) return { units: manual, manual: true };
+  return { units: autoUnitsPerSheet(w, h), manual: false };
+}
+
+export function fitsThreshold(cfg: FamilyPricing, w: number, h: number) {
+  if (cfg.thresholdW <= 0 || cfg.thresholdH <= 0) return true;
+  return Math.max(w, h) <= cfg.thresholdW && Math.min(w, h) <= cfg.thresholdH;
+}
+
+export type JobAnchor = {
+  id: string;
+  name: string;
+  w: number;
+  h: number;
+  area: number;
+  qty: number;
+  price: number;
+};
+
+export function anchorPrice(p: Product): number | null {
+  const v = p.final_price ?? p.senzey_price ?? p.site_price ?? null;
+  return v !== null && Number(v) > 0 ? Number(v) : null;
+}
+
+/** Catalog anchors for a family, sorted by area then quantity. */
+export function familyAnchors(products: Product[], family: string): JobAnchor[] {
+  const out: JobAnchor[] = [];
+  for (const p of products) {
+    if (!p.is_anchor) continue;
+    if ((p.family ?? "").trim() !== family.trim()) continue;
+    const w = Number(p.width_cm) || 0;
+    const h = Number(p.height_cm) || 0;
+    const price = anchorPrice(p);
+    if (!w || !h || price === null) continue;
+    out.push({
+      id: p.id,
+      name: p.name,
+      w,
+      h,
+      area: (w * h) / 10000,
+      qty: Math.max(1, Number(p.qty) || 1),
+      price,
+    });
+  }
+  return out.sort((a, b) => a.area - b.area || a.qty - b.qty);
+}
+
+/** Drop anchors cheaper than a smaller one (type A). */
+export function consistentAreaAnchors(anchors: JobAnchor[]) {
+  const kept: JobAnchor[] = [];
+  const bad: JobAnchor[] = [];
+  for (const a of anchors) {
+    const last = kept[kept.length - 1];
+    if (last && a.price < last.price) bad.push(a);
+    else kept.push(a);
+  }
+  return { kept, bad };
+}
+
+const roundUpTo = (v: number, step: number) =>
+  step > 0 ? Math.ceil(v / step) * step : Math.round(v);
+
+function interpolate(
+  points: { x: number; y: number }[],
+  x: number,
+): { y: number; label: string } {
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
+  if (points.length === 1) return { y: first.y, label: "עוגן יחיד" };
+  if (x <= first.x) return { y: first.y, label: "מתחת לעוגן הקטן — מחיר העוגן" };
+  if (x >= last.x) {
+    const prev = points[points.length - 2]!;
+    const slope = (last.y - prev.y) / (last.x - prev.x || 1);
+    return { y: last.y + slope * (x - last.x), label: "מעל העוגן הגדול — המשך השיפוע" };
+  }
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    if (x <= b.x) {
+      const t = (x - a.x) / (b.x - a.x || 1);
+      return { y: a.y + t * (b.y - a.y), label: "אינטרפולציה בין עוגנים" };
+    }
+  }
+  return { y: last.y, label: "עוגן" };
+}
+
+export type JobPrice = {
+  total: number;
+  unit: number;
+  above: boolean;
+  /** direct production cost of the whole job */
+  cost: number;
+  /** the below-cost line: cost × מקדם */
+  costFloorValue: number;
+  belowCost: boolean;
+  label: string;
+  detail: string;
+  sheets: number | null;
+  unitsPerSheet: number | null;
+  inconsistent: JobAnchor[];
+  hasAnchors: boolean;
+};
+
+/** The one pricing entry point. */
+export function priceJob(
+  cfg: FamilyPricing,
+  anchors: JobAnchor[],
+  w: number,
+  h: number,
+  qty: number,
+): JobPrice | null {
+  if (!(w > 0) || !(h > 0)) return null;
+  const units = Math.max(1, Math.round(qty) || 1);
+  const area = (w * h) / 10000;
+  const above = !fitsThreshold(cfg, w, h);
+  const margin = cfg.margin > 0 ? cfg.margin : DEFAULT_MARGIN;
+
+  const finish = (
+    raw: number,
+    cost: number,
+    label: string,
+    detail: string,
+    extra: Partial<JobPrice> = {},
+  ): JobPrice => {
+    const total = roundUpTo(Math.max(raw, 0), cfg.rounding);
+    const floorValue = cost * margin;
+    return {
+      total,
+      unit: total / units,
+      above,
+      cost,
+      costFloorValue: floorValue,
+      belowCost: cost > 0 && total < floorValue - 0.001,
+      label,
+      detail,
+      sheets: null,
+      unitsPerSheet: null,
+      inconsistent: [],
+      hasAnchors: anchors.length > 0,
+      ...extra,
+    };
+  };
+
+  if (cfg.method === "sheet") {
+    if (above) {
+      const cost = cfg.outsourceCost * units;
+      return finish(
+        cost * margin,
+        cost,
+        "מעל הסף — מיקור חוץ",
+        `${shekel(cfg.outsourceCost)} ליחידה × ${units.toLocaleString()} × מקדם ${margin}`,
+      );
+    }
+    const per = sheetUnitsFor(cfg, w, h);
+    const sheets = per.units > 0 ? units / per.units : 0;
+    const cost = Math.ceil(sheets) * cfg.cost;
+    const pts = anchors
+      .map((a) => {
+        const u = sheetUnitsFor(cfg, a.w, a.h).units;
+        return u > 0 ? { x: a.qty / u, y: a.price } : null;
+      })
+      .filter((p): p is { x: number; y: number } => p !== null)
+      .sort((a, b) => a.x - b.x);
+    if (pts.length === 0 || sheets <= 0) {
+      return finish(
+        cost * margin,
+        cost,
+        "אין עוגנים — לפי עלות",
+        `${Math.ceil(sheets)} גיליונות × ${shekel(cfg.cost)} × מקדם ${margin}`,
+        { sheets, unitsPerSheet: per.units },
+      );
+    }
+    const r = interpolate(pts, sheets);
+    return finish(r.y, cost, r.label, `${sheets.toFixed(2)} גיליונות · ${per.units} יח׳ בגיליון`, {
+      sheets,
+      unitsPerSheet: per.units,
+    });
+  }
+
+  // area method
+  if (above) {
+    const cost = cfg.outsourceCost * area * units;
+    return finish(
+      cost * margin,
+      cost,
+      "מעל הסף — מיקור חוץ",
+      `${shekel(cfg.outsourceCost)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} × מקדם ${margin}`,
+    );
+  }
+  const cost = cfg.cost * area * units;
+  const { kept, bad } = consistentAreaAnchors(anchors);
+  if (kept.length === 0) {
+    return finish(
+      cost * margin,
+      cost,
+      "אין עוגנים — לפי עלות",
+      `${shekel(cfg.cost)} למ״ר × ${area.toFixed(2)} מ״ר × מקדם ${margin}`,
+      { inconsistent: bad },
+    );
+  }
+  const exact = kept.find((a) => Math.abs(a.area - area) <= area * 0.02);
+  if (exact) {
+    return finish(exact.price * units, cost, "מחיר עוגן", `${exact.w}×${exact.h} = ${shekel(exact.price)}`, {
+      inconsistent: bad,
+    });
+  }
+  const largest = kept[kept.length - 1]!;
+  if (area > largest.area) {
+    const rate = largest.price / largest.area;
+    return finish(
+      rate * area * units,
+      cost,
+      "מעל העוגן הגדול — לפי ₪/מ״ר של העוגן",
+      `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר`,
+      { inconsistent: bad },
+    );
+  }
+  const r = interpolate(
+    kept.map((a) => ({ x: a.area, y: a.price })),
+    area,
+  );
+  return finish(r.y * units, cost, r.label, `${area.toFixed(3)} מ״ר`, { inconsistent: bad });
+}
