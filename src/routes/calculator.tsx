@@ -486,7 +486,24 @@ function Calculator() {
                 width="w-56"
               />
             )}
+            <Field
+              label='מ״ר מינימלי ליחידה (מעל הסף)'
+              value={draft.minUnitArea}
+              onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
+              width="w-44"
+            />
+            <Field
+              label="מקדם כמות (חזקה)"
+              value={draft.qtyExponent}
+              onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+              width="w-40"
+            />
           </div>
+          <div className="mt-2 text-[11px] font-bold text-muted-foreground">
+            מעל הסף המחיר מחושב לכל יחידה: עלות למ״ר × מ״ר ליחידה (לפחות המינימום) × כמות^מקדם כמות × מקדם רווח.
+            מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות.
+          </div>
+
 
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
