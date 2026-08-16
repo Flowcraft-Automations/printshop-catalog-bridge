@@ -367,6 +367,23 @@ function Calculator() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const savePricing = useMutation({
+    mutationFn: async () => {
+      const prev = (fam?.pricing_config ?? {}) as Record<string, unknown>;
+      const { error } = await supabase
+        .from("families")
+        .update({ pricing_config: { ...prev, customer: cust } })
+        .eq("family", family);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["families"] });
+      toast.success("מחירון המשפחה נשמר");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const saveOverhead = useMutation({
     mutationFn: async (value: number) => {
       const { error } = await supabase
