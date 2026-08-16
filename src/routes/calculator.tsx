@@ -676,10 +676,28 @@ function Calculator() {
               <label className="mb-1 block text-xs font-bold text-muted-foreground">גובה ס״מ</label>
               <input className={`${inputCls} num`} value={h} onChange={(e) => setH(e.target.value)} />
             </div>
-            <div className="w-28 shrink-0">
+            <div className={packages.length > 0 ? "w-56 shrink-0" : "w-28 shrink-0"}>
               <label className="mb-1 block text-xs font-bold text-muted-foreground">כמות בחבילה</label>
-              <input className={`${inputCls} num`} value={qty} onChange={(e) => setQty(e.target.value)} />
+              {packages.length > 0 ? (
+                <select
+                  className={`${inputCls} num`}
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                >
+                  {packages.map((p) => {
+                    const pr = nw && nh ? priceHere(nw, nh, p).total : null;
+                    return (
+                      <option key={p} value={p}>
+                        {p.toLocaleString()} יח׳{pr != null ? ` — ${shekel(pr)}` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <input className={`${inputCls} num`} value={qty} onChange={(e) => setQty(e.target.value)} />
+              )}
             </div>
+
           </div>
 
           {/* price, always visible */}
