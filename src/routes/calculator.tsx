@@ -382,8 +382,45 @@ function Calculator() {
     return match ? { p: match, unit: Number(match.final_price) } : null;
   }, [products, family, nw, nh, nq]);
 
-  const floorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
-  const finalTotal = decided ? decided.unit * nq : floorDrives ? floorPrice : calc.total;
+  /* ---- universal config-driven engine (wins whenever the family has a config) ---- */
+  const configs = useMemo(() => configMap(allFamilies), [allFamilies]);
+  const engineCatalog = useMemo(
+    () =>
+      products
+        .filter((p) => !isClosedOut(p) && p.width_cm && p.height_cm && Number(p.final_price) > 0)
+        .map((p) => ({
+          family: p.family,
+          width_cm: Number(p.width_cm),
+          height_cm: Number(p.height_cm),
+          qty: Math.max(1, Number(p.qty) || 1),
+          price: Number(p.final_price),
+        })),
+    [products],
+  );
+  const hasEngine = !!fam?.pricing_config?.tiers?.length;
+  const engine = useMemo(
+    () =>
+      hasEngine
+        ? priceJob({ family, w: nw, h: nh, qty: nq, configs, catalog: engineCatalog })
+        : null,
+    [hasEngine, family, nw, nh, nq, configs, engineCatalog],
+  );
+
+  const engineFloorDrives =
+    !!engine?.ok && !engine.fromCatalog && !overrideCurve && engine.costFloor > (engine.price ?? 0);
+  const legacyFloorDrives = !decided && cost.hasCost && !overrideCurve && floorPrice > calc.total;
+  const floorDrives = hasEngine ? engineFloorDrives : legacyFloorDrives;
+  const finalTotal = hasEngine
+    ? engine?.ok
+      ? engineFloorDrives
+        ? engine.costFloor
+        : (engine.price ?? 0)
+      : 0
+    : decided
+      ? decided.unit * nq
+      : legacyFloorDrives
+        ? floorPrice
+        : calc.total;
   const effectivePrice = finalTotal / (nq > 0 ? nq : 1);
 
 
