@@ -647,9 +647,30 @@ function Calculator() {
                     מחיר לעבודה ({nq.toLocaleString()} יח׳)
                   </div>
                   <div className="num text-4xl font-black text-[var(--accent-raw)]">
-                    {shekel(finalTotal)}
+                    {hasEngine && !engine?.ok ? "—" : shekel(finalTotal)}
                   </div>
-                  {decided ? (
+                  {hasEngine ? (
+                    !engine?.ok ? (
+                      <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.5_0.2_25)]">
+                        {engine?.error}
+                      </div>
+                    ) : (
+                      <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
+                        {engine.fromCatalog ? "מחיר קטלוג" : engine.tierPath.join(" → ")}
+                        {engineFloorDrives ? (
+                          <span className="text-[oklch(0.5_0.16_45)]">
+                            {" "}
+                            · לפי עלות ייצור ·{" "}
+                            <span className="num font-normal line-through text-muted-foreground">
+                              {shekel(engine.price ?? 0)}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground"> · {engine.label}</span>
+                        )}
+                      </div>
+                    )
+                  ) : decided ? (
                     <div className="mt-0.5 text-[11px] font-bold text-[oklch(0.45_0.12_150)]">
                       מחיר שנקבע בקטלוג · {decided.p.name} ·{" "}
                       <span className="num font-normal text-muted-foreground">
