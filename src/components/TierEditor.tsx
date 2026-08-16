@@ -247,7 +247,7 @@ export function TierEditor({
                     {f === "family" ? (
                       <select
                         className={fieldCls}
-                        value={String(params.family ?? "")}
+                        value={String(params['family'] ?? "")}
                         onChange={(e) =>
                           patchTier(i, { params: { ...params, family: e.target.value } })
                         }
@@ -280,14 +280,14 @@ export function TierEditor({
                     <input
                       className={`${fieldCls} num`}
                       value={String(
-                        ((params.overrides as Record<string, unknown>) ?? {}).min ?? "",
+                        ((params['overrides'] as Record<string, unknown>) ?? {})['min'] ?? "",
                       )}
                       onChange={(e) =>
                         patchTier(i, {
                           params: {
                             ...params,
                             overrides: {
-                              ...((params.overrides as Record<string, unknown>) ?? {}),
+                              ...((params['overrides'] as Record<string, unknown>) ?? {}),
                               min: numOrUndef(e.target.value),
                             },
                           },
@@ -306,7 +306,7 @@ export function TierEditor({
                       value={String(tier.cost?.cost_per_m2 ?? "")}
                       onChange={(e) =>
                         patchTier(i, {
-                          cost: { ...(tier.cost ?? {}), cost_per_m2: numOrUndef(e.target.value) },
+                          cost: { ...(tier.cost ?? {}), cost_per_m2: numOrUndef(e.target.value) ?? 0 },
                         })
                       }
                     />
