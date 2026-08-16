@@ -99,9 +99,11 @@ function Calculator() {
   );
 
   const [family, setFamily] = useState("");
+  const [search, setSearch] = useState("");
   useEffect(() => {
     if (!family && families.length) setFamily(families[0]!.family);
   }, [families, family]);
+
 
   const fam = families.find((f) => f.family === family);
   const saved = useMemo(() => readFamilyPricing(fam), [fam]);
@@ -155,9 +157,11 @@ function Calculator() {
 
   /** every approved (non-deleted / relevant) item of the family — the anchor table body */
   const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return products
       .filter((p) => (p.family ?? "").trim() === family.trim())
       .filter((p) => !isClosedOut(p))
+      .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
       .map((p) => {
         const w = Number(p.width_cm) || 0;
         const h = Number(p.height_cm) || 0;
@@ -175,7 +179,8 @@ function Calculator() {
       })
       .filter((r) => r.w > 0 && r.h > 0)
       .sort((a, b) => a.area - b.area || a.qty - b.qty);
-  }, [products, family]);
+  }, [products, family, search]);
+
 
   /* ---------------- mutations ---------------- */
 
@@ -463,14 +468,26 @@ function Calculator() {
           </div>
 
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
-          <div className="mt-6 text-xs font-bold text-muted-foreground">
-            {cfg.method === "area"
-              ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
-              : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+            <div className="text-xs font-bold text-muted-foreground">
+              {cfg.method === "area"
+                ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
+                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+            </div>
+            <div className="w-56">
+              <label className={labelCls}>חיפוש לפי שם</label>
+              <input
+                className={inputCls}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="הקלידו חלק משם הפריט..."
+              />
+            </div>
           </div>
 
           <div className="mt-2 max-h-[26rem] overflow-y-auto">
           <table className="w-full">
+
             <thead className="sticky top-0 bg-background">
               <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
                 <th className="w-10 p-2 text-right font-medium">⚓</th>
