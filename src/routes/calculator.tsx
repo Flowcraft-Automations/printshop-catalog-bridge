@@ -136,6 +136,9 @@ function Calculator() {
       margin: String(saved.margin),
       rounding: String(saved.rounding),
       packages: saved.packages.join(", "),
+      minUnitArea: String(saved.minUnitArea),
+      qtyExponent: String(saved.qtyExponent),
+
     });
     setSheetUnits(saved.sheetUnits);
   }, [saved]);
