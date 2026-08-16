@@ -484,8 +484,9 @@ export function priceJob(
     label: string,
     detail: string,
     extra: Partial<JobPrice> = {},
+    noRound = false,
   ): JobPrice => {
-    const total = roundUpTo(Math.max(raw, 0), cfg.rounding);
+    const total = noRound ? Math.max(raw, 0) : roundUpTo(Math.max(raw, 0), cfg.rounding);
     const floorValue = cost * margin;
     return {
       total,
@@ -517,6 +518,19 @@ export function priceJob(
     const per = sheetUnitsFor(cfg, w, h);
     const sheets = per.units > 0 ? units / per.units : 0;
     const cost = Math.ceil(sheets) * cfg.cost;
+    const exactSheet = anchors.find(
+      (a) => Math.abs(a.area - area) <= area * 0.02 && a.qty === units,
+    );
+    if (exactSheet) {
+      return finish(
+        exactSheet.price,
+        cost,
+        "מחיר עוגן",
+        `${exactSheet.w}×${exactSheet.h} · ${units} יח׳`,
+        { sheets, unitsPerSheet: per.units },
+        true,
+      );
+    }
     const pts = anchors
       .map((a) => {
         const u = sheetUnitsFor(cfg, a.w, a.h).units;
@@ -563,9 +577,14 @@ export function priceJob(
   }
   const exact = kept.find((a) => Math.abs(a.area - area) <= area * 0.02);
   if (exact) {
-    return finish(exact.price * units, cost, "מחיר עוגן", `${exact.w}×${exact.h} = ${shekel(exact.price)}`, {
-      inconsistent: bad,
-    });
+    return finish(
+      exact.price * units,
+      cost,
+      "מחיר עוגן",
+      `${exact.w}×${exact.h} = ${shekel(exact.price)}`,
+      { inconsistent: bad },
+      true,
+    );
   }
   const largest = kept[kept.length - 1]!;
   if (area > largest.area) {
