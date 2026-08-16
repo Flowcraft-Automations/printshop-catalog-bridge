@@ -44,9 +44,6 @@ export function isSimpleConfig(cfg: PricingConfig): boolean {
 }
 
 
-function methodOf(t: Tier) {
-  return SIMPLE_METHODS.find((m) => m.value === t.method) ?? SIMPLE_METHODS[0]!;
-}
 
 function newTier(): Tier {
   return {
