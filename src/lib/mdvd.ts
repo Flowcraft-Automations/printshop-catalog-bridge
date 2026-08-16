@@ -138,96 +138,100 @@ export type Family = {
 
 /* ------------------------------------------------------------------ *
  * Customer pricing per family (stored in families.pricing_config.customer)
+ * Two methods only:
+ *   "area"       — דמי בסיס + ₪ למ״ר, with an optional above-threshold trio
+ *   "sheet_area" — גיליון עד הסף, מ״ר מעליו
  * ------------------------------------------------------------------ */
 
+export type PriceMethod = "area" | "sheet_area";
+
 export type PriceSide = { base: number; rate_m2: number; min: number };
+
+export type SheetOverride = { size: string; units: number };
 
 export type SheetConfig = {
   setup: number;
   price_per_sheet: number;
   cost_per_sheet: number;
-  units_per_sheet: number;
-  overrides: { size: string; units: number }[];
+  overrides: SheetOverride[];
 };
 
-export type PricingMode = "cost";
-
 export type CustomerPricing = {
-  mode: PricingMode;
-  margin_pct: number;
-  min_charge: number;
+  method: PriceMethod;
   below: PriceSide;
   above: PriceSide;
   min_per_linear_m: number;
-  sheet_mode: boolean;
   sheet: SheetConfig;
+  /** quantity packages offered to the customer; empty = free quantity input */
+  packages: number[];
   rounding: { step: number; direction: "nearest" | "up" | "down" };
 };
 
 export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
 
 export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
-  mode: "cost",
-  margin_pct: 0,
-  min_charge: 0,
+  method: "area",
   below: { ...EMPTY_SIDE },
   above: { ...EMPTY_SIDE },
   min_per_linear_m: 0,
-  sheet_mode: false,
-  sheet: {
-    setup: 0,
-    price_per_sheet: 0,
-    cost_per_sheet: 0,
-    units_per_sheet: 0,
-    overrides: [],
-  },
+  sheet: { setup: 0, price_per_sheet: 0, cost_per_sheet: 0, overrides: [] },
+  packages: [],
   rounding: { step: 5, direction: "nearest" },
 };
-
 
 const num = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
 
+/** "5x5" / "5×5" → normalized "5x5" key, order-insensitive. */
+export function sizeKey(w: number, h: number) {
+  const a = Math.max(w, h);
+  const b = Math.min(w, h);
+  return `${a}x${b}`;
+}
+function normalizeSizeText(s: string) {
+  const parts = String(s)
+    .replace(/[×*]/g, "x")
+    .split("x")
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n));
+  if (parts.length !== 2) return String(s).trim();
+  return sizeKey(parts[0] as number, parts[1] as number);
+}
+
 /** Read the customer-price block out of families.pricing_config, filling defaults. */
 export function readCustomerPricing(family: Family | undefined): CustomerPricing {
   const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
   const c = (raw?.["customer"] ?? null) as Record<string, unknown> | null;
-  if (!c)
-    return {
-      ...EMPTY_CUSTOMER_PRICING,
-      // nothing configured yet → the cost table is the simplest way to price
-      mode: "cost",
-      below: { ...EMPTY_SIDE },
-      above: { ...EMPTY_SIDE },
-    };
+  if (!c) return { ...EMPTY_CUSTOMER_PRICING, below: { ...EMPTY_SIDE }, above: { ...EMPTY_SIDE } };
   const side = (v: unknown): PriceSide => {
     const o = (v ?? {}) as Record<string, unknown>;
     return { base: num(o["base"]), rate_m2: num(o["rate_m2"]), min: num(o["min"]) };
   };
   const s = (c["sheet"] ?? {}) as Record<string, unknown>;
   const r = (c["rounding"] ?? {}) as Record<string, unknown>;
+  const method: PriceMethod =
+    c["method"] === "sheet_area" || c["sheet_mode"] === true ? "sheet_area" : "area";
   return {
-    mode: "cost",
-    margin_pct: num(c["margin_pct"]),
-    min_charge: num(c["min_charge"]),
+    method,
     below: side(c["below"]),
     above: side(c["above"]),
     min_per_linear_m: num(c["min_per_linear_m"]),
-    sheet_mode: c["sheet_mode"] === true,
     sheet: {
       setup: num(s["setup"]),
       price_per_sheet: num(s["price_per_sheet"]),
       cost_per_sheet: num(s["cost_per_sheet"]),
-      units_per_sheet: num(s["units_per_sheet"]),
       overrides: Array.isArray(s["overrides"])
         ? (s["overrides"] as unknown[]).map((o) => {
             const x = (o ?? {}) as Record<string, unknown>;
-            return { size: String(x["size"] ?? ""), units: num(x["units"]) };
+            return { size: normalizeSizeText(String(x["size"] ?? "")), units: num(x["units"]) };
           })
         : [],
     },
+    packages: Array.isArray(c["packages"])
+      ? (c["packages"] as unknown[]).map(num).filter((n) => n > 0)
+      : [],
     rounding: {
       step: num(r["step"]) > 0 ? num(r["step"]) : 5,
       direction:
@@ -238,10 +242,18 @@ export function readCustomerPricing(family: Family | undefined): CustomerPricing
   };
 }
 
-/** true when the family has a usable price configuration (either mode). */
-export function hasCustomerPricing(_cfg: CustomerPricing): boolean {
-  return true;
+/** "100, 150,200" → [100,150,200] */
+export function parsePackages(text: string): number[] {
+  return text
+    .split(/[,\s]+/)
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
 }
+export function formatPackages(list: number[]): string {
+  return list.join(",");
+}
+
 
 
 /**
@@ -277,29 +289,78 @@ export type ConfigPricing = {
   detail: string;
 };
 
+/** Printing sheet used for sticker nesting. */
+export const SHEET_W_CM = 45;
+export const SHEET_H_CM = 32;
+export const SHEET_GAP_CM = 0.5;
+
+/** How many items of w×h fit on one sheet (both orientations), or a manual override. */
+export function unitsPerSheet(
+  w: number,
+  h: number,
+  overrides: SheetOverride[] = [],
+): number {
+  const key = sizeKey(w, h);
+  const hit = overrides.find((o) => normalizeSizeText(o.size) === key);
+  if (hit && hit.units > 0) return Math.floor(hit.units);
+  if (w <= 0 || h <= 0) return 0;
+  const g = SHEET_GAP_CM;
+  const fit = (iw: number, ih: number) =>
+    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
+  return Math.max(fit(w, h), fit(h, w));
+}
+
+/** Quantity-discount multiplier from the family tiers (1 when none apply). */
+export function qtyDiscountMult(family: Family | undefined, qty: number): number {
+  const tiers = (family?.qty_discounts ?? [])
+    .filter((t) => qty >= t.min)
+    .sort((a, b) => b.min - a.min);
+  return tiers[0]?.mult ?? 1;
+}
+
 /**
- * Cost-driven price: the cost table alone sets the customer price.
- * total = direct cost × מקדם תקורה × (1 + רווח%), never below מחיר מינימום
- * (nor below מינימום למטר אורך × meters when set).
+ * The family price list.
+ *  - method "area": (base + ₪/m² × area) per unit × qty × quantity discount,
+ *    never below מחיר מינימום nor below מינימום למטר אורך × meters.
+ *    A configured size threshold switches to the second trio.
+ *  - method "sheet_area": inside the threshold the job is priced as
+ *    דמי הכנה + גיליונות × מחיר לגיליון; above it, the area trio applies.
  */
-export function priceFromCost(
+export function priceFromConfig(
   family: Family | undefined,
   cfg: CustomerPricing,
   w: number,
   h: number,
   qty: number,
-  overheadFactor: number,
 ): ConfigPricing {
   const units = Math.max(1, qty || 1);
   const inside = fitsInBox(w, h, family);
-  const side = inside ? "below" : "above";
-  const job = jobCost(family, w, h, units);
-  const ovh = overheadFactor > 0 ? overheadFactor : DEFAULT_OVERHEAD_FACTOR;
-  const margin = 1 + (cfg.margin_pct > 0 ? cfg.margin_pct : 0) / 100;
-  const raw = job.directCost * ovh * margin;
+  const side: "below" | "above" = inside ? "below" : "above";
+  const area = (w * h) / 10000;
+
+  if (cfg.method === "sheet_area" && inside) {
+    const per = unitsPerSheet(w, h, cfg.sheet.overrides);
+    const sheets = per > 0 ? Math.ceil(units / per) : 0;
+    const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
+    const total = applyRounding(raw, cfg.rounding);
+    return {
+      total,
+      unit: total / units,
+      side,
+      minApplied: false,
+      linearApplied: false,
+      sheets,
+      detail: `גיליון · ${per} יח׳ בגיליון (${SHEET_W_CM}×${SHEET_H_CM}) · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + הכנה ${shekel(cfg.sheet.setup)} = ${shekel(total)}`,
+    };
+  }
+
+  const trio = inside ? cfg.below : cfg.above;
+  const perUnitRaw = trio.base + trio.rate_m2 * area;
+  const mult = qtyDiscountMult(family, units);
+  const raw = perUnitRaw * units * mult;
   const meters = (Math.max(w, h) / 100) * units;
   const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
-  const minCharge = cfg.min_charge > 0 ? cfg.min_charge : 0;
+  const minCharge = trio.min > 0 ? trio.min * units : 0;
   const floorValue = Math.max(minCharge, linearMin);
   const minApplied = raw < minCharge && minCharge >= linearMin;
   const linearApplied = raw < linearMin && linearMin > minCharge;
@@ -311,15 +372,16 @@ export function priceFromCost(
     minApplied,
     linearApplied,
     sheets: null,
-    detail: `לפי עלות · ${inside ? "בתוך הסף" : "מעל הסף"} · ${shekel(job.ratePerM2)} למ״ר × ${job.area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""} = ${shekel(Math.round(job.directCost))} × תקורה ${ovh}${cfg.margin_pct > 0 ? ` × רווח ${cfg.margin_pct}%` : ""} = ${shekel(Math.round(raw))}${
+    detail: `${inside ? "בתוך הסף" : "מעל הסף"} · דמי בסיס ${shekel(trio.base)} + ${shekel(trio.rate_m2)} למ״ר × ${area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""}${mult !== 1 ? ` × הנחת כמות ${mult}` : ""} = ${shekel(Math.round(raw))}${
       linearApplied
         ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
         : minApplied
-          ? ` → מחיר מינימום ${shekel(minCharge)}`
+          ? ` → מחיר מינימום ${shekel(trio.min)}`
           : ""
     }`,
   };
 }
+
 
 
 
