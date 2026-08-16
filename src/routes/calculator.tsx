@@ -448,7 +448,7 @@ function Calculator() {
                   width="w-40"
                 />
                 <Field
-                  label="עלות חוץ ₪ ליחידה (מעל הסף)"
+                  label="עלות חוץ ₪ למ״ר (מעל הסף)"
                   value={draft.out}
                   onChange={(v) => setDraft((p) => ({ ...p, out: v }))}
                   width="w-48"
