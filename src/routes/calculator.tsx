@@ -24,7 +24,6 @@ import {
   slugify,
   writeFamilyPricing,
   type FamilyPricing,
-  type JobAnchor,
 } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/calculator")({
