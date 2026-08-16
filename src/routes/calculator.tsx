@@ -555,6 +555,7 @@ function Calculator() {
               })}
 
               <tr className="text-base">
+                <td className="p-2 text-muted-foreground">+</td>
                 <td className="p-2">
                   <input
                     className="w-14 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
@@ -586,7 +587,16 @@ function Calculator() {
                       />
                     </td>
                   </>
-                ) : null}
+                ) : (
+                  <td className="p-2">
+                    <input
+                      className="w-20 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                      placeholder="כמות"
+                      value={newRow.qty}
+                      onChange={(e) => setNewRow((p) => ({ ...p, qty: e.target.value }))}
+                    />
+                  </td>
+                )}
                 <td className="p-2">
                   <input
                     className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
@@ -599,6 +609,7 @@ function Calculator() {
               </tr>
             </tbody>
           </table>
+          </div>
 
           <div className="mt-4 flex items-center gap-3">
             <button
