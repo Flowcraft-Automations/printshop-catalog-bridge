@@ -133,7 +133,201 @@ export type Family = {
   outsource_height_cm?: number | null;
   outsource_cost_per_m2?: number | null;
   notes: string | null;
+  pricing_config?: unknown;
 };
+
+/* ------------------------------------------------------------------ *
+ * Customer pricing per family (stored in families.pricing_config.customer)
+ * ------------------------------------------------------------------ */
+
+export type PriceSide = { base: number; rate_m2: number; min: number };
+
+export type SheetConfig = {
+  setup: number;
+  price_per_sheet: number;
+  cost_per_sheet: number;
+  units_per_sheet: number;
+  overrides: { size: string; units: number }[];
+};
+
+export type CustomerPricing = {
+  below: PriceSide;
+  above: PriceSide;
+  min_per_linear_m: number;
+  sheet_mode: boolean;
+  sheet: SheetConfig;
+  rounding: { step: number; direction: "nearest" | "up" | "down" };
+};
+
+export const EMPTY_SIDE: PriceSide = { base: 0, rate_m2: 0, min: 0 };
+
+export const EMPTY_CUSTOMER_PRICING: CustomerPricing = {
+  below: { ...EMPTY_SIDE },
+  above: { ...EMPTY_SIDE },
+  min_per_linear_m: 0,
+  sheet_mode: false,
+  sheet: {
+    setup: 0,
+    price_per_sheet: 0,
+    cost_per_sheet: 0,
+    units_per_sheet: 0,
+    overrides: [],
+  },
+  rounding: { step: 5, direction: "nearest" },
+};
+
+const num = (v: unknown) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Read the customer-price block out of families.pricing_config, filling defaults. */
+export function readCustomerPricing(family: Family | undefined): CustomerPricing {
+  const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
+  const c = (raw?.["customer"] ?? null) as Record<string, unknown> | null;
+  if (!c) return { ...EMPTY_CUSTOMER_PRICING, below: { ...EMPTY_SIDE }, above: { ...EMPTY_SIDE } };
+  const side = (v: unknown): PriceSide => {
+    const o = (v ?? {}) as Record<string, unknown>;
+    return { base: num(o["base"]), rate_m2: num(o["rate_m2"]), min: num(o["min"]) };
+  };
+  const s = (c["sheet"] ?? {}) as Record<string, unknown>;
+  const r = (c["rounding"] ?? {}) as Record<string, unknown>;
+  return {
+    below: side(c["below"]),
+    above: side(c["above"]),
+    min_per_linear_m: num(c["min_per_linear_m"]),
+    sheet_mode: c["sheet_mode"] === true,
+    sheet: {
+      setup: num(s["setup"]),
+      price_per_sheet: num(s["price_per_sheet"]),
+      cost_per_sheet: num(s["cost_per_sheet"]),
+      units_per_sheet: num(s["units_per_sheet"]),
+      overrides: Array.isArray(s["overrides"])
+        ? (s["overrides"] as unknown[]).map((o) => {
+            const x = (o ?? {}) as Record<string, unknown>;
+            return { size: String(x["size"] ?? ""), units: num(x["units"]) };
+          })
+        : [],
+    },
+    rounding: {
+      step: num(r["step"]) > 0 ? num(r["step"]) : 5,
+      direction:
+        r["direction"] === "up" || r["direction"] === "down"
+          ? (r["direction"] as "up" | "down")
+          : "nearest",
+    },
+  };
+}
+
+/** true when the family has any customer price configured. */
+export function hasCustomerPricing(cfg: CustomerPricing): boolean {
+  return (
+    cfg.below.base > 0 ||
+    cfg.below.rate_m2 > 0 ||
+    cfg.below.min > 0 ||
+    cfg.above.base > 0 ||
+    cfg.above.rate_m2 > 0 ||
+    cfg.above.min > 0 ||
+    (cfg.sheet_mode && cfg.sheet.price_per_sheet > 0)
+  );
+}
+
+/**
+ * "Fits in the box": the item's longer side is within סף רוחב and its shorter
+ * side within סף גובה. No thresholds configured → always inside.
+ */
+export function fitsInBox(w: number, h: number, family: Family | undefined): boolean {
+  const bw = Number(family?.outsource_width_cm ?? 0) || 0;
+  const bh = Number(family?.outsource_height_cm ?? 0) || 0;
+  if (bw <= 0 || bh <= 0) return true;
+  const long = Math.max(w, h);
+  const short = Math.min(w, h);
+  return long <= bw && short <= bh;
+}
+
+export function applyRounding(
+  value: number,
+  rounding: { step: number; direction: "nearest" | "up" | "down" },
+) {
+  const step = rounding.step > 0 ? rounding.step : 1;
+  if (rounding.direction === "up") return Math.ceil(value / step) * step;
+  if (rounding.direction === "down") return Math.floor(value / step) * step;
+  return Math.round(value / step) * step;
+}
+
+export type ConfigPricing = {
+  total: number;
+  unit: number;
+  side: "below" | "above";
+  minApplied: boolean;
+  linearApplied: boolean;
+  sheets: number | null;
+  detail: string;
+};
+
+/**
+ * Customer price from the family's configured numbers:
+ * total = דמי בסיס + ₪ למ״ר × שטח × כמות, never below the minimum
+ * (nor below מינימום למטר אורך × meters × כמות when set).
+ * Sheet mode (below-threshold only): setup + sheets × price per sheet.
+ */
+export function priceFromConfig(
+  family: Family | undefined,
+  cfg: CustomerPricing,
+  w: number,
+  h: number,
+  qty: number,
+): ConfigPricing {
+  const units = Math.max(1, qty || 1);
+  const area = (w * h) / 10000;
+  const inside = fitsInBox(w, h, family);
+  const side = inside ? "below" : "above";
+  const s = inside ? cfg.below : cfg.above;
+
+  if (inside && cfg.sheet_mode && cfg.sheet.price_per_sheet > 0) {
+    const key = `${w}x${h}`;
+    const ov = cfg.sheet.overrides.find(
+      (o) => o.size.replace(/[×*]/g, "x").replace(/\s/g, "") === key,
+    );
+    const perSheet = ov && ov.units > 0 ? ov.units : cfg.sheet.units_per_sheet;
+    const sheets = perSheet > 0 ? Math.ceil(units / perSheet) : 1;
+    const raw = cfg.sheet.setup + sheets * cfg.sheet.price_per_sheet;
+    const minApplied = raw < s.min;
+    const total = applyRounding(Math.max(raw, s.min), cfg.rounding);
+    return {
+      total,
+      unit: total / units,
+      side,
+      minApplied,
+      linearApplied: false,
+      sheets,
+      detail: `מצב גיליון · ${sheets} גיליונות × ${shekel(cfg.sheet.price_per_sheet)} + דמי הכנה ${shekel(cfg.sheet.setup)}`,
+    };
+  }
+
+  const raw = s.base + s.rate_m2 * area * units;
+  const meters = (Math.max(w, h) / 100) * units;
+  const linearMin = cfg.min_per_linear_m > 0 ? cfg.min_per_linear_m * meters : 0;
+  const floorValue = Math.max(s.min, linearMin);
+  const minApplied = raw < s.min && s.min >= linearMin;
+  const linearApplied = raw < linearMin && linearMin > s.min;
+  const total = applyRounding(Math.max(raw, floorValue), cfg.rounding);
+  return {
+    total,
+    unit: total / units,
+    side,
+    minApplied,
+    linearApplied,
+    sheets: null,
+    detail: `${inside ? "בתוך הסף" : "מעל הסף"} · דמי בסיס ${shekel(s.base)} + ${shekel(s.rate_m2)} למ״ר × ${area.toFixed(3)} מ״ר${units > 1 ? ` × ${units.toLocaleString()} יח׳` : ""} = ${shekel(Math.round(raw))}${
+      linearApplied
+        ? ` → מינימום למטר אורך ${shekel(cfg.min_per_linear_m)} × ${meters.toFixed(2)} מ׳`
+        : minApplied
+          ? ` → מחיר מינימום ${shekel(s.min)}`
+          : ""
+    }`,
+  };
+}
 
 export type BusinessConfig = {
   id: number;
@@ -172,12 +366,10 @@ export function jobCost(
       : null;
   const outRate = Number(family?.outsource_cost_per_m2 ?? 0) || 0;
   const area = (w * h) / 10000;
+  // "fits in the box" — longer side within the width threshold and shorter side
+  // within the height threshold. Anything that does not fit goes to outsourcing.
   const outsourced =
-    thresholdW != null &&
-    thresholdH != null &&
-    w >= thresholdW &&
-    h >= thresholdH &&
-    outRate > 0;
+    thresholdW != null && thresholdH != null && outRate > 0 && !fitsInBox(w, h, family);
   const ratePerM2 = outsourced ? outRate : base;
   const units = qty > 0 ? qty : 1;
   return {
