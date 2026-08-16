@@ -304,8 +304,9 @@ function Calculator() {
     setNewRow({ w: "", h: "", qty: "", price: "" });
   };
 
-  const setUnitsForSize = (a: JobAnchor, units: number) => {
+  const setUnitsForSize = (a: { w: number; h: number }, units: number) => {
     const key = sizeKey(a.w, a.h);
+
     setSheetUnits((prev) => {
       const next = { ...prev };
       if (units > 0) next[key] = units;
