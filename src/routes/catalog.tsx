@@ -840,7 +840,40 @@ function Catalog() {
       toast.error("אין שורות לייצוא");
       return;
     }
+
+    // original (pre-change) prices = earliest recorded old_value per product+field
+    const priceFields = ["senzey_price", "site_price", "final_price"] as const;
+    const originals: Record<string, Partial<Record<(typeof priceFields)[number], string>>> = {};
+    {
+      const page = 1000;
+      for (let from = 0; ; from += page) {
+        const { data, error } = await supabase
+          .from("product_history")
+          .select("product_id,field,old_value,changed_at")
+          .in("field", priceFields as unknown as string[])
+          .order("changed_at", { ascending: true })
+          .range(from, from + page - 1);
+        if (error) {
+          toast.error(error.message);
+          break;
+        }
+        for (const h of data ?? []) {
+          const key = h.product_id as string;
+          const f = h.field as (typeof priceFields)[number];
+          originals[key] ??= {};
+          if (originals[key]![f] === undefined) originals[key]![f] = (h.old_value ?? "") as string;
+        }
+        if (!data || data.length < page) break;
+      }
+    }
+    const orig = (p: Product, f: (typeof priceFields)[number], current: number | null) => {
+      const v = originals[p.id]?.[f];
+      if (v === undefined) return current ?? "";
+      return v === "" || v === null ? "" : Number(v);
+    };
+
     const data = rows.map((p) => ({
+
       "שם": p.name,
       "מפתח": p.row_key,
       "משפחה": p.family ?? "",
