@@ -1003,7 +1003,22 @@ function Catalog() {
       </div>
 
       <div className="mb-4 space-y-3">
+        {view && (
+          <div className="flex items-center gap-2 border-2 border-[var(--accent-raw)] bg-[var(--surface-deep)] px-3 py-2 text-sm font-bold">
+            <span>תצוגה מלוח הבקרה: {VIEW_LABEL[view] ?? view}</span>
+            <button
+              onClick={() => {
+                setView("");
+                navigate({ to: ".", search: (prev) => ({ ...prev, view: undefined }) });
+              }}
+              className="border border-[var(--ink)] px-2 py-0.5 text-xs font-bold hover:bg-card"
+            >
+              נקה תצוגה
+            </button>
+          </div>
+        )}
         {/* Simple filters — visible to all users */}
+
         <div className="flex flex-wrap items-center gap-3 border-2 border-[var(--ink)] bg-card p-3">
           <input
             placeholder="חיפוש לפי תת-מחרוזת (שם, משפחה, קבוצה, קטגוריה, הערות…)"
