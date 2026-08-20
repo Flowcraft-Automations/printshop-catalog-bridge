@@ -125,7 +125,7 @@ function Dashboard() {
           tone="text-[oklch(0.55_0.16_50)]"
         />
         <Kpi
-          label="לא רלוונטי"
+          label="לא רלוונטי / נמחק"
           value={notRelevant}
           tone="text-[oklch(0.55_0_0)]"
         />
