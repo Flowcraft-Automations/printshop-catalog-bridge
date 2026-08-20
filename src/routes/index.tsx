@@ -109,6 +109,16 @@ function Dashboard() {
           value={approvedNew}
           tone="text-[oklch(0.45_0.12_155)]"
         />
+        <Kpi
+          label="נאמתו"
+          value={products.filter((p) => p.verified).length}
+          tone="text-[oklch(0.45_0.12_155)]"
+        />
+        <Kpi
+          label="לאימות"
+          value={products.filter((p) => !p.verified).length}
+          tone="text-[oklch(0.55_0.16_50)]"
+        />
       </div>
 
 
