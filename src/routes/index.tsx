@@ -4,6 +4,7 @@ import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
 import { priceGap } from "@/lib/mdvd";
 import { STATUS_LABEL } from "@/lib/mdvd";
+import { isClosedOut } from "@/lib/mdvd";
 
 
 export const Route = createFileRoute("/")({
@@ -73,6 +74,11 @@ function Dashboard() {
   const approvedNew = products.filter(
     (p) => p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"),
   ).length;
+  const notRelevant = products.filter(
+    (p) => p.site_status === "not_relevant" && p.senzey_status === "not_relevant",
+  ).length;
+  const verified = products.filter((p) => p.verified).length;
+  const toValidate = products.filter((p) => !p.verified && !isClosedOut(p)).length;
 
 
   const count = (key: "site_status" | "senzey_status", v: string) =>
@@ -111,13 +117,18 @@ function Dashboard() {
         />
         <Kpi
           label="נאמתו"
-          value={products.filter((p) => p.verified).length}
+          value={verified}
           tone="text-[oklch(0.45_0.12_155)]"
         />
         <Kpi
           label="לאימות"
-          value={products.filter((p) => !p.verified).length}
+          value={toValidate}
           tone="text-[oklch(0.55_0.16_50)]"
+        />
+        <Kpi
+          label="לא רלוונטי"
+          value={notRelevant}
+          tone="text-[oklch(0.55_0_0)]"
         />
       </div>
 
