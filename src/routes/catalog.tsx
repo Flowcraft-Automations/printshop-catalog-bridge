@@ -741,7 +741,26 @@ function Catalog() {
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
-      if ((!showClosed || !isAdmin) && isClosedOut(p)) return false;
+      if (view) {
+        const closed = isClosedOut(p);
+        if (view === "both" && !(p.site_exists && p.senzey_exists)) return false;
+        if (view === "site_only" && !(p.site_exists && !p.senzey_exists)) return false;
+        if (view === "senzey_only" && !(p.senzey_exists && !p.site_exists)) return false;
+        if (view === "gaps") {
+          const gp = priceGap(p);
+          if (!(gp !== null && Math.abs(gp) > 0.009)) return false;
+        }
+        if (
+          view === "approved_new" &&
+          !(p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"))
+        )
+          return false;
+        if (view === "verified" && !p.verified) return false;
+        if (view === "to_validate" && !(!p.verified && !closed)) return false;
+        if (view === "closed" && !closed) return false;
+      }
+      if (view !== "closed" && (!showClosed || !isAdmin) && isClosedOut(p)) return false;
+
 
       // per-column filters (Zoho-style)
       if (!matchText(p.senzey_ids, colFilters.senzey_ids ?? "")) return false;
