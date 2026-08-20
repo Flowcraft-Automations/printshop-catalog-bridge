@@ -73,6 +73,11 @@ function Dashboard() {
   const approvedNew = products.filter(
     (p) => p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"),
   ).length;
+  const notRelevant = products.filter(
+    (p) => p.site_status === "not_relevant" && p.senzey_status === "not_relevant",
+  ).length;
+  const verified = products.filter((p) => p.verified).length;
+  const toValidate = products.filter((p) => !p.verified && !isClosedOut(p)).length;
 
 
   const count = (key: "site_status" | "senzey_status", v: string) =>
