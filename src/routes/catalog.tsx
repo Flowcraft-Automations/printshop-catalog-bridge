@@ -47,6 +47,9 @@ type Search = {
   families?: string | undefined;
   senzey_group?: string | undefined;
   site_category?: string | undefined;
+  view?: string | undefined;
+  site_status?: string | undefined;
+  senzey_status?: string | undefined;
 };
 
 function parseSearchFamilies(s: Record<string, unknown>): string[] {
@@ -57,13 +60,30 @@ function parseSearchFamilies(s: Record<string, unknown>): string[] {
   return [];
 }
 
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? (v as string) : undefined);
+
+export const VIEW_LABEL: Record<string, string> = {
+  all: 'כל הפריטים',
+  both: 'קיים בשתי המערכות',
+  site_only: 'רק באתר',
+  senzey_only: 'רק בסנזיי',
+  gaps: 'פערי מחיר',
+  approved_new: 'מוצרים חדשים מאושרים',
+  verified: 'נאמתו',
+  to_validate: 'לאימות',
+  closed: 'לא רלוונטי / נמחק',
+};
+
 export const Route = createFileRoute("/catalog")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     families: parseSearchFamilies(s).join(",") || undefined,
-    senzey_group: typeof s['senzey_group'] === "string" ? (s['senzey_group'] as string) : undefined,
-    site_category:
-      typeof s['site_category'] === "string" ? (s['site_category'] as string) : undefined,
+    senzey_group: str(s['senzey_group']),
+    site_category: str(s['site_category']),
+    view: str(s['view']),
+    site_status: str(s['site_status']),
+    senzey_status: str(s['senzey_status']),
   }),
+
   head: () => ({
     meta: [
       { title: "קטלוג מוצרים — קונסולת MDVD" },
