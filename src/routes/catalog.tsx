@@ -47,6 +47,9 @@ type Search = {
   families?: string | undefined;
   senzey_group?: string | undefined;
   site_category?: string | undefined;
+  view?: string | undefined;
+  site_status?: string | undefined;
+  senzey_status?: string | undefined;
 };
 
 function parseSearchFamilies(s: Record<string, unknown>): string[] {
@@ -57,13 +60,30 @@ function parseSearchFamilies(s: Record<string, unknown>): string[] {
   return [];
 }
 
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? (v as string) : undefined);
+
+export const VIEW_LABEL: Record<string, string> = {
+  all: 'כל הפריטים',
+  both: 'קיים בשתי המערכות',
+  site_only: 'רק באתר',
+  senzey_only: 'רק בסנזיי',
+  gaps: 'פערי מחיר',
+  approved_new: 'מוצרים חדשים מאושרים',
+  verified: 'נאמתו',
+  to_validate: 'לאימות',
+  closed: 'לא רלוונטי / נמחק',
+};
+
 export const Route = createFileRoute("/catalog")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     families: parseSearchFamilies(s).join(",") || undefined,
-    senzey_group: typeof s['senzey_group'] === "string" ? (s['senzey_group'] as string) : undefined,
-    site_category:
-      typeof s['site_category'] === "string" ? (s['site_category'] as string) : undefined,
+    senzey_group: str(s['senzey_group']),
+    site_category: str(s['site_category']),
+    view: str(s['view']),
+    site_status: str(s['site_status']),
+    senzey_status: str(s['senzey_status']),
   }),
+
   head: () => ({
     meta: [
       { title: "קטלוג מוצרים — קונסולת MDVD" },
@@ -374,7 +394,11 @@ function Catalog() {
     families: familiesParam,
     senzey_group: groupParam,
     site_category: categoryParam,
+    view: viewParam,
+    site_status: siteStatusParam,
+    senzey_status: senzeyStatusParam,
   } = Route.useSearch();
+
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: allNotes = [] } = useQuery(productNotesQuery());
@@ -463,10 +487,12 @@ function Catalog() {
   const [selectedFamilies, setSelectedFamilies] = useState<Set<string>>(
     new Set(familiesParam ? familiesParam.split(",").map((x: string) => x.trim()).filter(Boolean) : []),
   );
-  const [senzeyStatus, setSenzeyStatus] = useState("");
-  const [siteStatus, setSiteStatus] = useState("");
+  const [senzeyStatus, setSenzeyStatus] = useState(senzeyStatusParam ?? "");
+  const [siteStatus, setSiteStatus] = useState(siteStatusParam ?? "");
+  const [view, setView] = useState(viewParam && viewParam !== "all" ? viewParam : "");
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+
 
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
   const [onlyOutsource, setOnlyOutsource] = useState(false);
@@ -715,7 +741,26 @@ function Catalog() {
       if (presence === "both" && !(p.site_exists && p.senzey_exists)) return false;
       if (presence === "site" && !(p.site_exists && !p.senzey_exists)) return false;
       if (presence === "senzey" && !(p.senzey_exists && !p.site_exists)) return false;
-      if ((!showClosed || !isAdmin) && isClosedOut(p)) return false;
+      if (view) {
+        const closed = isClosedOut(p);
+        if (view === "both" && !(p.site_exists && p.senzey_exists)) return false;
+        if (view === "site_only" && !(p.site_exists && !p.senzey_exists)) return false;
+        if (view === "senzey_only" && !(p.senzey_exists && !p.site_exists)) return false;
+        if (view === "gaps") {
+          const gp = priceGap(p);
+          if (!(gp !== null && Math.abs(gp) > 0.009)) return false;
+        }
+        if (
+          view === "approved_new" &&
+          !(p.source === "approved_new" && !(p.site_status === "done" && p.senzey_status === "done"))
+        )
+          return false;
+        if (view === "verified" && !p.verified) return false;
+        if (view === "to_validate" && !(!p.verified && !closed)) return false;
+        if (view === "closed" && !closed) return false;
+      }
+      if (view !== "closed" && (!showClosed || !isAdmin) && isClosedOut(p)) return false;
+
 
       // per-column filters (Zoho-style)
       if (!matchText(p.senzey_ids, colFilters.senzey_ids ?? "")) return false;
@@ -793,6 +838,8 @@ function Catalog() {
     onlyCurveOut,
     curveByProduct,
     showClosed,
+    view,
+
     isAdmin,
     group,
     category,
@@ -827,6 +874,8 @@ function Catalog() {
     setGroup("");
     setCategory("");
     setPresence("");
+    setView("");
+
     setColFilters({});
     setSort({ key: "size", dir: "asc" });
     setSelected(new Set());
@@ -956,7 +1005,22 @@ function Catalog() {
       </div>
 
       <div className="mb-4 space-y-3">
+        {view && (
+          <div className="flex items-center gap-2 border-2 border-[var(--accent-raw)] bg-[var(--surface-deep)] px-3 py-2 text-sm font-bold">
+            <span>תצוגה מלוח הבקרה: {VIEW_LABEL[view] ?? view}</span>
+            <button
+              onClick={() => {
+                setView("");
+                navigate({ to: ".", search: (prev) => ({ ...prev, view: undefined }) });
+              }}
+              className="border border-[var(--ink)] px-2 py-0.5 text-xs font-bold hover:bg-card"
+            >
+              נקה תצוגה
+            </button>
+          </div>
+        )}
         {/* Simple filters — visible to all users */}
+
         <div className="flex flex-wrap items-center gap-3 border-2 border-[var(--ink)] bg-card p-3">
           <input
             placeholder="חיפוש לפי תת-מחרוזת (שם, משפחה, קבוצה, קטגוריה, הערות…)"

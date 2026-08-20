@@ -19,26 +19,43 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-function Kpi({ label, value, tone }: { label: string; value: number; tone?: string }) {
+function Kpi({
+  label,
+  value,
+  tone,
+  view,
+}: {
+  label: string;
+  value: number;
+  tone?: string;
+  view: string;
+}) {
   return (
-    <div className="border-2 border-[var(--ink)] bg-card px-4 py-3 shadow-[4px_4px_0_0_var(--ink)]">
+    <Link
+      to="/catalog"
+      search={{ view }}
+      className="block border-2 border-[var(--ink)] bg-card px-4 py-3 shadow-[4px_4px_0_0_var(--ink)] transition-transform hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_var(--accent-raw)]"
+    >
       <div className={`num text-3xl font-black ${tone ?? "text-foreground"}`}>
         {value.toLocaleString("he-IL")}
       </div>
       <div className="mt-1 text-xs font-semibold text-muted-foreground">{label}</div>
-    </div>
+    </Link>
   );
 }
 
 function Progress({
   title,
   counts,
+  field,
 }: {
   title: string;
   counts: { to_review: number; to_add: number; in_progress: number; done: number };
+  field: "site_status" | "senzey_status";
 }) {
   const total = counts.to_review + counts.to_add + counts.in_progress + counts.done;
   const pct = total ? Math.round((counts.done / total) * 100) : 0;
+  const keys: (keyof typeof counts)[] = ["to_review", "to_add", "in_progress", "done"];
   return (
     <div className="border-2 border-[var(--ink)] bg-card p-4">
       <div className="flex items-baseline justify-between">
@@ -49,14 +66,21 @@ function Progress({
         <div className="h-full bg-[var(--accent-raw)]" style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs font-semibold">
-        <span>{STATUS_LABEL['to_review']}: <b className="num">{counts.to_review}</b></span>
-        <span>{STATUS_LABEL['to_add']}: <b className="num">{counts.to_add}</b></span>
-        <span>{STATUS_LABEL['in_progress']}: <b className="num">{counts.in_progress}</b></span>
-        <span>{STATUS_LABEL['done']}: <b className="num">{counts.done}</b></span>
+        {keys.map((k) => (
+          <Link
+            key={k}
+            to="/catalog"
+            search={field === "site_status" ? { site_status: k } : { senzey_status: k }}
+            className="border-b-2 border-transparent hover:border-[var(--accent-raw)]"
+          >
+            {STATUS_LABEL[k]}: <b className="num">{counts[k]}</b>
+          </Link>
+        ))}
       </div>
     </div>
   );
 }
+
 
 
 function Dashboard() {
@@ -104,30 +128,34 @@ function Dashboard() {
       <PageTitle title="לוח בקרה" sub="תמונת מצב מלאה של הקטלוג בשתי המערכות" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-        <Kpi label='סה"כ פריטים' value={products.length} />
-        <Kpi label="קיים בשתי המערכות" value={both} />
-        <Kpi label="רק באתר" value={onlySite} />
-        <Kpi label="רק בסנזיי" value={onlySenzey} />
-        <Kpi label="פערי מחיר" value={gaps} tone="text-[oklch(0.55_0.16_50)]" />
+        <Kpi label='סה"כ פריטים' value={products.length} view="all" />
+        <Kpi label="קיים בשתי המערכות" value={both} view="both" />
+        <Kpi label="רק באתר" value={onlySite} view="site_only" />
+        <Kpi label="רק בסנזיי" value={onlySenzey} view="senzey_only" />
+        <Kpi label="פערי מחיר" value={gaps} tone="text-[oklch(0.55_0.16_50)]" view="gaps" />
         <Kpi
           label="מוצרים חדשים מאושרים"
           value={approvedNew}
           tone="text-[oklch(0.45_0.12_155)]"
+          view="approved_new"
         />
         <Kpi
           label="נאמתו"
           value={verified}
           tone="text-[oklch(0.45_0.12_155)]"
+          view="verified"
         />
         <Kpi
           label="לאימות"
           value={toValidate}
           tone="text-[oklch(0.55_0.16_50)]"
+          view="to_validate"
         />
         <Kpi
           label="לא רלוונטי / נמחק"
           value={notRelevant}
           tone="text-[oklch(0.55_0_0)]"
+          view="closed"
         />
       </div>
 
@@ -135,6 +163,7 @@ function Dashboard() {
       <div className="mt-6 grid gap-3 md:grid-cols-2">
         <Progress
           title="התקדמות הזנה לאתר"
+          field="site_status"
           counts={{
             to_review: count("site_status", "to_review"),
             to_add: count("site_status", "to_add"),
@@ -144,6 +173,7 @@ function Dashboard() {
         />
         <Progress
           title="התקדמות הזנה לסנזיי"
+          field="senzey_status"
           counts={{
             to_review: count("senzey_status", "to_review"),
             to_add: count("senzey_status", "to_add"),
@@ -151,6 +181,7 @@ function Dashboard() {
             done: count("senzey_status", "done"),
           }}
         />
+
 
       </div>
 
