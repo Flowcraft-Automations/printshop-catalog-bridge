@@ -117,13 +117,18 @@ function Dashboard() {
         />
         <Kpi
           label="נאמתו"
-          value={products.filter((p) => p.verified).length}
+          value={verified}
           tone="text-[oklch(0.45_0.12_155)]"
         />
         <Kpi
           label="לאימות"
-          value={products.filter((p) => !p.verified).length}
+          value={toValidate}
           tone="text-[oklch(0.55_0.16_50)]"
+        />
+        <Kpi
+          label="לא רלוונטי"
+          value={notRelevant}
+          tone="text-[oklch(0.55_0_0)]"
         />
       </div>
 
