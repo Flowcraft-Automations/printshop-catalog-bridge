@@ -874,6 +874,8 @@ function Catalog() {
     setGroup("");
     setCategory("");
     setPresence("");
+    setView("");
+
     setColFilters({});
     setSort({ key: "size", dir: "asc" });
     setSelected(new Set());
