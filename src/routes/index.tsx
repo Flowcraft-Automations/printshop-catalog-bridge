@@ -128,30 +128,34 @@ function Dashboard() {
       <PageTitle title="לוח בקרה" sub="תמונת מצב מלאה של הקטלוג בשתי המערכות" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-        <Kpi label='סה"כ פריטים' value={products.length} />
-        <Kpi label="קיים בשתי המערכות" value={both} />
-        <Kpi label="רק באתר" value={onlySite} />
-        <Kpi label="רק בסנזיי" value={onlySenzey} />
-        <Kpi label="פערי מחיר" value={gaps} tone="text-[oklch(0.55_0.16_50)]" />
+        <Kpi label='סה"כ פריטים' value={products.length} view="all" />
+        <Kpi label="קיים בשתי המערכות" value={both} view="both" />
+        <Kpi label="רק באתר" value={onlySite} view="site_only" />
+        <Kpi label="רק בסנזיי" value={onlySenzey} view="senzey_only" />
+        <Kpi label="פערי מחיר" value={gaps} tone="text-[oklch(0.55_0.16_50)]" view="gaps" />
         <Kpi
           label="מוצרים חדשים מאושרים"
           value={approvedNew}
           tone="text-[oklch(0.45_0.12_155)]"
+          view="approved_new"
         />
         <Kpi
           label="נאמתו"
           value={verified}
           tone="text-[oklch(0.45_0.12_155)]"
+          view="verified"
         />
         <Kpi
           label="לאימות"
           value={toValidate}
           tone="text-[oklch(0.55_0.16_50)]"
+          view="to_validate"
         />
         <Kpi
           label="לא רלוונטי / נמחק"
           value={notRelevant}
           tone="text-[oklch(0.55_0_0)]"
+          view="closed"
         />
       </div>
 
@@ -159,6 +163,7 @@ function Dashboard() {
       <div className="mt-6 grid gap-3 md:grid-cols-2">
         <Progress
           title="התקדמות הזנה לאתר"
+          field="site_status"
           counts={{
             to_review: count("site_status", "to_review"),
             to_add: count("site_status", "to_add"),
@@ -168,6 +173,7 @@ function Dashboard() {
         />
         <Progress
           title="התקדמות הזנה לסנזיי"
+          field="senzey_status"
           counts={{
             to_review: count("senzey_status", "to_review"),
             to_add: count("senzey_status", "to_add"),
@@ -175,6 +181,7 @@ function Dashboard() {
             done: count("senzey_status", "done"),
           }}
         />
+
 
       </div>
 
