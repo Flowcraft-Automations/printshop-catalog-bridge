@@ -487,10 +487,12 @@ function Catalog() {
   const [selectedFamilies, setSelectedFamilies] = useState<Set<string>>(
     new Set(familiesParam ? familiesParam.split(",").map((x: string) => x.trim()).filter(Boolean) : []),
   );
-  const [senzeyStatus, setSenzeyStatus] = useState("");
-  const [siteStatus, setSiteStatus] = useState("");
+  const [senzeyStatus, setSenzeyStatus] = useState(senzeyStatusParam ?? "");
+  const [siteStatus, setSiteStatus] = useState(siteStatusParam ?? "");
+  const [view, setView] = useState(viewParam && viewParam !== "all" ? viewParam : "");
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+
 
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
   const [onlyOutsource, setOnlyOutsource] = useState(false);
