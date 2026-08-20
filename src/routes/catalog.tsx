@@ -1619,21 +1619,29 @@ function Catalog() {
                       className="truncate px-2 py-1 font-mono text-xs"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {p.senzey_ids?.trim() ? (
-                        <button
-                          title="העתק מספר סנזיי"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(p.senzey_ids!).then(() => toast.success("מספר סנזיי הועתק"));
-                          }}
-                          className="flex w-full items-center gap-1 text-[var(--accent-raw)] hover:underline"
-                        >
-                          <span className="truncate">{p.senzey_ids}</span>
-                          <Copy className="size-3 shrink-0" />
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      <span className="flex w-full items-center gap-1">
+                        <span className="min-w-0 flex-1">
+                          <InlineEdit
+                            key={`sid-${p.id}-${p.senzey_ids ?? ""}`}
+                            value={p.senzey_ids}
+                            className="font-mono text-xs"
+                            onSave={(v) => update.mutate({ ids: [p.id], patch: { senzey_ids: v || null } })}
+                          />
+                        </span>
+                        {p.senzey_ids?.trim() && (
+                          <button
+                            title="העתק מספר סנזיי"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(p.senzey_ids!).then(() => toast.success("מספר סנזיי הועתק"));
+                            }}
+                            className="inline-flex shrink-0 items-center text-muted-foreground hover:text-[var(--accent-raw)]"
+                          >
+                            <Copy className="size-3" />
+                          </button>
+                        )}
+                      </span>
+
                     </td>
                   )}
                   {visibleCols.name && (
