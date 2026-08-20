@@ -394,7 +394,11 @@ function Catalog() {
     families: familiesParam,
     senzey_group: groupParam,
     site_category: categoryParam,
+    view: viewParam,
+    site_status: siteStatusParam,
+    senzey_status: senzeyStatusParam,
   } = Route.useSearch();
+
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: allNotes = [] } = useQuery(productNotesQuery());
