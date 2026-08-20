@@ -838,6 +838,8 @@ function Catalog() {
     onlyCurveOut,
     curveByProduct,
     showClosed,
+    view,
+
     isAdmin,
     group,
     category,
