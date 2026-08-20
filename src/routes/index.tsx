@@ -4,6 +4,7 @@ import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
 import { priceGap } from "@/lib/mdvd";
 import { STATUS_LABEL } from "@/lib/mdvd";
+import { isClosedOut } from "@/lib/mdvd";
 
 
 export const Route = createFileRoute("/")({
