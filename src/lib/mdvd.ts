@@ -836,7 +836,10 @@ export function priceJob(
 
   /* 4 — area method below the threshold */
   const { kept, bad } = consistentAreaAnchors(anchors);
-  if (kept.length === 0) {
+  const shapeFit = fitShapeCurve(anchors);
+  /* with a real shape premium every anchor is on-curve, nothing to drop */
+  const usable = shapeFit && shapeFit.c > 0 ? anchors : kept;
+  if (usable.length === 0) {
     return finish(
       cfg.cost * area * qtyFactor * margin,
       "אין עוגנים — לפי עלות",
@@ -845,7 +848,10 @@ export function priceJob(
       { inconsistent: bad },
     );
   }
-  const exact = kept.find((a) => Math.abs(a.area - area) <= area * 0.02);
+  const sameSize = (a: JobAnchor) =>
+    Math.abs(Math.max(a.w, a.h) - Math.max(w, h)) <= 0.51 &&
+    Math.abs(Math.min(a.w, a.h) - Math.min(w, h)) <= 0.51;
+  const exact = usable.find(sameSize);
   if (exact) {
     return finish(
       exact.price * qtyFactor,
@@ -856,7 +862,7 @@ export function priceJob(
       qtyExp === 1,
     );
   }
-  const r = areaCurvePrice(kept, area);
+  const r = shapeCurvePrice(usable, w, h);
   return finish(
     r.y * qtyFactor,
     r.label,
@@ -864,5 +870,6 @@ export function priceJob(
     "anchor",
     { inconsistent: bad },
   );
+
 }
 
