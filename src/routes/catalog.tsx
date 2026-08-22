@@ -2093,40 +2093,49 @@ function Catalog() {
                     </td>
                   )}
                   <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          title="פעולות"
-                          className="inline-flex items-center text-muted-foreground/60 hover:text-[var(--accent-raw)]"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => duplicate.mutate(p)}
-                          className="cursor-pointer"
-                        >
-                          <Copy className="size-4" />
-                          שכפל שורה
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setDeleteCandidate(p);
-                            const ok = window.confirm(`למחוק את המוצר "${p.name}"?\nפעולה זו אינה הפיכה ותמחק גם את ההערות וההיסטוריה שלו.`);
-                            if (ok) {
-                              deleteProduct.mutate(p);
-                            } else {
-                              setDeleteCandidate(null);
-                            }
-                          }}
-                          className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                        >
-                          <Trash2 className="size-4" />
-                          מחק פריט
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        title="פתח דף מ chi tiết"
+                        onClick={() => setDrawer(p)}
+                        className="inline-flex items-center text-muted-foreground/60 hover:text-[var(--accent-raw)]"
+                      >
+                        <Eye className="size-4" />
+                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            title="פעולות"
+                            className="inline-flex items-center text-muted-foreground/60 hover:text-[var(--accent-raw)]"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => duplicate.mutate(p)}
+                            className="cursor-pointer"
+                          >
+                            <Copy className="size-4" />
+                            שכפל שורה
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setDeleteCandidate(p);
+                              const ok = window.confirm(`למחוק את המוצר "${p.name}"?\nפעולה זו אינה הפיכה ותמחק גם את ההערות וההיסטוריה שלו.`);
+                              if (ok) {
+                                deleteProduct.mutate(p);
+                              } else {
+                                setDeleteCandidate(null);
+                              }
+                            }}
+                            className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                          >
+                            <Trash2 className="size-4" />
+                            מחק פריט
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </td>
                   </tr>
                 );
