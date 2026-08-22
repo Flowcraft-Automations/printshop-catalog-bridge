@@ -1012,14 +1012,16 @@ export function priceJob(
       const lin = fitSetupCurve(pool, pool === sameSize ? 0 : b, poolRef.area);
       if (lin) {
         const scale = Math.pow(area / lin.refArea, lin.b);
-        const yLin = (lin.setup + lin.perUnit * units) * scale;
+        const qk = Math.pow(units, lin.k);
+        const yLin = (lin.setup + lin.perUnit * qk) * scale;
         if (yLin > 0) {
+          const effUnit = yLin / units;
           return finish(
             yLin,
-            "עלות התקנה + מחיר ליחידה",
-            `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()} יח׳${
+            "בסיס + מחיר יחידה יורד",
+            `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()}^${lin.k.toFixed(2)} יח׳${
               Math.abs(scale - 1) > 1e-6 ? ` × מקדם גודל ${scale.toFixed(2)} (מעריך ${lin.b.toFixed(2)})` : ""
-            } · לפי ${lin.n} עוגנים · ${sheets.toFixed(2)} גיליונות`,
+            } → ${shekel(effUnit)} ליחידה בפועל · לפי ${lin.n} עוגנים · ${sheets.toFixed(2)} גיליונות`,
             "anchor",
           );
         }
