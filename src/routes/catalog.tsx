@@ -2095,7 +2095,7 @@ function Catalog() {
                   <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
                       <button
-                        title="פתח דף מ chi tiết"
+                        title="פתח דף מפורט"
                         onClick={() => setDrawer(p)}
                         className="inline-flex items-center text-muted-foreground/60 hover:text-[var(--accent-raw)]"
                       >
