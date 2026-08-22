@@ -307,6 +307,8 @@ export type FamilyPricing = {
   minUnitArea: number;
   /** מקדם כמות: העלות מוכפלת ב-units^qtyExponent (1 = ליניארי, <1 = הנחת כמות) */
   qtyExponent: number;
+  /** true when the user pinned מקדם כמות instead of letting it be fitted */
+  qtyExponentPinned: boolean;
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
 };
@@ -339,6 +341,7 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
       : [],
     minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
     qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
+    qtyExponentPinned: num(v?.["qty_exponent"]) > 0,
     sheetUnits: su,
   };
 }
@@ -353,7 +356,7 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       rounding: cfg.rounding,
       packages: cfg.packages,
       min_unit_area: cfg.minUnitArea,
-      qty_exponent: cfg.qtyExponent,
+      qty_exponent: cfg.qtyExponentPinned ? cfg.qtyExponent : null,
       sheet_units: cfg.sheetUnits,
 
     },
@@ -679,6 +682,66 @@ export function shapeCurvePrice(
 }
 
 
+/**
+ * Size + quantity curve for sheet families: price = a x area^b x qty^e,
+ * fitted by least squares in log space over the family anchors.
+ * Returns null when the anchors cannot support a fit.
+ */
+export function fitQtyCurve(
+  anchors: JobAnchor[],
+): { a: number; b: number; e: number; n: number } | null {
+  const pts = anchors.filter((p) => p.area > 0 && p.price > 0 && p.qty > 0);
+  if (pts.length < 2) return null;
+
+  const qtys = new Set(pts.map((p) => p.qty));
+  const areas = new Set(pts.map((p) => Math.round(p.area * 1e6)));
+  if (qtys.size < 2) return null;
+
+  const clampB = (v: number) => Math.min(1, Math.max(0, v));
+  const clampE = (v: number) => Math.min(1, Math.max(0.2, v));
+
+  // single size -> pure quantity fit
+  if (areas.size < 2 || pts.length < 3) {
+    const n = pts.length;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (const p of pts) {
+      const x = Math.log(p.qty);
+      const y = Math.log(p.price);
+      sx += x; sy += y; sxx += x * x; sxy += x * y;
+    }
+    const den = n * sxx - sx * sx;
+    if (!(Math.abs(den) > 1e-9)) return null;
+    const e = clampE((n * sxy - sx * sy) / den);
+    // anchor `a` on the reference anchor so the curve passes through the data
+    const ref = pts[0]!;
+    const a = ref.price / Math.pow(ref.qty, e);
+    return { a, b: 0, e, n };
+  }
+
+  // two-variable log-log least squares
+  const n = pts.length;
+  let s1 = 0, s2 = 0, s11 = 0, s22 = 0, s12 = 0, sy = 0, s1y = 0, s2y = 0;
+  for (const p of pts) {
+    const x1 = Math.log(p.area);
+    const x2 = Math.log(p.qty);
+    const y = Math.log(p.price);
+    s1 += x1; s2 += x2; s11 += x1 * x1; s22 += x2 * x2; s12 += x1 * x2;
+    sy += y; s1y += x1 * y; s2y += x2 * y;
+  }
+  const c11 = s11 - (s1 * s1) / n;
+  const c22 = s22 - (s2 * s2) / n;
+  const c12 = s12 - (s1 * s2) / n;
+  const c1y = s1y - (s1 * sy) / n;
+  const c2y = s2y - (s2 * sy) / n;
+  const det = c11 * c22 - c12 * c12;
+  if (!(Math.abs(det) > 1e-12)) return null;
+  const b = clampB((c1y * c22 - c2y * c12) / det);
+  const e = clampE((c2y * c11 - c1y * c12) / det);
+  const logA = (sy - b * s1 - e * s2) / n;
+  const a = Math.exp(logA);
+  if (!Number.isFinite(a) || a <= 0) return null;
+  return { a, b, e, n };
+}
 
 
 function interpolate(
@@ -820,7 +883,7 @@ export function priceJob(
     );
   }
 
-  /* 3 — sheet method below the threshold */
+  /* 3 — sheet method below the threshold: size + quantity curve */
   if (cfg.method === "sheet" && per) {
     const exactSheet = anchors.find((a) => sameDims(a) && a.qty === units);
 
@@ -834,14 +897,9 @@ export function priceJob(
         true,
       );
     }
-    const pts = anchors
-      .map((a) => {
-        const u = sheetUnitsFor(cfg, a.w, a.h).units;
-        return u > 0 ? { x: a.qty / u, y: a.price } : null;
-      })
-      .filter((p): p is { x: number; y: number } => p !== null)
-      .sort((a, b) => a.x - b.x);
-    if (pts.length === 0 || sheets <= 0) {
+
+    const usableAnchors = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+    if (usableAnchors.length === 0) {
       return finish(
         cost * margin,
         "אין עוגנים — לפי עלות",
@@ -849,14 +907,34 @@ export function priceJob(
         "cost",
       );
     }
-    const r = interpolate(pts, sheets);
+
+    const fit = fitQtyCurve(usableAnchors);
+    const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
+    const b = fit?.b ?? 0;
+
+    /* reference anchor: closest size, then closest quantity — the curve passes
+       through it so a known package price is never contradicted */
+    const ref = [...usableAnchors].sort((x, y) => {
+      const dx = Math.abs(Math.log(x.area / area)) - Math.abs(Math.log(y.area / area));
+      if (Math.abs(dx) > 1e-9) return dx;
+      return Math.abs(Math.log(x.qty / units)) - Math.abs(Math.log(y.qty / units));
+    })[0]!;
+
+    const y =
+      ref.price * Math.pow(area / ref.area, b) * Math.pow(units / ref.qty, e);
+
+    const sizeNote =
+      Math.abs(area - ref.area) > 1e-9
+        ? ` · מעריך גודל ${b.toFixed(2)}`
+        : "";
     return finish(
-      r.y,
-      r.label,
-      `${sheets.toFixed(2)} גיליונות · ${per.units} יח׳ בגיליון`,
+      y,
+      "עקומת גודל וכמות",
+      `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${e.toFixed(2)} (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
       "anchor",
     );
   }
+
 
   /* 4 — area method below the threshold */
   const { kept, bad } = consistentAreaAnchors(anchors);
