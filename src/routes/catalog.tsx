@@ -780,6 +780,13 @@ function Catalog() {
         )
       )
         return false;
+      if (
+        !matchNum(
+          p.width_cm && p.height_cm ? (p.width_cm * p.height_cm) / 10000 : null,
+          colFilters.total_size ?? "",
+        )
+      )
+        return false;
       if (!matchNum(p.qty, colFilters.qty ?? "")) return false;
       if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
