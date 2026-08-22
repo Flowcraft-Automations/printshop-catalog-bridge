@@ -356,7 +356,7 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       rounding: cfg.rounding,
       packages: cfg.packages,
       min_unit_area: cfg.minUnitArea,
-      qty_exponent: cfg.qtyExponent,
+      qty_exponent: cfg.qtyExponentPinned ? cfg.qtyExponent : null,
       sheet_units: cfg.sheetUnits,
 
     },

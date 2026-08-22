@@ -122,7 +122,7 @@ function Calculator() {
     rounding: String(DEFAULT_ROUNDING),
     packages: "",
     minUnitArea: "1",
-    qtyExponent: "1",
+    qtyExponent: "",
 
   });
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
@@ -138,7 +138,7 @@ function Calculator() {
       rounding: String(saved.rounding),
       packages: saved.packages.join(", "),
       minUnitArea: String(saved.minUnitArea),
-      qtyExponent: String(saved.qtyExponent),
+      qtyExponent: saved.qtyExponentPinned ? String(saved.qtyExponent) : "",
 
     });
     setSheetUnits(saved.sheetUnits);
@@ -161,6 +161,7 @@ function Calculator() {
         .sort((a, b) => a - b),
       minUnitArea: n(draft.minUnitArea) || 1,
       qtyExponent: n(draft.qtyExponent) || 1,
+      qtyExponentPinned: n(draft.qtyExponent) > 0,
       sheetUnits,
 
     };
@@ -502,16 +503,31 @@ function Calculator() {
               onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
               width="w-44"
             />
-            <Field
-              label="מקדם כמות (חזקה)"
-              value={draft.qtyExponent}
-              onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
-              width="w-40"
-            />
+            <div className="flex items-end gap-2">
+              <Field
+                label="מקדם כמות (חזקה)"
+                value={draft.qtyExponent}
+                onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+                width="w-40"
+                placeholder={fittedQtyExp ? fittedQtyExp.toFixed(2) : "1"}
+              />
+              {fittedQtyExp !== null && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraft((p) => ({ ...p, qtyExponent: fittedQtyExp.toFixed(2) }))
+                  }
+                  className="mb-[2px] rounded-none border-2 border-primary-foreground/30 px-2 py-1 text-[11px] font-black text-primary-foreground/80 transition hover:border-primary-foreground hover:text-primary-foreground"
+                >
+                  התאם מהנתונים
+                </button>
+              )}
+            </div>
           </div>
           <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-            מעל הסף המחיר מחושב לכל יחידה: עלות למ״ר × מ״ר ליחידה (לפחות המינימום) × כמות^מקדם כמות × מקדם רווח.
-            מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות.
+            {fittedQtyExp !== null && !draft.qtyExponent.trim()
+              ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך כדי לקבע.`
+              : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
 
 
