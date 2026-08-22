@@ -2533,6 +2533,7 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   senzey_group: "קבוצה בסנזיי",
   site_category: "קטגוריה באתר",
   size: "מידה",
+  total_size: "שטח מ״ר",
   qty: "כמות",
   senzey_price: "מחיר סנזיי",
   site_price: "מחיר אתר",
@@ -2580,13 +2581,14 @@ function ColumnChooser({
               <span>בחר עמודות</span>
               <button
                 onClick={() =>
-                  onChange({
+                onChange({
                     senzey_ids: true,
                     name: true,
                     family: true,
                     senzey_group: false,
                     site_category: false,
                     size: true,
+                    total_size: true,
                     qty: true,
                     senzey_price: true,
                     site_price: true,
