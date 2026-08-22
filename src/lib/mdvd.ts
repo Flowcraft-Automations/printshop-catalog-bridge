@@ -460,6 +460,14 @@ const roundUpTo = (v: number, step: number) =>
 
 const clampExp = (b: number) => Math.min(1, Math.max(0.3, b));
 
+/** Aspect ratio (long/short side), clamped so extreme banners don't explode. */
+export function aspectOf(w: number, h: number): number {
+  const lo = Math.min(w, h);
+  const hi = Math.max(w, h);
+  if (!(lo > 0) || !(hi > 0)) return 1;
+  return Math.min(6, Math.max(1, hi / lo));
+}
+
 /**
  * Least-squares power fit over anchors: price = a x area^b (b clamped 0.3-1.0).
  * Returns null when there are fewer than two usable anchors.
@@ -486,6 +494,80 @@ export function fitPowerCurve(anchors: JobAnchor[]): { a: number; b: number } | 
   const a = Math.exp(sy / n - (b * sx) / n);
   return { a, b };
 }
+
+/**
+ * Two-variable log-log fit over anchors: price = a x area^b x aspect^c.
+ * c (the shape premium) is only fitted with >= 4 anchors spanning at least two
+ * distinct aspect ratios, and is clamped to 0..0.6 so a single odd anchor cannot
+ * invert pricing. Otherwise c = 0 and this degrades to the plain area curve.
+ */
+export function fitShapeCurve(
+  anchors: JobAnchor[],
+): { a: number; b: number; c: number } | null {
+  const pts = anchors.filter((p) => p.area > 0 && p.price > 0);
+  const base = fitPowerCurve(pts);
+  if (!base) return null;
+  if (pts.length < 4) return { ...base, c: 0 };
+
+  const aspects = new Set(pts.map((p) => aspectOf(p.w, p.h).toFixed(2)));
+  if (aspects.size < 2) return { ...base, c: 0 };
+
+  const n = pts.length;
+  let sx = 0,
+    sz = 0,
+    sy = 0;
+  const X: number[] = [];
+  const Z: number[] = [];
+  const Y: number[] = [];
+  for (const p of pts) {
+    const x = Math.log(p.area);
+    const z = Math.log(aspectOf(p.w, p.h));
+    const y = Math.log(p.price);
+    X.push(x);
+    Z.push(z);
+    Y.push(y);
+    sx += x;
+    sz += z;
+    sy += y;
+  }
+  const mx = sx / n,
+    mz = sz / n,
+    my = sy / n;
+  let sxx = 0,
+    szz = 0,
+    sxz = 0,
+    sxy = 0,
+    szy = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = X[i]! - mx;
+    const dz = Z[i]! - mz;
+    const dy = Y[i]! - my;
+    sxx += dx * dx;
+    szz += dz * dz;
+    sxz += dx * dz;
+    sxy += dx * dy;
+    szy += dz * dy;
+  }
+  const den = sxx * szz - sxz * sxz;
+  if (!(Math.abs(den) > 1e-9)) return { ...base, c: 0 };
+  const b = clampExp((szz * sxy - sxz * szy) / den);
+  const c = Math.min(0.6, Math.max(0, (sxx * szy - sxz * sxy) / den));
+  const a = Math.exp(my - b * mx - c * mz);
+  return { a, b, c };
+}
+
+/**
+ * Shape-adjusted "effective area" used as the single curve axis:
+ * area x aspect^(c/b). Anchors of the same area but different shape land on
+ * different points of the same monotone curve.
+ */
+export function shapeKey(w: number, h: number, b: number, c: number): number {
+  const area = (w * h) / 10000;
+  if (!(area > 0)) return 0;
+  if (!(c > 0) || !(b > 0)) return area;
+  return area * Math.pow(aspectOf(w, h), c / b);
+}
+
 
 /**
  * Price for an area from the family anchors, using log-log (power) interpolation
