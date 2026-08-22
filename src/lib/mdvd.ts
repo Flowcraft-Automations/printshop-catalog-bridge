@@ -849,10 +849,8 @@ export function priceJob(
       { inconsistent: bad },
     );
   }
-  const sameSize = (a: JobAnchor) =>
-    Math.abs(Math.max(a.w, a.h) - Math.max(w, h)) <= 0.51 &&
-    Math.abs(Math.min(a.w, a.h) - Math.min(w, h)) <= 0.51;
-  const exact = usable.find(sameSize);
+  const exact = usable.find(sameDims);
+
   if (exact) {
     return finish(
       exact.price * qtyFactor,
