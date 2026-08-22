@@ -396,7 +396,31 @@ export function anchorPrice(p: Product): number | null {
   return v !== null && Number(v) > 0 ? Number(v) : null;
 }
 
+/** Validated (אומת) catalog prices for a family — exact size+qty lookups. */
+export function familyValidated(products: Product[], family: string): JobAnchor[] {
+  const out: JobAnchor[] = [];
+  for (const p of products) {
+    if (!p.verified) continue;
+    if ((p.family ?? "").trim() !== family.trim()) continue;
+    const w = Number(p.width_cm) || 0;
+    const h = Number(p.height_cm) || 0;
+    const price = anchorPrice(p);
+    if (!w || !h || price === null) continue;
+    out.push({
+      id: p.id,
+      name: p.name,
+      w,
+      h,
+      area: (w * h) / 10000,
+      qty: Math.max(1, Number(p.qty) || 1),
+      price,
+    });
+  }
+  return out.sort((a, b) => a.area - b.area || a.qty - b.qty);
+}
+
 /** Catalog anchors for a family, sorted by area then quantity. */
+
 export function familyAnchors(products: Product[], family: string): JobAnchor[] {
   const out: JobAnchor[] = [];
   for (const p of products) {
