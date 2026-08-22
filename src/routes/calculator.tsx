@@ -14,6 +14,7 @@ import {
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
+  familyValidated,
   isClosedOut,
   familyColor,
   priceJob,
@@ -294,14 +295,18 @@ function Calculator() {
   const nw = Number(w) || 0;
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
-  const job = useMemo(() => priceJob(cfg, anchors, nw, nh, nq), [cfg, anchors, nw, nh, nq]);
+  const validated = useMemo(() => familyValidated(products, family), [products, family]);
+  const job = useMemo(
+    () => priceJob(cfg, anchors, nw, nh, nq, validated),
+    [cfg, anchors, nw, nh, nq, validated],
+  );
 
   const inconsistent = job?.inconsistent ?? [];
 
   const packagePrices = useMemo(
     () =>
-      cfg.packages.map((p) => ({ qty: p, job: priceJob(cfg, anchors, nw, nh, p) })),
-    [cfg, anchors, nw, nh],
+      cfg.packages.map((p) => ({ qty: p, job: priceJob(cfg, anchors, nw, nh, p, validated) })),
+    [cfg, anchors, nw, nh, validated],
   );
 
   /* ---------------- new anchor row ---------------- */
@@ -408,7 +413,12 @@ function Calculator() {
                 מתחת לעלות — המחיר נמוך מ־{shekel(job.costFloorValue)}
               </div>
             ) : null}
-            {!job.hasAnchors ? (
+            {job.noOutsourceCost ? (
+              <div className="font-bold text-destructive">
+                מעל הסף — לא הוגדרה עלות מיקור חוץ למשפחה
+              </div>
+            ) : null}
+            {!job.hasAnchors && job.source !== "validated" ? (
               <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
             ) : null}
           </div>
