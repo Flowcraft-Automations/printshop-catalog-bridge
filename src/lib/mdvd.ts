@@ -743,6 +743,54 @@ export function fitQtyCurve(
   return { a, b, e, n };
 }
 
+/**
+ * Setup + marginal model for sheet families:
+ *   price(area, qty) = (setup + perUnit x qty) x (area / refArea)^b
+ * The fixed part covers preparation/plate/handling, the marginal part is the
+ * real per-unit cost — this is what makes 100 -> 500 units grow correctly
+ * instead of flattening out like a pure power curve.
+ */
+export function fitSetupCurve(
+  anchors: JobAnchor[],
+  b: number,
+  refArea: number,
+): { setup: number; perUnit: number; b: number; refArea: number; n: number } | null {
+  const pts = anchors.filter((p) => p.area > 0 && p.price > 0 && p.qty > 0);
+  if (pts.length < 2) return null;
+  if (new Set(pts.map((p) => p.qty)).size < 2) return null;
+  if (!(refArea > 0)) return null;
+
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const p of pts) {
+    const scale = Math.pow(p.area / refArea, b);
+    if (!(scale > 0)) continue;
+    xs.push(p.qty);
+    ys.push(p.price / scale);
+  }
+  const n = xs.length;
+  if (n < 2) return null;
+
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += xs[i]!; sy += ys[i]!; sxx += xs[i]! * xs[i]!; sxy += xs[i]! * ys[i]!;
+  }
+  const den = n * sxx - sx * sx;
+  if (!(Math.abs(den) > 1e-9)) return null;
+
+  let perUnit = (n * sxy - sx * sy) / den;
+  let setup = (sy - perUnit * sx) / n;
+
+  if (setup < 0) {
+    setup = 0;
+    perUnit = sxx > 0 ? sxy / sxx : 0;
+  }
+  if (!(perUnit > 0)) return null;
+  return { setup, perUnit, b, refArea, n };
+}
+
+
+
 
 function interpolate(
   points: { x: number; y: number }[],
@@ -919,6 +967,29 @@ export function priceJob(
       if (Math.abs(dx) > 1e-9) return dx;
       return Math.abs(Math.log(x.qty / units)) - Math.abs(Math.log(y.qty / units));
     })[0]!;
+
+    /* setup + marginal model — preferred when the anchors support it */
+    if (!cfg.qtyExponentPinned) {
+      const sameSize = usableAnchors.filter((a) => sameDims(a));
+      const pool =
+        new Set(sameSize.map((a) => a.qty)).size >= 2 ? sameSize : usableAnchors;
+      const poolRef = pool.includes(ref) ? ref : pool[0]!;
+      const lin = fitSetupCurve(pool, pool === sameSize ? 0 : b, poolRef.area);
+      if (lin) {
+        const scale = Math.pow(area / lin.refArea, lin.b);
+        const yLin = (lin.setup + lin.perUnit * units) * scale;
+        if (yLin > 0) {
+          return finish(
+            yLin,
+            "עלות התקנה + מחיר ליחידה",
+            `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()} יח׳${
+              Math.abs(scale - 1) > 1e-6 ? ` × מקדם גודל ${scale.toFixed(2)} (מעריך ${lin.b.toFixed(2)})` : ""
+            } · לפי ${lin.n} עוגנים · ${sheets.toFixed(2)} גיליונות`,
+            "anchor",
+          );
+        }
+      }
+    }
 
     const y =
       ref.price * Math.pow(area / ref.area, b) * Math.pow(units / ref.qty, e);
