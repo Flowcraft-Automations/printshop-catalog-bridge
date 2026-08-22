@@ -1,46 +1,34 @@
-# Softer pricing above the largest anchor
+# Fix the calculator pricing order
 
-## Why 100×50 suggests ₪145
+The calculator currently prices every job from anchors only. Validated catalog prices are ignored, the quantity factor is applied only above the outsourcing threshold, and below-threshold prices scale strictly linearly with quantity. This changes the engine to a clear three-step order.
 
-For שלטי PVC the anchors are 30×30 = ₪40 (0.09 m²), 30×90 = ₪90 (0.27 m²), 50×70 = ₪100 (0.35 m²).
-Both 100×40 (0.40 m²) and 100×50 (0.50 m²) are larger than the biggest anchor, so the engine
-falls back to that anchor's flat rate of ₪286/m²:
+## Pricing order
 
-```text
-100×40 → 0.40 × 286 = 114.3 → ₪115
-100×50 → 0.50 × 286 = 142.9 → ₪145
-```
+1. **Validated price (highest priority)** — if the family has an item marked אומת with the exact same size and the exact same quantity, and it has a price, use that price as-is. No interpolation, no rounding, no margin. Label: "מחיר מאומת מהקטלוג".
+2. **Anchors** — no exact validated match: price from the family anchors as today (exact anchor, interpolation between anchors, or continuation above the largest anchor).
+3. **Cost fallback** — no usable anchors: cost per m² × area × margin, as today.
 
-The result is exactly proportional to area (145/115 = 0.5/0.4). But your own anchors get cheaper
-per m² as they grow (444 → 333 → 286 ₪/m²), and that discount stops abruptly above the last anchor.
-That mismatch is what feels wrong.
+## Quantity factor
 
-## The change
+The quantity factor (מקדם כמות) applies in every branch except the validated price:
 
-Above the largest anchor, continue the discount trend instead of freezing the last rate.
+- anchor / interpolated / cost prices are computed per unit, then multiplied by `units^exponent` instead of `units`
+- exponent 1 keeps today's linear behaviour; below 1 gives a quantity discount
+- the breakdown line states the factor whenever it is not 1
 
-- Fit a power curve `price = a × area^b` through **all** the family's consistent anchors
-  (least squares on log(area) vs log(price)).
-- Use that curve for any size above the largest anchor.
-- Clamp `b` to the range 0.4–1.0 so a noisy anchor set can never make big items cheaper than
-  small ones or explode upward.
-- Fall back to today's flat ₪/m² rule when the family has fewer than 2 usable anchors.
-- Interpolation *between* anchors and exact anchor matches stay exactly as they are.
+## Outsourcing factor
 
-For שלטי PVC this fit gives b ≈ 0.69:
+Above the width/height threshold the job keeps the outsourcing path (outsource cost per m² × billed unit area with the minimum per unit × quantity factor × margin). Two fixes:
 
-```text
-100×40 → ₪115  (unchanged)
-100×50 → ₪135  (was ₪145)
-```
+- a validated exact match still wins over the outsourcing calculation
+- when the family has no outsourcing cost configured (as in שלטי PVC), the calculator says so explicitly instead of silently pricing at ₪0 production cost
 
-The explanation line under the price will read "מעל העוגן הגדול — לפי עקומת העוגנים" so it is
-clear which rule produced the number.
+## Breakdown clarity
+
+The price card shows which of the three sources produced the number, plus the size, quantity, quantity factor and any threshold/minimum that applied — so a result like ₪700 for 60×40 × 10 can be traced back to its source in one glance.
 
 ## Technical notes
 
-- Single change in `src/lib/mdvd.ts`, in the `area` branch of `priceJob` where
-  `area > largest.area`: replace `rate = largest.price / largest.area` with the fitted power curve.
-- Cost floor, rounding, quantity multiplication and the sheet method are untouched.
-- No schema or data changes; the curve chart in the calculator picks up the new shape automatically
-  since it calls the same engine.
+- `priceJob` in `src/lib/mdvd.ts` gains a validated-match lookup (passed in from the already loaded products list) that runs before the anchor logic, matching on family, normalized size key and quantity.
+- The quantity factor moves out of the above-threshold branches into the shared `finish` step so all branches use `units^qtyExponent`.
+- `src/routes/calculator.tsx` passes the family's products into `priceJob` and renders the new source label and breakdown; no schema changes.
