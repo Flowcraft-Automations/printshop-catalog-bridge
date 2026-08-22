@@ -298,6 +298,7 @@ type ColKey =
   | "senzey_group"
   | "site_category"
   | "size"
+  | "total_size"
   | "qty"
   | "senzey_price"
   | "site_price"
@@ -363,6 +364,8 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_group: (p) => p.senzey_group ?? "",
   site_category: (p) => p.site_category ?? "",
   size: (p) => (p.width_cm ?? 0) * (p.height_cm ?? 0),
+  total_size: (p) =>
+    p.width_cm && p.height_cm ? (p.width_cm * p.height_cm) / 10000 : null,
   qty: (p) => p.qty ?? 0,
   senzey_price: (p) => p.senzey_price,
   site_price: (p) => p.site_price,
@@ -519,6 +522,7 @@ function Catalog() {
     senzey_group: false,
     site_category: false,
     size: true,
+    total_size: true,
     qty: true,
     senzey_price: true,
     site_price: true,
@@ -546,6 +550,7 @@ function Catalog() {
     senzey_group: 8,
     site_category: 8,
     size: 8,
+    total_size: 6,
     qty: 4,
     senzey_price: 7,
     site_price: 7,
@@ -775,6 +780,13 @@ function Catalog() {
         )
       )
         return false;
+      if (
+        !matchNum(
+          p.width_cm && p.height_cm ? (p.width_cm * p.height_cm) / 10000 : null,
+          colFilters.total_size ?? "",
+        )
+      )
+        return false;
       if (!matchNum(p.qty, colFilters.qty ?? "")) return false;
       if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
@@ -928,6 +940,7 @@ function Catalog() {
       "משפחה": p.family ?? "",
       "רוחב": p.width_cm ?? "",
       "גובה": p.height_cm ?? "",
+      "שטח מ״ר": p.width_cm && p.height_cm ? (p.width_cm * p.height_cm) / 10000 : "",
       "כמות": p.qty ?? "",
       "קיים בסנזיי": p.senzey_exists ? "כן" : "לא",
       "מזהי סנזיי": p.senzey_ids ?? "",
@@ -1277,6 +1290,11 @@ function Catalog() {
                     <SortHead k="size" label="מידה" />
                   </th>
                 )}
+                {visibleCols.total_size && (
+                  <th style={{ width: scaledWidths.total_size }} className="px-2 py-2">
+                    <SortHead k="total_size" label="שטח מ״ר" />
+                  </th>
+                )}
                 {visibleCols.qty && (
                   <th style={{ width: scaledWidths.qty }} className="px-2 py-2">
                     <SortHead k="qty" label="כמות" />
@@ -1445,6 +1463,16 @@ function Catalog() {
                         value={cf("size")}
                         onChange={(e) => setCf("size", e.target.value)}
                         placeholder="70×100"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.total_size && (
+                    <th style={{ width: scaledWidths.total_size }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("total_size")}
+                        onChange={(e) => setCf("total_size", e.target.value)}
+                        placeholder=">0.5"
                       />
                     </th>
                   )}
@@ -1794,6 +1822,16 @@ function Catalog() {
                           }
                         />
                       </span>
+                    </td>
+                  )}
+                  {visibleCols.total_size && (
+                    <td style={{ width: scaledWidths.total_size }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      {p.width_cm && p.height_cm
+                        ? ((p.width_cm * p.height_cm) / 10000).toLocaleString("he-IL", {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          })
+                        : "—"}
                     </td>
                   )}
                   {visibleCols.qty && (
@@ -2495,6 +2533,7 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   senzey_group: "קבוצה בסנזיי",
   site_category: "קטגוריה באתר",
   size: "מידה",
+  total_size: "שטח מ״ר",
   qty: "כמות",
   senzey_price: "מחיר סנזיי",
   site_price: "מחיר אתר",
@@ -2542,13 +2581,14 @@ function ColumnChooser({
               <span>בחר עמודות</span>
               <button
                 onClick={() =>
-                  onChange({
+                onChange({
                     senzey_ids: true,
                     name: true,
                     family: true,
                     senzey_group: false,
                     site_category: false,
                     size: true,
+                    total_size: true,
                     qty: true,
                     senzey_price: true,
                     site_price: true,
