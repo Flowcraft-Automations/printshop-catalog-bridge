@@ -381,8 +381,13 @@ export function sheetUnitsFor(cfg: FamilyPricing, w: number, h: number) {
 
 export function fitsThreshold(cfg: FamilyPricing, w: number, h: number) {
   if (cfg.thresholdW <= 0 || cfg.thresholdH <= 0) return true;
-  return Math.max(w, h) <= cfg.thresholdW && Math.min(w, h) <= cfg.thresholdH;
+  // Outsourcing applies only when BOTH sides exceed the threshold sides.
+  const tMax = Math.max(cfg.thresholdW, cfg.thresholdH);
+  const tMin = Math.min(cfg.thresholdW, cfg.thresholdH);
+  const outside = Math.max(w, h) > tMax && Math.min(w, h) > tMin;
+  return !outside;
 }
+
 
 export type JobAnchor = {
   id: string;
