@@ -656,25 +656,11 @@ export function priceJob(
       qtyExp === 1,
     );
   }
-  const largest = kept[kept.length - 1]!;
-  if (area > largest.area) {
-    const rate = largest.price / largest.area;
-    return finish(
-      rate * area * qtyFactor,
-      "מעל העוגן הגדול — לפי ₪/מ״ר של העוגן",
-      `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}`,
-      "anchor",
-      { inconsistent: bad },
-    );
-  }
-  const r = interpolate(
-    kept.map((a) => ({ x: a.area, y: a.price })),
-    area,
-  );
+  const r = areaCurvePrice(kept, area);
   return finish(
     r.y * qtyFactor,
     r.label,
-    `${area.toFixed(3)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}`,
+    `${area.toFixed(3)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}${r.detail ? ` · ${r.detail}` : ""}`,
     "anchor",
     { inconsistent: bad },
   );
