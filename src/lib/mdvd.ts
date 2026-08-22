@@ -458,6 +458,91 @@ export function consistentAreaAnchors(anchors: JobAnchor[]) {
 const roundUpTo = (v: number, step: number) =>
   step > 0 ? Math.ceil(v / step) * step : Math.round(v);
 
+const clampExp = (b: number) => Math.min(1, Math.max(0.3, b));
+
+/**
+ * Least-squares power fit over anchors: price = a x area^b (b clamped 0.3-1.0).
+ * Returns null when there are fewer than two usable anchors.
+ */
+export function fitPowerCurve(anchors: JobAnchor[]): { a: number; b: number } | null {
+  const pts = anchors.filter((p) => p.area > 0 && p.price > 0);
+  if (pts.length < 2) return null;
+  const n = pts.length;
+  let sx = 0,
+    sy = 0,
+    sxx = 0,
+    sxy = 0;
+  for (const p of pts) {
+    const x = Math.log(p.area);
+    const y = Math.log(p.price);
+    sx += x;
+    sy += y;
+    sxx += x * x;
+    sxy += x * y;
+  }
+  const den = n * sxx - sx * sx;
+  if (!(Math.abs(den) > 1e-9)) return null;
+  const b = clampExp((n * sxy - sx * sy) / den);
+  const a = Math.exp(sy / n - (b * sx) / n);
+  return { a, b };
+}
+
+/**
+ * Price for an area from the family anchors, using log-log (power) interpolation
+ * between neighbouring anchors and a power continuation above the largest one.
+ */
+export function areaCurvePrice(
+  anchors: JobAnchor[],
+  area: number,
+): { y: number; label: string; detail: string } {
+  const pts = anchors
+    .filter((p) => p.area > 0 && p.price > 0)
+    .sort((a, b) => a.area - b.area);
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  if (!first || !last) return { y: 0, label: "אין עוגנים", detail: "" };
+
+  const global = fitPowerCurve(pts);
+  const size = (p: JobAnchor) => `${p.w}×${p.h}`;
+
+  if (area <= first.area)
+    return {
+      y: first.price,
+      label: "מתחת לעוגן הקטן — מחיר העוגן",
+      detail: `${size(first)} = ${shekel(first.price)}`,
+    };
+
+  if (area >= last.area) {
+    const prev = pts.length > 1 ? pts[pts.length - 2]! : null;
+    let b = global?.b ?? 0.6;
+    if (prev && prev.area > 0 && prev.price > 0 && last.area / prev.area > 1.05) {
+      b = clampExp(Math.log(last.price / prev.price) / Math.log(last.area / prev.area));
+    }
+    return {
+      y: last.price * Math.pow(area / last.area, b),
+      label: "מעל העוגן הגדול — המשך העקומה",
+      detail: `מ-${size(last)} = ${shekel(last.price)} · מעריך ${b.toFixed(2)}`,
+    };
+  }
+
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const c = pts[i]!;
+    if (area <= c.area) {
+      const ratio = c.area / a.area;
+      const b =
+        ratio > 1.0001 ? Math.log(c.price / a.price) / Math.log(ratio) : 0;
+      const y = a.price * Math.pow(area / a.area, b);
+      return {
+        y: Math.max(y, a.price),
+        label: "אינטרפולציה בין עוגנים",
+        detail: `${size(a)} = ${shekel(a.price)} ← → ${size(c)} = ${shekel(c.price)} · מעריך ${b.toFixed(2)}`,
+      };
+    }
+  }
+  return { y: last.price, label: "עוגן", detail: size(last) };
+}
+
 function interpolate(
   points: { x: number; y: number }[],
   x: number,
@@ -656,25 +741,11 @@ export function priceJob(
       qtyExp === 1,
     );
   }
-  const largest = kept[kept.length - 1]!;
-  if (area > largest.area) {
-    const rate = largest.price / largest.area;
-    return finish(
-      rate * area * qtyFactor,
-      "מעל העוגן הגדול — לפי ₪/מ״ר של העוגן",
-      `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}`,
-      "anchor",
-      { inconsistent: bad },
-    );
-  }
-  const r = interpolate(
-    kept.map((a) => ({ x: a.area, y: a.price })),
-    area,
-  );
+  const r = areaCurvePrice(kept, area);
   return finish(
     r.y * qtyFactor,
     r.label,
-    `${area.toFixed(3)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}`,
+    `${area.toFixed(3)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}${r.detail ? ` · ${r.detail}` : ""}`,
     "anchor",
     { inconsistent: bad },
   );
