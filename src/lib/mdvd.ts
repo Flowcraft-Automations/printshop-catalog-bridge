@@ -880,7 +880,7 @@ export function priceJob(
     );
   }
 
-  /* 3 — sheet method below the threshold */
+  /* 3 — sheet method below the threshold: size + quantity curve */
   if (cfg.method === "sheet" && per) {
     const exactSheet = anchors.find((a) => sameDims(a) && a.qty === units);
 
@@ -894,14 +894,9 @@ export function priceJob(
         true,
       );
     }
-    const pts = anchors
-      .map((a) => {
-        const u = sheetUnitsFor(cfg, a.w, a.h).units;
-        return u > 0 ? { x: a.qty / u, y: a.price } : null;
-      })
-      .filter((p): p is { x: number; y: number } => p !== null)
-      .sort((a, b) => a.x - b.x);
-    if (pts.length === 0 || sheets <= 0) {
+
+    const usableAnchors = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+    if (usableAnchors.length === 0) {
       return finish(
         cost * margin,
         "אין עוגנים — לפי עלות",
@@ -909,14 +904,34 @@ export function priceJob(
         "cost",
       );
     }
-    const r = interpolate(pts, sheets);
+
+    const fit = fitQtyCurve(usableAnchors);
+    const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
+    const b = fit?.b ?? 0;
+
+    /* reference anchor: closest size, then closest quantity — the curve passes
+       through it so a known package price is never contradicted */
+    const ref = [...usableAnchors].sort((x, y) => {
+      const dx = Math.abs(Math.log(x.area / area)) - Math.abs(Math.log(y.area / area));
+      if (Math.abs(dx) > 1e-9) return dx;
+      return Math.abs(Math.log(x.qty / units)) - Math.abs(Math.log(y.qty / units));
+    })[0]!;
+
+    const y =
+      ref.price * Math.pow(area / ref.area, b) * Math.pow(units / ref.qty, e);
+
+    const sizeNote =
+      Math.abs(area - ref.area) > 1e-9
+        ? ` · מעריך גודל ${b.toFixed(2)}`
+        : "";
     return finish(
-      r.y,
-      r.label,
-      `${sheets.toFixed(2)} גיליונות · ${per.units} יח׳ בגיליון`,
+      y,
+      "עקומת גודל וכמות",
+      `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${e.toFixed(2)} (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
       "anchor",
     );
   }
+
 
   /* 4 — area method below the threshold */
   const { kept, bad } = consistentAreaAnchors(anchors);
