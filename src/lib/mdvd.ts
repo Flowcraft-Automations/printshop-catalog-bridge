@@ -631,6 +631,33 @@ export function areaCurvePrice(
   return { y: last.price, label: "עוגן", detail: size(last) };
 }
 
+/**
+ * Shape-aware price: anchors and the requested size are mapped onto one
+ * monotone curve in shape-adjusted area (area x aspect^(c/b)), so long narrow
+ * formats and compact ones of the same area no longer fight each other.
+ */
+export function shapeCurvePrice(
+  anchors: JobAnchor[],
+  w: number,
+  h: number,
+): { y: number; label: string; detail: string; b: number; c: number } {
+  const fit = fitShapeCurve(anchors);
+  const b = fit?.b ?? 0.6;
+  const c = fit?.c ?? 0;
+  const mapped = anchors.map((p) => ({
+    ...p,
+    area: shapeKey(p.w, p.h, b, c),
+  }));
+  const r = areaCurvePrice(mapped, shapeKey(w, h, b, c));
+  const shapeNote =
+    c > 0
+      ? ` · יחס צורה ${aspectOf(w, h).toFixed(2)} · מעריך צורה ${c.toFixed(2)}`
+      : "";
+  return { ...r, detail: `${r.detail}${shapeNote}`, b, c };
+}
+
+
+
 function interpolate(
   points: { x: number; y: number }[],
   x: number,
