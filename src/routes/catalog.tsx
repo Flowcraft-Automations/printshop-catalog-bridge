@@ -1824,6 +1824,16 @@ function Catalog() {
                       </span>
                     </td>
                   )}
+                  {visibleCols.total_size && (
+                    <td style={{ width: scaledWidths.total_size }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                      {p.width_cm && p.height_cm
+                        ? ((p.width_cm * p.height_cm) / 10000).toLocaleString("he-IL", {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          })
+                        : "—"}
+                    </td>
+                  )}
                   {visibleCols.qty && (
                     <td style={{ width: scaledWidths.qty }} className="num truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
                       <InlineEdit
