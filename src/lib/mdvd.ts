@@ -632,29 +632,52 @@ export function areaCurvePrice(
 }
 
 /**
- * Shape-aware price: anchors and the requested size are mapped onto one
- * monotone curve in shape-adjusted area (area x aspect^(c/b)), so long narrow
- * formats and compact ones of the same area no longer fight each other.
+ * Shape-aware price: one smooth surface fitted over all family anchors,
+ * price = a x area^b x aspect^c. Using the fitted surface (instead of hopping
+ * between neighbouring anchors) is what keeps suggestions consistent when two
+ * anchors of nearly the same area disagree. Exact anchor sizes are handled by
+ * the caller and always return their own price.
  */
 export function shapeCurvePrice(
   anchors: JobAnchor[],
   w: number,
   h: number,
 ): { y: number; label: string; detail: string; b: number; c: number } {
-  const fit = fitShapeCurve(anchors);
-  const b = fit?.b ?? 0.6;
-  const c = fit?.c ?? 0;
-  const mapped = anchors.map((p) => ({
-    ...p,
-    area: shapeKey(p.w, p.h, b, c),
-  }));
-  const r = areaCurvePrice(mapped, shapeKey(w, h, b, c));
-  const shapeNote =
-    c > 0
-      ? ` · יחס צורה ${aspectOf(w, h).toFixed(2)} · מעריך צורה ${c.toFixed(2)}`
-      : "";
-  return { ...r, detail: `${r.detail}${shapeNote}`, b, c };
+  const pts = anchors
+    .filter((p) => p.area > 0 && p.price > 0)
+    .sort((a, b) => a.area - b.area);
+  const first = pts[0];
+  if (!first) return { y: 0, label: "אין עוגנים", detail: "", b: 0, c: 0 };
+
+  const area = (w * h) / 10000;
+  const aspect = aspectOf(w, h);
+  const fit = fitShapeCurve(pts);
+
+  if (!fit) {
+    const b = 0.6;
+    return {
+      y: first.price * Math.pow(area / first.area, b),
+      label: "עוגן יחיד — המשך העקומה",
+      detail: `${first.w}×${first.h} = ${shekel(first.price)} · מעריך ${b.toFixed(2)}`,
+      b,
+      c: 0,
+    };
+  }
+
+  const { a, b, c } = fit;
+  const fitted = a * Math.pow(area, b) * Math.pow(aspect, c);
+  const belowSmallest = area <= first.area;
+  const y = belowSmallest ? Math.max(fitted, first.price) : fitted;
+  const shapeNote = c > 0 ? ` · יחס צורה ${aspect.toFixed(2)} · מעריך צורה ${c.toFixed(2)}` : "";
+  return {
+    y,
+    label: belowSmallest ? "מתחת לעוגן הקטן — מחיר העוגן" : "עקומת המשפחה",
+    detail: `עקומה מכל העוגנים · מעריך שטח ${b.toFixed(2)}${shapeNote}`,
+    b,
+    c,
+  };
 }
+
 
 
 
