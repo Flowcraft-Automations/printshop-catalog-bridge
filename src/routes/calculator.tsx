@@ -52,6 +52,7 @@ function Field({
   width = "w-28",
   as = "input",
   children,
+  placeholder,
 }: {
   label: string;
   value: string;
@@ -59,6 +60,7 @@ function Field({
   width?: string;
   as?: "input" | "select";
   children?: React.ReactNode;
+  placeholder?: string;
 }) {
   return (
     <div className={width}>
@@ -68,7 +70,12 @@ function Field({
           {children}
         </select>
       ) : (
-        <input className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} />
+        <input
+          className={inputCls}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
       )}
     </div>
   );
@@ -168,6 +175,9 @@ function Calculator() {
   }, [draft, sheetUnits]);
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
+
+  /** מקדם כמות fitted from the family anchors (null when the anchors can't support a fit) */
+  const fittedQtyExp = useMemo(() => fitQtyCurve(anchors)?.e ?? null, [anchors]);
 
   /** every approved (non-deleted / relevant) item of the family — the anchor table body */
   const rows = useMemo(() => {
