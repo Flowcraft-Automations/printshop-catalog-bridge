@@ -497,6 +497,12 @@ export type JobPrice = {
   unitsPerSheet: number | null;
   inconsistent: JobAnchor[];
   hasAnchors: boolean;
+  /** where the number came from */
+  source: "validated" | "anchor" | "cost";
+  /** units^qtyExponent actually applied */
+  qtyFactor: number;
+  /** above the threshold but the family has no outsourcing cost configured */
+  noOutsourceCost: boolean;
 };
 
 /** The one pricing entry point. */
@@ -506,6 +512,7 @@ export function priceJob(
   w: number,
   h: number,
   qty: number,
+  validated: JobAnchor[] = [],
 ): JobPrice | null {
   if (!(w > 0) || !(h > 0)) return null;
   const units = Math.max(1, Math.round(qty) || 1);
@@ -513,11 +520,27 @@ export function priceJob(
   const above = !fitsThreshold(cfg, w, h);
   const margin = cfg.margin > 0 ? cfg.margin : DEFAULT_MARGIN;
 
+  const minUnitArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
+  const qtyExp = cfg.qtyExponent > 0 ? cfg.qtyExponent : 1;
+  const qtyFactor = Math.pow(units, qtyExp);
+  const qtyNote = qtyExp !== 1 ? ` · מקדם כמות ${qtyExp} (${qtyFactor.toFixed(2)})` : "";
+
+  const per = cfg.method === "sheet" ? sheetUnitsFor(cfg, w, h) : null;
+  const sheets = per && per.units > 0 ? units / per.units : 0;
+
+  const cost = above
+    ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
+    : cfg.method === "sheet"
+      ? Math.ceil(sheets) * cfg.cost
+      : cfg.cost * area * units;
+
+  const sheetExtra = per ? { sheets, unitsPerSheet: per.units } : {};
+
   const finish = (
     raw: number,
-    cost: number,
     label: string,
     detail: string,
+    source: JobPrice["source"],
     extra: Partial<JobPrice> = {},
     noRound = false,
   ): JobPrice => {
@@ -536,42 +559,54 @@ export function priceJob(
       unitsPerSheet: null,
       inconsistent: [],
       hasAnchors: anchors.length > 0,
+      source,
+      qtyFactor,
+      noOutsourceCost: above && !(cfg.outsourceCost > 0),
+      ...sheetExtra,
       ...extra,
     };
   };
 
-  const minUnitArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
-  const qtyExp = cfg.qtyExponent > 0 ? cfg.qtyExponent : 1;
-  const qtyFactor = Math.pow(units, qtyExp);
+  /* 1 — validated catalog price: exact size + exact quantity, as-is */
+  const v = validated.find(
+    (a) => Math.abs(a.area - area) <= area * 0.02 && a.qty === units,
+  );
+  if (v) {
+    return finish(
+      v.price,
+      "מחיר מאומת מהקטלוג",
+      `${v.w}×${v.h} · ${units.toLocaleString()} יח׳ · ${v.name}`,
+      "validated",
+      {},
+      true,
+    );
+  }
 
-  if (cfg.method === "sheet") {
-    if (above) {
-      const billedUnitArea = Math.max(minUnitArea, area);
-      const cost = cfg.outsourceCost * billedUnitArea * qtyFactor;
-      return finish(
-        cost * margin,
-        cost,
-        "מעל הסף — מיקור חוץ",
-        `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
-          area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
-        } × ${units.toLocaleString()} יח׳${qtyExp !== 1 ? `^${qtyExp}` : ""} × מקדם ${margin}`,
-      );
-    }
+  /* 2 — above the outsourcing threshold */
+  if (above) {
+    const billedUnitArea = Math.max(minUnitArea, area);
+    return finish(
+      cost * margin,
+      "מעל הסף — מיקור חוץ",
+      `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
+        area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
+      } × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin}`,
+      "cost",
+    );
+  }
 
-
-    const per = sheetUnitsFor(cfg, w, h);
-    const sheets = per.units > 0 ? units / per.units : 0;
-    const cost = Math.ceil(sheets) * cfg.cost;
+  /* 3 — sheet method below the threshold */
+  if (cfg.method === "sheet" && per) {
     const exactSheet = anchors.find(
       (a) => Math.abs(a.area - area) <= area * 0.02 && a.qty === units,
     );
     if (exactSheet) {
       return finish(
         exactSheet.price,
-        cost,
         "מחיר עוגן",
-        `${exactSheet.w}×${exactSheet.h} · ${units} יח׳`,
-        { sheets, unitsPerSheet: per.units },
+        `${exactSheet.w}×${exactSheet.h} · ${units.toLocaleString()} יח׳`,
+        "anchor",
+        {},
         true,
       );
     }
@@ -585,63 +620,50 @@ export function priceJob(
     if (pts.length === 0 || sheets <= 0) {
       return finish(
         cost * margin,
-        cost,
         "אין עוגנים — לפי עלות",
-        `${Math.ceil(sheets)} גיליונות × ${shekel(cfg.cost)} × מקדם ${margin}`,
-        { sheets, unitsPerSheet: per.units },
+        `${Math.ceil(sheets)} גיליונות × ${shekel(cfg.cost)} × מקדם רווח ${margin}`,
+        "cost",
       );
     }
     const r = interpolate(pts, sheets);
-    return finish(r.y, cost, r.label, `${sheets.toFixed(2)} גיליונות · ${per.units} יח׳ בגיליון`, {
-      sheets,
-      unitsPerSheet: per.units,
-    });
-  }
-
-  // area method
-  if (above) {
-    const billedUnitArea = Math.max(minUnitArea, area);
-    const cost = cfg.outsourceCost * billedUnitArea * qtyFactor;
     return finish(
-      cost * margin,
-      cost,
-      "מעל הסף — מיקור חוץ",
-      `${shekel(cfg.outsourceCost)} למ״ר × ${billedUnitArea.toFixed(2)} מ״ר ליחידה${
-        area < minUnitArea ? ` (מינימום ${minUnitArea} מ״ר)` : ""
-      } × ${units.toLocaleString()} יח׳${qtyExp !== 1 ? `^${qtyExp}` : ""} × מקדם ${margin}`,
+      r.y,
+      r.label,
+      `${sheets.toFixed(2)} גיליונות · ${per.units} יח׳ בגיליון`,
+      "anchor",
     );
   }
 
-  const cost = cfg.cost * area * units;
+  /* 4 — area method below the threshold */
   const { kept, bad } = consistentAreaAnchors(anchors);
   if (kept.length === 0) {
     return finish(
-      cost * margin,
-      cost,
+      cfg.cost * area * qtyFactor * margin,
       "אין עוגנים — לפי עלות",
-      `${shekel(cfg.cost)} למ״ר × ${area.toFixed(2)} מ״ר × מקדם ${margin}`,
+      `${shekel(cfg.cost)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin}`,
+      "cost",
       { inconsistent: bad },
     );
   }
   const exact = kept.find((a) => Math.abs(a.area - area) <= area * 0.02);
   if (exact) {
     return finish(
-      exact.price * units,
-      cost,
+      exact.price * qtyFactor,
       "מחיר עוגן",
-      `${exact.w}×${exact.h} = ${shekel(exact.price)}`,
+      `${exact.w}×${exact.h} = ${shekel(exact.price)} ליחידה × ${units.toLocaleString()} יח׳${qtyNote}`,
+      "anchor",
       { inconsistent: bad },
-      true,
+      qtyExp === 1,
     );
   }
   const largest = kept[kept.length - 1]!;
   if (area > largest.area) {
     const rate = largest.price / largest.area;
     return finish(
-      rate * area * units,
-      cost,
+      rate * area * qtyFactor,
       "מעל העוגן הגדול — לפי ₪/מ״ר של העוגן",
-      `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר`,
+      `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}`,
+      "anchor",
       { inconsistent: bad },
     );
   }
@@ -649,5 +671,12 @@ export function priceJob(
     kept.map((a) => ({ x: a.area, y: a.price })),
     area,
   );
-  return finish(r.y * units, cost, r.label, `${area.toFixed(3)} מ״ר`, { inconsistent: bad });
+  return finish(
+    r.y * qtyFactor,
+    r.label,
+    `${area.toFixed(3)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}`,
+    "anchor",
+    { inconsistent: bad },
+  );
 }
+
