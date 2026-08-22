@@ -307,6 +307,8 @@ export type FamilyPricing = {
   minUnitArea: number;
   /** מקדם כמות: העלות מוכפלת ב-units^qtyExponent (1 = ליניארי, <1 = הנחת כמות) */
   qtyExponent: number;
+  /** true when the user pinned מקדם כמות instead of letting it be fitted */
+  qtyExponentPinned: boolean;
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
 };
@@ -339,6 +341,7 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
       : [],
     minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
     qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
+    qtyExponentPinned: num(v?.["qty_exponent"]) > 0,
     sheetUnits: su,
   };
 }
