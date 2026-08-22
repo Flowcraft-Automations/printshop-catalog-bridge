@@ -799,9 +799,8 @@ export function priceJob(
 
   /* 3 — sheet method below the threshold */
   if (cfg.method === "sheet" && per) {
-    const exactSheet = anchors.find(
-      (a) => Math.abs(a.area - area) <= area * 0.02 && a.qty === units,
-    );
+    const exactSheet = anchors.find((a) => sameDims(a) && a.qty === units);
+
     if (exactSheet) {
       return finish(
         exactSheet.price,
