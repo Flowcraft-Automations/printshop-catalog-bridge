@@ -298,6 +298,7 @@ type ColKey =
   | "senzey_group"
   | "site_category"
   | "size"
+  | "total_size"
   | "qty"
   | "senzey_price"
   | "site_price"
@@ -363,6 +364,8 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_group: (p) => p.senzey_group ?? "",
   site_category: (p) => p.site_category ?? "",
   size: (p) => (p.width_cm ?? 0) * (p.height_cm ?? 0),
+  total_size: (p) =>
+    p.width_cm && p.height_cm ? (p.width_cm * p.height_cm) / 10000 : null,
   qty: (p) => p.qty ?? 0,
   senzey_price: (p) => p.senzey_price,
   site_price: (p) => p.site_price,
