@@ -743,6 +743,54 @@ export function fitQtyCurve(
   return { a, b, e, n };
 }
 
+/**
+ * Setup + marginal model for sheet families:
+ *   price(area, qty) = (setup + perUnit x qty) x (area / refArea)^b
+ * The fixed part covers preparation/plate/handling, the marginal part is the
+ * real per-unit cost — this is what makes 100 -> 500 units grow correctly
+ * instead of flattening out like a pure power curve.
+ */
+export function fitSetupCurve(
+  anchors: JobAnchor[],
+  b: number,
+  refArea: number,
+): { setup: number; perUnit: number; b: number; refArea: number; n: number } | null {
+  const pts = anchors.filter((p) => p.area > 0 && p.price > 0 && p.qty > 0);
+  if (pts.length < 2) return null;
+  if (new Set(pts.map((p) => p.qty)).size < 2) return null;
+  if (!(refArea > 0)) return null;
+
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const p of pts) {
+    const scale = Math.pow(p.area / refArea, b);
+    if (!(scale > 0)) continue;
+    xs.push(p.qty);
+    ys.push(p.price / scale);
+  }
+  const n = xs.length;
+  if (n < 2) return null;
+
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += xs[i]!; sy += ys[i]!; sxx += xs[i]! * xs[i]!; sxy += xs[i]! * ys[i]!;
+  }
+  const den = n * sxx - sx * sx;
+  if (!(Math.abs(den) > 1e-9)) return null;
+
+  let perUnit = (n * sxy - sx * sy) / den;
+  let setup = (sy - perUnit * sx) / n;
+
+  if (setup < 0) {
+    setup = 0;
+    perUnit = sxx > 0 ? sxy / sxx : 0;
+  }
+  if (!(perUnit > 0)) return null;
+  return { setup, perUnit, b, refArea, n };
+}
+
+
+
 
 function interpolate(
   points: { x: number; y: number }[],
