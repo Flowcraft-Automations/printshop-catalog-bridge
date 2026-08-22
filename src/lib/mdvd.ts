@@ -513,11 +513,17 @@ export function areaCurvePrice(
     };
 
   if (area >= last.area) {
-    const prev = pts.length > 1 ? pts[pts.length - 2]! : null;
-    let b = global?.b ?? 0.6;
-    if (prev && prev.area > 0 && prev.price > 0 && last.area / prev.area > 1.05) {
-      b = clampExp(Math.log(last.price / prev.price) / Math.log(last.area / prev.area));
+    if (global) {
+      const fitted = global.a * Math.pow(area, global.b);
+      return {
+        y: Math.max(fitted, last.price),
+        label: "מעל העוגן הגדול — עקומת המשפחה",
+        detail: `עקומה מכל העוגנים · מעריך ${global.b.toFixed(2)}${
+          fitted < last.price ? ` · רצפה: ${size(last)} = ${shekel(last.price)}` : ""
+        }`,
+      };
     }
+    const b = 0.6;
     return {
       y: last.price * Math.pow(area / last.area, b),
       label: "מעל העוגן הגדול — המשך העקומה",
