@@ -1290,6 +1290,11 @@ function Catalog() {
                     <SortHead k="size" label="מידה" />
                   </th>
                 )}
+                {visibleCols.total_size && (
+                  <th style={{ width: scaledWidths.total_size }} className="px-2 py-2">
+                    <SortHead k="total_size" label="שטח מ״ר" />
+                  </th>
+                )}
                 {visibleCols.qty && (
                   <th style={{ width: scaledWidths.qty }} className="px-2 py-2">
                     <SortHead k="qty" label="כמות" />
@@ -1458,6 +1463,16 @@ function Catalog() {
                         value={cf("size")}
                         onChange={(e) => setCf("size", e.target.value)}
                         placeholder="70×100"
+                      />
+                    </th>
+                  )}
+                  {visibleCols.total_size && (
+                    <th style={{ width: scaledWidths.total_size }} className="px-2 pb-2">
+                      <input
+                        className={colInput}
+                        value={cf("total_size")}
+                        onChange={(e) => setCf("total_size", e.target.value)}
+                        placeholder=">0.5"
                       />
                     </th>
                   )}
