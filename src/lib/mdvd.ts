@@ -768,9 +768,11 @@ export function priceJob(
   };
 
   /* 1 — validated catalog price: exact size + exact quantity, as-is */
-  const v = validated.find(
-    (a) => Math.abs(a.area - area) <= area * 0.02 && a.qty === units,
-  );
+  const sameDims = (a: JobAnchor) =>
+    Math.abs(Math.max(a.w, a.h) - Math.max(w, h)) <= 0.51 &&
+    Math.abs(Math.min(a.w, a.h) - Math.min(w, h)) <= 0.51;
+  const v = validated.find((a) => sameDims(a) && a.qty === units);
+
   if (v) {
     return finish(
       v.price,
