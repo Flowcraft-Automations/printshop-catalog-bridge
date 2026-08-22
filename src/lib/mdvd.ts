@@ -968,6 +968,29 @@ export function priceJob(
       return Math.abs(Math.log(x.qty / units)) - Math.abs(Math.log(y.qty / units));
     })[0]!;
 
+    /* setup + marginal model — preferred when the anchors support it */
+    if (!cfg.qtyExponentPinned) {
+      const sameSize = usableAnchors.filter((a) => sameDims(a));
+      const pool =
+        new Set(sameSize.map((a) => a.qty)).size >= 2 ? sameSize : usableAnchors;
+      const poolRef = pool.includes(ref) ? ref : pool[0]!;
+      const lin = fitSetupCurve(pool, pool === sameSize ? 0 : b, poolRef.area);
+      if (lin) {
+        const scale = Math.pow(area / lin.refArea, lin.b);
+        const yLin = (lin.setup + lin.perUnit * units) * scale;
+        if (yLin > 0) {
+          return finish(
+            yLin,
+            "עלות התקנה + מחיר ליחידה",
+            `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()} יח׳${
+              Math.abs(scale - 1) > 1e-6 ? ` × מקדם גודל ${scale.toFixed(2)} (מעריך ${lin.b.toFixed(2)})` : ""
+            } · לפי ${lin.n} עוגנים · ${sheets.toFixed(2)} גיליונות`,
+            "anchor",
+          );
+        }
+      }
+    }
+
     const y =
       ref.price * Math.pow(area / ref.area, b) * Math.pow(units / ref.qty, e);
 
