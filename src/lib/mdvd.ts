@@ -744,50 +744,85 @@ export function fitQtyCurve(
 }
 
 /**
- * Setup + marginal model for sheet families:
- *   price(area, qty) = (setup + perUnit x qty) x (area / refArea)^b
- * The fixed part covers preparation/plate/handling, the marginal part is the
- * real per-unit cost — this is what makes 100 -> 500 units grow correctly
- * instead of flattening out like a pure power curve.
+ * Setup + decaying marginal model for sheet families:
+ *   price(area, qty) = (setup + perUnit x qty^k) x (area / refArea)^b
+ * `setup` covers preparation, `perUnit` is the price of a single unit and
+ * k <= 1 makes that unit price drop gradually as the quantity grows
+ * (a classic learning / volume-discount curve). k is chosen by grid search,
+ * setup and perUnit by least squares for each k.
  */
 export function fitSetupCurve(
   anchors: JobAnchor[],
   b: number,
   refArea: number,
-): { setup: number; perUnit: number; b: number; refArea: number; n: number } | null {
+): {
+  setup: number;
+  perUnit: number;
+  k: number;
+  b: number;
+  refArea: number;
+  n: number;
+} | null {
   const pts = anchors.filter((p) => p.area > 0 && p.price > 0 && p.qty > 0);
   if (pts.length < 2) return null;
   if (new Set(pts.map((p) => p.qty)).size < 2) return null;
   if (!(refArea > 0)) return null;
 
-  const xs: number[] = [];
+  const qs: number[] = [];
   const ys: number[] = [];
   for (const p of pts) {
     const scale = Math.pow(p.area / refArea, b);
     if (!(scale > 0)) continue;
-    xs.push(p.qty);
+    qs.push(p.qty);
     ys.push(p.price / scale);
   }
-  const n = xs.length;
+  const n = qs.length;
   if (n < 2) return null;
 
-  let sx = 0, sy = 0, sxx = 0, sxy = 0;
-  for (let i = 0; i < n; i++) {
-    sx += xs[i]!; sy += ys[i]!; sxx += xs[i]! * xs[i]!; sxy += xs[i]! * ys[i]!;
-  }
-  const den = n * sxx - sx * sx;
-  if (!(Math.abs(den) > 1e-9)) return null;
+  const solve = (k: number) => {
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    const xs = qs.map((q) => Math.pow(q, k));
+    for (let i = 0; i < n; i++) {
+      sx += xs[i]!; sy += ys[i]!; sxx += xs[i]! * xs[i]!; sxy += xs[i]! * ys[i]!;
+    }
+    const den = n * sxx - sx * sx;
+    let perUnit: number;
+    let setup: number;
+    if (n < 3 || !(Math.abs(den) > 1e-9)) {
+      perUnit = (n * sxy - sx * sy) / (den || 1);
+      setup = (sy - perUnit * sx) / n;
+    } else {
+      perUnit = (n * sxy - sx * sy) / den;
+      setup = (sy - perUnit * sx) / n;
+    }
+    if (setup < 0) {
+      setup = 0;
+      perUnit = sxx > 0 ? sxy / sxx : 0;
+    }
+    if (!(perUnit > 0)) return null;
+    let sse = 0;
+    for (let i = 0; i < n; i++) {
+      const d = ys[i]! - (setup + perUnit * xs[i]!);
+      sse += d * d;
+    }
+    return { setup, perUnit, k, sse };
+  };
 
-  let perUnit = (n * sxy - sx * sy) / den;
-  let setup = (sy - perUnit * sx) / n;
+  // with only two anchors a straight line already fits exactly — keep k = 1
+  const ks =
+    n < 3
+      ? [1]
+      : Array.from({ length: 21 }, (_, i) => 0.5 + i * 0.025); // 0.50 .. 1.00
 
-  if (setup < 0) {
-    setup = 0;
-    perUnit = sxx > 0 ? sxy / sxx : 0;
+  let best: { setup: number; perUnit: number; k: number; sse: number } | null = null;
+  for (const k of ks) {
+    const r = solve(k);
+    if (r && (!best || r.sse < best.sse - 1e-9)) best = r;
   }
-  if (!(perUnit > 0)) return null;
-  return { setup, perUnit, b, refArea, n };
+  if (!best) return null;
+  return { setup: best.setup, perUnit: best.perUnit, k: best.k, b, refArea, n };
 }
+
 
 
 
@@ -977,14 +1012,16 @@ export function priceJob(
       const lin = fitSetupCurve(pool, pool === sameSize ? 0 : b, poolRef.area);
       if (lin) {
         const scale = Math.pow(area / lin.refArea, lin.b);
-        const yLin = (lin.setup + lin.perUnit * units) * scale;
+        const qk = Math.pow(units, lin.k);
+        const yLin = (lin.setup + lin.perUnit * qk) * scale;
         if (yLin > 0) {
+          const effUnit = yLin / units;
           return finish(
             yLin,
-            "עלות התקנה + מחיר ליחידה",
-            `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()} יח׳${
+            "בסיס + מחיר יחידה יורד",
+            `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()}^${lin.k.toFixed(2)} יח׳${
               Math.abs(scale - 1) > 1e-6 ? ` × מקדם גודל ${scale.toFixed(2)} (מעריך ${lin.b.toFixed(2)})` : ""
-            } · לפי ${lin.n} עוגנים · ${sheets.toFixed(2)} גיליונות`,
+            } → ${shekel(effUnit)} ליחידה בפועל · לפי ${lin.n} עוגנים · ${sheets.toFixed(2)} גיליונות`,
             "anchor",
           );
         }
