@@ -109,19 +109,40 @@ function Dashboard() {
 
   const byFamily = new Map<
     string,
-    { items: number; site: number; senzey: number; pending: number }
+    {
+      items: number;
+      verified: number;
+      site: number;
+      siteVerified: number;
+      senzey: number;
+      senzeyVerified: number;
+      pending: number;
+    }
   >();
   for (const p of products) {
     const f = p.family || "ללא משפחה";
-    const e = byFamily.get(f) ?? { items: 0, site: 0, senzey: 0, pending: 0 };
+    const e =
+      byFamily.get(f) ?? {
+        items: 0,
+        verified: 0,
+        site: 0,
+        siteVerified: 0,
+        senzey: 0,
+        senzeyVerified: 0,
+        pending: 0,
+      };
     e.items++;
+    if (p.verified) e.verified++;
     if (p.site_exists) e.site++;
+    if (p.site_exists && p.verified) e.siteVerified++;
     if (p.senzey_exists) e.senzey++;
+    if (p.senzey_exists && p.verified) e.senzeyVerified++;
     if (["to_review", "to_add", "in_progress"].includes(p.site_status)) e.pending++;
     if (["to_review", "to_add", "in_progress"].includes(p.senzey_status)) e.pending++;
     byFamily.set(f, e);
   }
   const families = [...byFamily.entries()].sort((a, b) => b[1].items - a[1].items);
+
 
   return (
     <div>
@@ -191,9 +212,10 @@ function Dashboard() {
           <thead className="bg-[var(--ink)] text-white">
             <tr className="text-right">
               <th className="px-3 py-2 font-semibold">משפחה</th>
-              <th className="px-3 py-2 font-semibold">פריטים</th>
-              <th className="px-3 py-2 font-semibold">באתר</th>
-              <th className="px-3 py-2 font-semibold">בסנזיי</th>
+              <th className="px-3 py-2 font-semibold">מאומתים</th>
+              <th className="px-3 py-2 font-semibold">סה״כ פריטים</th>
+              <th className="px-3 py-2 font-semibold">מאומתים באתר</th>
+              <th className="px-3 py-2 font-semibold">מאומתים בסנזיי</th>
               <th className="px-3 py-2 font-semibold">ממתין להגירה</th>
             </tr>
           </thead>
@@ -212,10 +234,18 @@ function Dashboard() {
                     {f}
                   </Link>
                 </td>
+                <td className="num px-3 py-1.5 font-bold">{v.verified}</td>
                 <td className="num px-3 py-1.5">{v.items}</td>
-                <td className="num px-3 py-1.5">{v.site}</td>
-                <td className="num px-3 py-1.5">{v.senzey}</td>
+                <td className="num px-3 py-1.5">
+                  {v.siteVerified}
+                  <span className="opacity-50"> / {v.site}</span>
+                </td>
+                <td className="num px-3 py-1.5">
+                  {v.senzeyVerified}
+                  <span className="opacity-50"> / {v.senzey}</span>
+                </td>
                 <td className="num px-3 py-1.5 font-bold">{v.pending || "—"}</td>
+
               </tr>
             ))}
           </tbody>
