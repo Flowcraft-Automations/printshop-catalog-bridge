@@ -940,6 +940,7 @@ function Catalog() {
       "משפחה": p.family ?? "",
       "רוחב": p.width_cm ?? "",
       "גובה": p.height_cm ?? "",
+      "שטח מ״ר": p.width_cm && p.height_cm ? (p.width_cm * p.height_cm) / 10000 : "",
       "כמות": p.qty ?? "",
       "קיים בסנזיי": p.senzey_exists ? "כן" : "לא",
       "מזהי סנזיי": p.senzey_ids ?? "",
