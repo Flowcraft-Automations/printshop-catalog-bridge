@@ -109,19 +109,40 @@ function Dashboard() {
 
   const byFamily = new Map<
     string,
-    { items: number; site: number; senzey: number; pending: number }
+    {
+      items: number;
+      verified: number;
+      site: number;
+      siteVerified: number;
+      senzey: number;
+      senzeyVerified: number;
+      pending: number;
+    }
   >();
   for (const p of products) {
     const f = p.family || "ללא משפחה";
-    const e = byFamily.get(f) ?? { items: 0, site: 0, senzey: 0, pending: 0 };
+    const e =
+      byFamily.get(f) ?? {
+        items: 0,
+        verified: 0,
+        site: 0,
+        siteVerified: 0,
+        senzey: 0,
+        senzeyVerified: 0,
+        pending: 0,
+      };
     e.items++;
+    if (p.verified) e.verified++;
     if (p.site_exists) e.site++;
+    if (p.site_exists && p.verified) e.siteVerified++;
     if (p.senzey_exists) e.senzey++;
+    if (p.senzey_exists && p.verified) e.senzeyVerified++;
     if (["to_review", "to_add", "in_progress"].includes(p.site_status)) e.pending++;
     if (["to_review", "to_add", "in_progress"].includes(p.senzey_status)) e.pending++;
     byFamily.set(f, e);
   }
   const families = [...byFamily.entries()].sort((a, b) => b[1].items - a[1].items);
+
 
   return (
     <div>
