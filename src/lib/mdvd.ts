@@ -468,6 +468,53 @@ export function matchQtyTier(
   );
 }
 
+export type MachineCheck = {
+  /** number of welded panels (1 = single print) */
+  panels: number;
+  /** cannot be produced at all (over the length cap, or too wide and not weldable) */
+  blocked: boolean;
+  /** printed vinyl mounted on board instead of direct print */
+  mounted: boolean;
+  note: string;
+};
+
+/** Machine limits for a job: printable width, length cap and the mounting boundary. */
+export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineCheck {
+  const short = Math.min(w, h);
+  const long = Math.max(w, h);
+  let panels = 1;
+  let blocked = false;
+  const notes: string[] = [];
+
+  if (cfg.maxPrintL > 0 && long > cfg.maxPrintL + 0.01) {
+    blocked = true;
+    notes.push(`מעל האורך המרבי ${cfg.maxPrintL} ס״מ`);
+  }
+  if (cfg.maxPrintW > 0 && short > cfg.maxPrintW + 0.01) {
+    if (cfg.weldable) {
+      panels = Math.ceil(short / cfg.maxPrintW);
+      notes.push(`ריתוך פאנלים — ${panels} פאנלים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
+    } else {
+      blocked = true;
+      notes.push(`מעל רוחב ההדפסה ${cfg.maxPrintW} ס״מ — לא ניתן לייצור`);
+    }
+  }
+
+  const mounted =
+    cfg.mountW > 0 &&
+    cfg.mountH > 0 &&
+    (short > Math.min(cfg.mountW, cfg.mountH) + 0.01 ||
+      long > Math.max(cfg.mountW, cfg.mountH) + 0.01);
+  if (mounted) {
+    notes.push(
+      `הדבקת ויניל על הלוח (מעל ${Math.min(cfg.mountW, cfg.mountH)}×${Math.max(cfg.mountW, cfg.mountH)} ס״מ)`,
+    );
+  }
+
+  return { panels, blocked, mounted, note: notes.join(" · ") };
+}
+
+
 
 /** The usable (printable) sheet area for a family, in cm. */
 export function printableSheet(cfg?: Partial<FamilyPricing>) {
