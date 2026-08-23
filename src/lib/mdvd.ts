@@ -994,7 +994,8 @@ export function priceJob(
   const minUnitArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
   const qtyExp = cfg.qtyExponent > 0 ? cfg.qtyExponent : 1;
   const qtyFactor = Math.pow(units, qtyExp);
-  const qtyNote = qtyExp !== 1 ? ` · מקדם כמות ${qtyExp} (${qtyFactor.toFixed(2)})` : "";
+  const qtyNote = qtyExp !== 1 ? ` · מקדם כמות ${Math.round(qtyExp * 100)}% (${qtyFactor.toFixed(2)})` : "";
+
 
   const per = cfg.method === "sheet" ? sheetUnitsFor(cfg, w, h) : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
