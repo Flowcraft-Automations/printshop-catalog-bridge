@@ -821,66 +821,8 @@ function Calculator() {
               width="w-44"
               placeholder="ללא"
             />
-            <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
-              <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                מגבלות מכונה וחומר
-              </div>
-              <div className="flex flex-wrap items-end gap-6">
-                <Field
-                  label='רוחב הדפסה מרבי (ס"מ)'
-                  value={draft.maxPrintW}
-                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
-                  width="w-44"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='אורך מרבי (ס"מ)'
-                  value={draft.maxPrintL}
-                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
-                  width="w-40"
-                  placeholder="ללא"
-                />
-                <label className="flex cursor-pointer items-center gap-2 pb-1 text-xs font-bold text-[var(--ink)]">
-                  <input
-                    type="checkbox"
-                    checked={draft.weldable}
-                    onChange={(e) => setDraft((p) => ({ ...p, weldable: e.target.checked }))}
-                    className="size-4 accent-[var(--accent-raw)]"
-                  />
-                  ניתן לריתוך פאנלים מעל הרוחב
-                </label>
-              </div>
-              <div className="mt-4 flex flex-wrap items-end gap-6">
-                <Field
-                  label='גבול הדפסה ישירה — רוחב (ס"מ)'
-                  value={draft.mountW}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountW: v }))}
-                  width="w-52"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='גבול הדפסה ישירה — גובה (ס"מ)'
-                  value={draft.mountH}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountH: v }))}
-                  width="w-52"
-                  placeholder="ללא"
-                />
-                <Field
-                  label="עלות הדבקה ₪ למ״ר"
-                  value={draft.mountCostM2}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
-                  width="w-40"
-                  placeholder="0"
-                />
-                <Field
-                  label="עלות הדבקה ₪ ליחידה"
-                  value={draft.mountCostUnit}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
-                  width="w-40"
-                  placeholder="0"
-                />
-              </div>
-            </div>
+
+
 
             {draft.method === "sheet" && (
               <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
