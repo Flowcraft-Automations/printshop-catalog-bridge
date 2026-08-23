@@ -910,6 +910,9 @@ export function priceJob(
 
   const sheetExtra = per ? { sheets, unitsPerSheet: per.units } : {};
 
+  /* above the threshold the outsourcing cost is only a floor — anchors still lead */
+  const outsourceFloor = above && cfg.outsourceCost > 0 ? cost * margin : 0;
+
   const finish = (
     raw: number,
     label: string,
@@ -918,8 +921,11 @@ export function priceJob(
     extra: Partial<JobPrice> = {},
     noRound = false,
   ): JobPrice => {
-    const total = noRound ? Math.max(raw, 0) : roundUpTo(Math.max(raw, 0), cfg.rounding);
+    const base = Math.max(raw, 0);
+    const floored = source === "validated" ? base : Math.max(base, outsourceFloor);
+    const total = noRound && floored === base ? floored : roundUpTo(floored, cfg.rounding);
     const floorValue = cost * margin;
+    const floorHit = floored > base + 0.001;
     return {
       total,
       unit: total / units,
@@ -927,8 +933,12 @@ export function priceJob(
       cost,
       costFloorValue: floorValue,
       belowCost: cost > 0 && total < floorValue - 0.001,
-      label,
-      detail,
+      label: floorHit ? "מעל הסף — רצפת מיקור חוץ" : label,
+      detail: floorHit
+        ? `${detail} · רצפת מיקור חוץ ${shekel(outsourceFloor)} (${shekel(cfg.outsourceCost)} למ״ר × ${Math.max(minUnitArea, area).toFixed(2)} מ״ר ליחידה × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin})`
+        : above && outsourceFloor > 0
+          ? `${detail} · מעל הסף · רצפת מיקור חוץ ${shekel(outsourceFloor)}`
+          : detail,
       sheets: null,
       unitsPerSheet: null,
       inconsistent: [],
@@ -958,8 +968,8 @@ export function priceJob(
     );
   }
 
-  /* 2 — above the outsourcing threshold */
-  if (above) {
+  /* 2 — above the threshold with no anchors at all: pure outsourcing cost */
+  if (above && anchors.length === 0) {
     const billedUnitArea = Math.max(minUnitArea, area);
     return finish(
       cost * margin,
@@ -970,6 +980,7 @@ export function priceJob(
       "cost",
     );
   }
+
 
   /* 3 — sheet method below the threshold: size + quantity curve */
   if (cfg.method === "sheet" && per) {
