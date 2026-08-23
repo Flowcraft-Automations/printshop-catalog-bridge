@@ -1,50 +1,52 @@
-# Why 85×120 costs less than 120×80 — and the fix
+# Only verified items feed pricing — everywhere
 
-## Verified cause
+## Verified cause of the 85×120 vs 120×80 case
 
-שמשונית has two anchors for the exact same size 120×80, qty 1:
+שמשונית has two anchors for the same size 120×80, qty 1:
 
 ```text
-120/80  "הדפס‍ה על שמשונית 120/80 ס"מ"   ₪90   verified
-120/80  "הדפסה על שמשונית 120/80"          ₪70   not verified
+120/80   ₪90   verified
+120/80   ₪70   NOT verified
 ```
 
-Both are flagged as anchors. The engine merges anchors with the same quantity and
-near-identical area into one curve point at their **average**, so 0.96 m² enters the
-curve at ₪80 instead of ₪90. The next anchor up is 200×100 = 2.0 m² at ₪150.
+The engine merged them into one curve point at their average ₪80, so 85×120
+(1.02 m²) interpolated from ₪80 up toward the 200×100 anchor (₪150) and landed at
+₪84 — below the ₪90 of the smaller 120×80.
 
-- 120×80 is an exact anchor match, so the catalog shows its own stored ₪90.
-- 85×120 = 1.02 m² is not an anchor, so it interpolates from the merged ₪80 point
-  toward ₪150 and lands at ₪84 — below the ₪90 of a smaller item.
+The unverified ₪70 row should never have been part of the calculation at all.
 
-So the curve is behaving as designed; the input data has two contradicting anchors
-and the averaging hides the conflict instead of resolving it.
+## The rule
 
-## Fix
+**Unverified items are invisible to the pricing engine.** Everywhere, always:
 
-1. **Verified anchors win a conflict.** When several anchors share the same quantity
-   and area (±2%), use the verified ones only; average only when they are all equally
-   verified (all verified or all unverified). Here 0.96 m² becomes ₪90.
-2. **Monotonic floor now bites.** With 0.96 m² at ₪90, 1.02 m² interpolates to ≈₪95,
-   and the existing "never below a smaller-or-equal anchor" guard keeps it there.
-3. **Conflict stays visible.** The pair keeps appearing in "עוגנים סותרים" on the
-   family pricing screen and as the amber anchor marker in the catalog, with the
-   tooltip stating which price was used and which was ignored.
+1. Anchors: only products with `verified = true` are used to build any curve.
+2. Exact-match "decided price" lookups in calculator and catalog: only verified rows
+   can supply a price; an unverified row with the same size gets a suggestion like any
+   other item.
+3. Quantity-exponent fitting, monotonic floors, cost comparisons and the "nearest
+   items" reference cards: all restricted to verified rows.
+4. An unverified product flagged as anchor is simply ignored (no averaging, no
+   conflict warning) until it is verified.
 
-Nothing else changes: exact anchor matches still return their own stored price,
-quantity handling, thresholds/outsourcing, cost floor, margin and rounding are untouched.
+With this, 0.96 m² is ₪90, and 85×120 interpolates to ≈₪95 — above it, as expected.
 
-## Optional data cleanup
+Conflict handling stays only for genuine conflicts *between verified anchors*.
 
-The unverified ₪70 row looks like a stale duplicate of the ₪90 one. Say the word and
-I will clear its anchor flag (the product itself stays) so the conflict disappears
-entirely rather than just being resolved by rule.
+## Everything else unchanged
+
+Thresholds/outsourcing, cost floor, margin, rounding, quantity handling and the
+catalog UI all keep their current behaviour.
 
 ## Technical notes
 
-- `src/lib/mdvd.ts`, `mergeCloseAnchors`: within each same-qty / ±2%-area group, if the
-  group contains verified anchors, drop the unverified ones before averaging; keep the
-  full group in the returned `conflicts` list so the UI can still flag it. Requires the
-  anchor builder to carry `verified` through from the product row.
-- `src/routes/calculator.tsx` and `src/routes/catalog.tsx` only get the extended tooltip
-  text; no schema change.
+- `src/lib/mdvd.ts`: filter to `verified` at the single point where product rows enter
+  the anchor builder, and in the exact-match price lookup. Requires `verified` to be
+  carried on the row type passed into `priceJob` (the callers already query it).
+- `src/routes/calculator.tsx`: nearest-items and family reference tables already filter
+  to verified; confirm and align the anchor list in advanced settings so it shows only
+  verified anchors, with unverified anchor rows listed separately as "לא מאומת — לא
+  משפיע על התמחור".
+- `src/routes/catalog.tsx`: suggested-price and deviation columns pick this up
+  automatically; the amber anchor marker on an unverified anchor becomes a grey
+  "ignored" marker.
+- No schema or data change.
