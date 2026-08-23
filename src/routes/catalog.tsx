@@ -2134,18 +2134,24 @@ function Catalog() {
                     >
                       <button
                         title={
-                          conflictAnchors.get(p.id) ??
-                          (p.is_anchor ? "עוגן עקומה — לחץ להסרה" : "סמן כעוגן עקומה למשפחה")
+                          p.is_anchor && !p.verified
+                            ? "עוגן לא מאומת — אינו משתתף בחישוב המחיר"
+                            : (conflictAnchors.get(p.id) ??
+                              (p.is_anchor
+                                ? "עוגן עקומה — לחץ להסרה"
+                                : "סמן כעוגן עקומה למשפחה"))
                         }
                         onClick={() =>
                           update.mutate({ ids: [p.id], patch: { is_anchor: !p.is_anchor } })
                         }
                         className={
-                          conflictAnchors.has(p.id)
-                            ? "text-[oklch(0.65_0.16_70)]"
-                            : p.is_anchor
-                              ? "text-[var(--accent-raw)]"
-                              : "text-muted-foreground/40 hover:text-[var(--accent-raw)]"
+                          p.is_anchor && !p.verified
+                            ? "text-muted-foreground/50"
+                            : conflictAnchors.has(p.id)
+                              ? "text-[oklch(0.65_0.16_70)]"
+                              : p.is_anchor
+                                ? "text-[var(--accent-raw)]"
+                                : "text-muted-foreground/40 hover:text-[var(--accent-raw)]"
                         }
                       >
                         <Anchor className="size-4" fill={p.is_anchor ? "currentColor" : "none"} />
