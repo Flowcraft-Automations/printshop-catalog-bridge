@@ -463,8 +463,48 @@ export function consistentAreaAnchors(anchors: JobAnchor[]) {
   return { kept, bad };
 }
 
-const roundUpTo = (v: number, step: number) =>
-  step > 0 ? Math.ceil(v / step) * step : Math.round(v);
+/** Two anchors of the same quantity whose areas are within ±2%. */
+export type AnchorConflict = { members: JobAnchor[]; price: number };
+
+/**
+ * Merge anchors that describe practically the same job (same quantity, area
+ * within ±2%) into a single curve point at their average price, and report the
+ * groups whose prices disagree.
+ */
+export function mergeCloseAnchors(anchors: JobAnchor[]): {
+  points: JobAnchor[];
+  conflicts: AnchorConflict[];
+} {
+  const sorted = [...anchors].sort((a, b) => a.qty - b.qty || a.area - b.area);
+  const groups: JobAnchor[][] = [];
+  for (const a of sorted) {
+    const g = groups[groups.length - 1];
+    const last = g?.[g.length - 1];
+    if (g && last && last.qty === a.qty && Math.abs(a.area - last.area) <= last.area * 0.02)
+      g.push(a);
+    else groups.push([a]);
+  }
+  const points: JobAnchor[] = [];
+  const conflicts: AnchorConflict[] = [];
+  for (const g of groups) {
+    const first = g[0]!;
+    if (g.length === 1) {
+      points.push(first);
+      continue;
+    }
+    const price = g.reduce((s, x) => s + x.price, 0) / g.length;
+    points.push({ ...first, price, name: g.map((x) => x.name).join(" / ") });
+    if (g.some((x) => Math.abs(x.price - price) > 0.01)) conflicts.push({ members: g, price });
+  }
+  return {
+    points: points.sort((a, b) => a.area - b.area || a.qty - b.qty),
+    conflicts,
+  };
+}
+
+const roundTo = (v: number, step: number) =>
+  step > 0 ? Math.round(v / step) * step : Math.round(v);
+
 
 const clampExp = (b: number) => Math.min(1, Math.max(0.3, b));
 
