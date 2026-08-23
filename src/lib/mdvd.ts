@@ -1157,8 +1157,11 @@ export function priceJob(
     const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
     const b = fit?.b ?? 0;
 
-    /* the smallest anchored package — the ladder says nothing below it */
-    const minAnchorQty = usableAnchors.reduce((m, a) => Math.min(m, a.qty), Infinity);
+    /* the smallest package of the family (or the smallest anchored quantity when
+       no packages are configured) — the ladder says nothing below it */
+    const pkgMin = cfg.packages.length ? Math.min(...cfg.packages) : Infinity;
+    const anchorMinQty = usableAnchors.reduce((m, a) => Math.min(m, a.qty), Infinity);
+    const minAnchorQty = Number.isFinite(pkgMin) ? pkgMin : anchorMinQty;
 
     /** price of this size at a quantity that the anchors do cover */
     const priceAtQty = (u: number): { y: number; detail: string } => {
