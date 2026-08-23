@@ -10,27 +10,34 @@ The sticker anchors only cover packages of 100 / 150 / 200 / 250 / 500. Anything
 
 Ten stickers cost less than one. The setup + decaying-unit curve fitted from the 100–500 ladder is being run backwards into a range it was never fitted for, and nothing enforces that price grows with quantity.
 
-## Suggested approach
+## Suggested approach — base by size, then a short-run ramp
 
-Treat everything below the smallest anchored package as its own short-run zone, driven by the same print reality: a short run is one sheet, so it costs almost the same as the smallest package.
+Two steps, exactly as you described:
 
-Three rules, in order:
+**Step 1 — base price for the size.** Take the 100-unit price for that size from the anchored ladder. If the size matches an anchor, that price is used verbatim; otherwise the existing size curve (built from the 100-unit anchors) gives it. 14×11 = 154 cm² lands in the top sticker bucket → base ₪187.
 
-1. **Short-run floor.** Below the smallest anchored quantity (100), the price starts at a configurable share of the 100-unit price for that size. Default 70%. So 14×11 at 100 units = ₪115 → any run of 1–~30 units lands at ₪80.
-2. **Straight ramp up to the first anchor.** Between the short-run floor and the 100-unit anchor price the price rises linearly with quantity, so 1 unit = the floor, 100 units = the exact anchor price, and everything in between is a smooth climb. Per-unit price therefore falls continuously as the run grows, which is the correct shape.
-3. **Monotone guard on quantity.** A suggestion can never be lower than the suggestion for a smaller quantity of the same size. This is a hard clamp applied after the curve, so no future anchor combination can reproduce the "10 costs less than 1" result.
+**Step 2 — short-run ramp.** Below the smallest anchored package (100), the price starts at a configurable share of the base — default 70% — and climbs linearly to the full base at 100 units:
 
-With 14×11 (100 units = ₪115, floor 70% = ₪80):
+```text
+price = base × (0.70 + 0.30 × (qty − 1) / (100 − 1))
+```
+
+14×11, qty 22 → 187 × (0.70 + 0.30 × 0.212) = 187 × 0.764 = ₪142.8 → ₪143 (₪140 with rounding to fives). Per unit ≈ ₪6.50.
+
+**Monotone guard.** A suggestion can never be lower than the suggestion for a smaller quantity of the same size — a hard clamp applied after the curve, so "10 costs less than 1" cannot come back.
+
+Full ladder for 14×11 (base ₪187, floor 70% = ₪131):
 
 | qty | price | per unit |
 | --- | --- | --- |
-| 1 | 80 | 80 |
-| 10 | 83 | 8.3 |
-| 22 | 88 | 4.0 |
-| 50 | 97 | 1.94 |
-| 100 | 115 | 1.15 |
+| 1 | 131 | 131 |
+| 10 | 136 | 13.6 |
+| 22 | 143 | 6.50 |
+| 50 | 159 | 3.18 |
+| 100 | 187 | 1.87 |
 
 Above 100 nothing changes — the existing anchor ladder keeps driving the price.
+
 
 ## Config
 
@@ -43,7 +50,7 @@ Leaving it at 100% makes any quantity under a package simply cost the package pr
 ## Calculator display
 
 For a quantity below the smallest package, the breakdown line reads, for example:
-`ריצה קצרה · 22 יח׳ · מינימום ₪80 (70% ממחיר 100 יח׳) → ₪88 · ₪4.00 ליחידה`
+`ריצה קצרה · 22 יח׳ · בסיס ₪187 (100 יח׳) × 76% → ₪143 · ₪6.50 ליחידה`
 
 The package chips (100/150/200/250/500) stay as they are; typing a free quantity under 100 now gets this treatment.
 
