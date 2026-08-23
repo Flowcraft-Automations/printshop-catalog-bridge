@@ -1132,16 +1132,23 @@ export function priceJob(
   const per = cfg.method === "sheet" ? sheetUnitsFor(cfg, w, h) : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
 
-  const cost = above
-    ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
-    : cfg.method === "sheet"
-      ? Math.ceil(sheets) * cfg.cost
-      : cfg.cost * area * units;
+  const machine = machineCheck(cfg, w, h);
+  const mountCost = machine.mounted
+    ? (cfg.mountCostM2 * area + cfg.mountCostUnit) * units
+    : 0;
+
+  const cost =
+    (above
+      ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
+      : cfg.method === "sheet"
+        ? Math.ceil(sheets) * cfg.cost
+        : cfg.cost * area * units) + mountCost;
 
   const sheetExtra = per ? { sheets, unitsPerSheet: per.units } : {};
 
   /* above the threshold the outsourcing cost is only a floor — anchors still lead */
   const outsourceFloor = above && cfg.outsourceCost > 0 ? cost * margin : 0;
+
 
   /* anchors describing the same job at different prices — reported everywhere */
   const allConflicts = mergeCloseAnchors(
