@@ -1064,7 +1064,8 @@ export function priceJob(
         ? ` · מעריך גודל ${b.toFixed(2)}`
         : "";
     return finish(
-      y,
+      withFloor(y),
+
       "עקומת גודל וכמות",
       `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${e.toFixed(2)} (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
       "anchor",
