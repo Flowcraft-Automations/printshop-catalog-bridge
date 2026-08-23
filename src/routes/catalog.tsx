@@ -304,7 +304,6 @@ type ColKey =
   | "senzey_price"
   | "site_price"
   | "price_gap"
-  | "final_price"
   | "curve_price"
   | "curve_dev"
   | "cost_floor"
@@ -378,7 +377,6 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_price: (p) => p.senzey_price,
   site_price: (p) => p.site_price,
   price_gap: (p) => priceGap(p),
-  final_price: (p) => p.final_price,
   curve_price: (p) => curveOf(p.id)?.suggested ?? null,
   curve_dev: (p) => curveOf(p.id)?.dev ?? null,
   cost_floor: (p) => {
@@ -568,7 +566,6 @@ function Catalog() {
     senzey_price: true,
     site_price: true,
     price_gap: true,
-    final_price: true,
     curve_price: true,
     curve_dev: false,
     cost_floor: true,
@@ -596,7 +593,6 @@ function Catalog() {
     senzey_price: 7,
     site_price: 7,
     price_gap: 6,
-    final_price: 7,
     curve_price: 8,
     curve_dev: 6,
     cost_floor: 7,
@@ -843,7 +839,6 @@ function Catalog() {
       if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
       if (!matchNum(priceGap(p), colFilters.price_gap ?? "")) return false;
-      if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
       if (!matchNum(curveByProduct[p.id]?.suggested ?? null, colFilters.curve_price ?? "")) return false;
       if (
         !matchNum(
@@ -964,7 +959,7 @@ function Catalog() {
     }
 
     // original (pre-change) prices = earliest recorded old_value per product+field
-    const priceFields = ["senzey_price", "site_price", "final_price"] as const;
+    const priceFields = ["senzey_price", "site_price"] as const;
     const originals: Record<string, Partial<Record<(typeof priceFields)[number], string>>> = {};
     {
       const page = 1000;
@@ -1013,8 +1008,6 @@ function Catalog() {
       "מחיר אתר": p.site_price ?? "",
       "מחיר אתר מקורי": orig(p, "site_price", p.site_price),
       "פער אתר-סנזיי": priceGap(p) ?? "",
-      "מחיר סופי": p.final_price ?? "",
-      "מחיר סופי מקורי": orig(p, "final_price", p.final_price),
 
       "מחיר לפי עקומה": curveByProduct[p.id]?.suggested ?? "",
       "סטייה מהעקומה %": curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : "",
@@ -1376,11 +1369,6 @@ function Catalog() {
                     <SortHead k="price_gap" label="פער" />
                   </th>
                 )}
-                {visibleCols.final_price && (
-                  <th style={{ width: scaledWidths.final_price }} className="px-2 py-2">
-                    <SortHead k="final_price" label="מחיר סופי" />
-                  </th>
-                )}
                 {visibleCols.curve_price && (
                   <th style={{ width: scaledWidths.curve_price }} className="px-2 py-2">
                     <SortHead k="curve_price" label="לפי עקומה" />
@@ -1574,16 +1562,6 @@ function Catalog() {
                         value={cf("price_gap")}
                         onChange={(e) => setCf("price_gap", e.target.value)}
                         placeholder=">0"
-                      />
-                    </th>
-                  )}
-                  {visibleCols.final_price && (
-                    <th style={{ width: scaledWidths.final_price }} className="px-2 pb-2">
-                      <input
-                        className={colInput}
-                        value={cf("final_price")}
-                        onChange={(e) => setCf("final_price", e.target.value)}
-                        placeholder="-"
                       />
                     </th>
                   )}
@@ -1953,21 +1931,6 @@ function Catalog() {
                           </span>
                         );
                       })()}
-                    </td>
-                  )}
-                  {visibleCols.final_price && (
-                    <td style={{ width: scaledWidths.final_price }} className="truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        defaultValue={p.final_price ?? ""}
-                        key={`fp-${p.id}-${p.final_price}`}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          const num = v === "" ? null : Number(v);
-                          if (num !== (p.final_price ?? null))
-                            update.mutate({ ids: [p.id], patch: { final_price: num } });
-                        }}
-                        className="num w-full border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
-                      />
                     </td>
                   )}
                   {visibleCols.curve_price && (
@@ -2611,7 +2574,6 @@ const COLUMN_LABEL: Record<ColKey, string> = {
   senzey_price: "מחיר סנזיי",
   site_price: "מחיר אתר",
   price_gap: "פער",
-  final_price: "מחיר סופי",
   curve_price: "מחיר לפי עקומה",
   curve_dev: "סטייה מהעקומה",
   cost_floor: "רצפת מחיר",
@@ -2666,7 +2628,6 @@ function ColumnChooser({
                     senzey_price: true,
                     site_price: true,
                     price_gap: true,
-                    final_price: true,
                     curve_price: true,
                     curve_dev: false,
                     cost_floor: true,
