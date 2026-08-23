@@ -315,7 +315,7 @@ export type FamilyPricing = {
 
 
 export const DEFAULT_MARGIN = 1.3;
-export const DEFAULT_ROUNDING = 5;
+export const DEFAULT_ROUNDING = 1;
 
 export function readFamilyPricing(family: Family | undefined): FamilyPricing {
   const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
