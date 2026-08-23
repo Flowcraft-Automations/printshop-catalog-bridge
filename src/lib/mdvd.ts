@@ -331,7 +331,15 @@ export type FamilyPricing = {
   /** עלות הדבקה ₪ למ״ר / ₪ ליחידה (רלוונטי ל"הדבקת ויניל על הלוח") */
   mountCostM2: number;
   mountCostUnit: number;
+  /** גבול ייצור מוחלט (ס"מ) — מעליו לא ניתן לייצר בכלל (0 = ללא) */
+  capW: number;
+  capL: number;
+  /** חיוב חומר לפי לוח שלם (למשל קאפה — השארית נזרקת) */
+  wholeBoard: boolean;
+  boardW: number;
+  boardH: number;
 };
+
 
 /** מה קורה מעל גבול ההדפסה */
 export type OverLimit = "weld" | "mount" | "block";
@@ -427,6 +435,12 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     })(),
     mountCostM2: Math.max(0, num(v?.["mount_cost_m2"])),
     mountCostUnit: Math.max(0, num(v?.["mount_cost_unit"])),
+    capW: Math.max(0, num(v?.["cap_w"])),
+    capL: Math.max(0, num(v?.["cap_l"])),
+    wholeBoard: v?.["whole_board"] === true,
+    boardW: Math.max(0, num(v?.["board_w"])),
+    boardH: Math.max(0, num(v?.["board_h"])),
+
 
   };
 
@@ -461,6 +475,12 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       over_limit: cfg.overLimit,
       mount_cost_m2: cfg.mountCostM2,
       mount_cost_unit: cfg.mountCostUnit,
+      cap_w: cfg.capW,
+      cap_l: cfg.capL,
+      whole_board: cfg.wholeBoard,
+      board_w: cfg.boardW,
+      board_h: cfg.boardH,
+
 
 
 
@@ -529,7 +549,21 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
     }
   }
 
+  /* absolute production cap — nothing can be made above it */
+  const capShort = Math.min(cfg.capW || Infinity, cfg.capL || Infinity);
+  const capLong = Math.max(cfg.capW || Infinity, cfg.capL || Infinity);
+  if (short > capShort + 0.01 || long > capLong + 0.01) {
+    blocked = true;
+    panels = 1;
+    mounted = false;
+    notes.length = 0;
+    notes.push(
+      `מעל גבול הייצור המוחלט ${cfg.capW || "∞"}×${cfg.capL || "∞"} ס״מ — לא ניתן לייצור`,
+    );
+  }
+
   return { panels, blocked, mounted, note: notes.join(" · ") };
+
 }
 
 
@@ -1156,12 +1190,20 @@ export function priceJob(
     ? (cfg.mountCostM2 * area + cfg.mountCostUnit) * units
     : 0;
 
+  /* קאפה וכד' — החומר מחויב לפי לוח שלם כי השארית נזרקת */
+  const boardArea =
+    cfg.wholeBoard && cfg.boardW > 0 && cfg.boardH > 0
+      ? (cfg.boardW * cfg.boardH) / 10000
+      : 0;
+  const billedArea = boardArea > 0 ? Math.max(area, boardArea) : area;
+
   const cost =
     (above
-      ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
+      ? cfg.outsourceCost * Math.max(minUnitArea, billedArea) * qtyFactor
       : cfg.method === "sheet"
         ? Math.ceil(sheets) * cfg.cost
-        : cfg.cost * area * units) + mountCost;
+        : cfg.cost * billedArea * units) + mountCost;
+
 
   const sheetExtra = per ? { sheets, unitsPerSheet: per.units } : {};
 
