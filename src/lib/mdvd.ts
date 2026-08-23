@@ -353,6 +353,10 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
       ? (v?.["packages"] as unknown[]).map(num).filter((n) => n > 0).sort((a, b) => a - b)
       : [],
     minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
+    shortRunPct:
+      num(v?.["short_run_pct"]) > 0 && num(v?.["short_run_pct"]) <= 1
+        ? num(v?.["short_run_pct"])
+        : 0.7,
     qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
     qtyExponentPinned: num(v?.["qty_exponent"]) > 0,
     qtyTiersEnabled: v?.["qty_tiers_enabled"] === true,
@@ -384,6 +388,7 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       rounding: cfg.rounding,
       packages: cfg.packages,
       min_unit_area: cfg.minUnitArea,
+      short_run_pct: cfg.shortRunPct,
       qty_exponent: cfg.qtyExponentPinned ? cfg.qtyExponent : null,
       qty_tiers_enabled: cfg.qtyTiersEnabled,
       qty_tiers: cfg.qtyTiers.map((t) => ({
