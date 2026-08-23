@@ -167,9 +167,8 @@ function Calculator() {
     minOrderQty: "",
     maxPrintW: "",
     maxPrintL: "",
-    weldable: true,
-    mountW: "",
-    mountH: "",
+    overLimit: "weld",
+
     mountCostM2: "",
     mountCostUnit: "",
   });
