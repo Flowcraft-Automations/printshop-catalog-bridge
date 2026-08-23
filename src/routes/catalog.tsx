@@ -406,8 +406,26 @@ function Catalog() {
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: allNotes = [] } = useQuery(productNotesQuery());
-  const { data: families = [] } = useQuery(familiesQuery());
+  const { data: allFamilies = [] } = useQuery(familiesQuery());
   const { data: bizCfg } = useQuery(businessConfigQuery());
+  const { isAdmin, allowedFamilies } = useAuth();
+
+  /* non-admins only ever see the families granted to them */
+  const families = useMemo(
+    () =>
+      allowedFamilies === null
+        ? allFamilies
+        : allFamilies.filter((f) => allowedFamilies.includes(f.family)),
+    [allFamilies, allowedFamilies],
+  );
+  const visibleProducts = useMemo(
+    () =>
+      allowedFamilies === null
+        ? products
+        : products.filter((p) => allowedFamilies.includes(p.family ?? "")),
+    [products, allowedFamilies],
+  );
+
 
 
   const notesByProduct = useMemo(() => {
