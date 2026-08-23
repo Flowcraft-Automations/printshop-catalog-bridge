@@ -198,8 +198,8 @@ function Calculator() {
       sheetMargin: String(saved.sheetMargin),
       sheetGap: String(saved.sheetGap),
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
-      maxPrintW: saved.maxPrintW ? String(saved.maxPrintW) : "",
-      maxPrintL: saved.maxPrintL ? String(saved.maxPrintL) : "",
+      maxPrintW: String(saved.maxPrintW || saved.thresholdW || ""),
+      maxPrintL: String(saved.maxPrintL || saved.thresholdH || ""),
       overLimit: saved.overLimit,
 
       mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
