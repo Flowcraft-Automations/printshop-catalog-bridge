@@ -462,8 +462,6 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       mount_cost_m2: cfg.mountCostM2,
       mount_cost_unit: cfg.mountCostUnit,
 
-      mount_cost_m2: cfg.mountCostM2,
-      mount_cost_unit: cfg.mountCostUnit,
 
 
 
