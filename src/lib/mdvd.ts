@@ -309,8 +309,19 @@ export type FamilyPricing = {
   qtyExponent: number;
   /** true when the user pinned מקדם כמות instead of letting it be fitted */
   qtyExponentPinned: boolean;
+  /** מדרגות כמות: מחיר קבוע ליחידה מכמות מסוימת ומעלה — גובר על מקדם כמות */
+  qtyTiersEnabled: boolean;
+  qtyTiers: QtyTier[];
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
+};
+
+/** מדרגת כמות — מכמות minQty ומעלה, מחיר קבוע ליחידה. size ריק = כל המידות. */
+export type QtyTier = {
+  minQty: number;
+  unitPrice: number;
+  /** normalized "WxH" size key, or "" for every size in the family */
+  size: string;
 };
 
 
