@@ -602,7 +602,7 @@ export function areaCurvePrice(
       detail: `${size(first)} = ${shekel(first.price)}`,
     };
 
-  if (area >= last.area) {
+  if (area > last.area) {
     if (global) {
       const fitted = global.a * Math.pow(area, global.b);
       return {
