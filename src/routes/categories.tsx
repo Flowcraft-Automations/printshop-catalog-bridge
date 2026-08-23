@@ -17,7 +17,16 @@ export const Route = createFileRoute("/categories")({
 });
 
 function CategoryMap() {
-  const { data: products = [], isLoading } = useQuery(productsQuery());
+  const { data: allProducts = [], isLoading } = useQuery(productsQuery());
+  const { allowedFamilies } = useAuth();
+
+  const products = useMemo(
+    () =>
+      allowedFamilies === null
+        ? allProducts
+        : allProducts.filter((p) => allowedFamilies.includes(p.family ?? "")),
+    [allProducts, allowedFamilies],
+  );
 
   const rows = useMemo(() => {
     const map = new Map<string, { g: string; c: string; n: number }>();
