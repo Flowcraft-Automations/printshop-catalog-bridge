@@ -1140,6 +1140,9 @@ export function priceJob(
 
   /* 4 — area method: quantity-aware anchor curve */
   const usableAll = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+  /* anchors of the same job (same qty, area within ±2%) collapse to their average */
+  const mergedAll = mergeCloseAnchors(usableAll).points;
+
 
   if (usableAll.length === 0) {
     return finish(
