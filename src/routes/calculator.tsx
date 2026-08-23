@@ -7,6 +7,8 @@ import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
+import { PAPER_SIZES, paperLabel } from "@/lib/paper";
+
 import {
   DEFAULT_MARGIN,
   DEFAULT_ROUNDING,
@@ -605,6 +607,38 @@ function Calculator() {
           </div>
         </div>
 
+        {/* standard size hot keys */}
+        <div className="mt-4 flex flex-wrap items-center gap-1">
+          <span className="ml-2 text-[11px] font-bold text-muted-foreground">מידות תקן</span>
+          {PAPER_SIZES.map((p) => {
+            const active = paperLabel(nw, nh) === p.label;
+            return (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setW(String(p.w));
+                  setH(String(p.h));
+                }}
+                title={`${p.w}×${p.h} ס״מ`}
+                className={`border-2 px-2 py-0.5 text-[11px] font-black transition ${
+                  active
+                    ? "border-[var(--ink)] bg-[var(--ink)] text-background"
+                    : "border-[var(--line,#c9d4de)] text-muted-foreground hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+          {paperLabel(nw, nh) ? (
+            <span className="mr-2 border-2 border-[var(--accent-raw)] px-2 py-0.5 text-[11px] font-black text-[var(--accent-raw)]">
+              המידה שהוזנה = {paperLabel(nw, nh)}
+            </span>
+          ) : null}
+        </div>
+
+
         {(job?.belowMinOrder || job?.overMachine) && nw && nh ? (
           <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
             {job.detail}
@@ -681,8 +715,14 @@ function Calculator() {
                   >
                     <div className="text-sm font-black text-[var(--ink)]">
                       {v.w}×{v.h}
+                      {paperLabel(v.w, v.h) ? (
+                        <span className="mr-1 border border-[var(--ink)] px-1 text-[10px] font-black">
+                          {paperLabel(v.w, v.h)}
+                        </span>
+                      ) : null}
                       {v.qty > 1 ? ` · ${v.qty.toLocaleString()} יח׳` : ""}
                     </div>
+
                     <div className="text-lg font-black text-[var(--accent-raw)]">
                       {shekel(v.price)}
                     </div>
@@ -719,7 +759,13 @@ function Calculator() {
                   >
                     <td className="p-2">
                       {v.w}×{v.h}
+                      {paperLabel(v.w, v.h) ? (
+                        <span className="mr-1 border border-[var(--ink)] px-1 text-[10px] font-black">
+                          {paperLabel(v.w, v.h)}
+                        </span>
+                      ) : null}
                     </td>
+
                     <td className="p-2 font-normal text-muted-foreground">{v.area.toFixed(3)}</td>
                     <td className="p-2">{v.qty.toLocaleString()}</td>
                     <td className="p-2 text-[var(--accent-raw)]">{shekel(v.price)}</td>
