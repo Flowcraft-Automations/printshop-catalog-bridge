@@ -641,7 +641,8 @@ function Catalog() {
   function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
     const idx = sorts.findIndex((s) => s.key === k);
     const active = idx >= 0;
-    const dir = active ? sorts[idx].dir : "asc";
+    const spec = sorts[idx];
+    const dir = spec?.dir ?? "asc";
     return (
       <button
         onClick={() => toggleSort(k)}
