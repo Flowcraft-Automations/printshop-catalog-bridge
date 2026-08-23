@@ -323,7 +323,19 @@ export type FamilyPricing = {
   sheetGap: number;
   /** מינימום הזמנה ביחידות (0 = ללא מינימום) */
   minOrderQty: number;
+  /** מגבלות מכונה — רוחב הדפסה מרבי / אורך מרבי בס"מ (0 = ללא הגבלה) */
+  maxPrintW: number;
+  maxPrintL: number;
+  /** מעל הרוחב המרבי — ריתוך פאנלים (true) או לא ניתן לייצור (false) */
+  weldable: boolean;
+  /** גבול הדפסה ישירה (ס"מ) — מעליו הדבקת ויניל על הלוח */
+  mountW: number;
+  mountH: number;
+  /** עלות הדבקה ₪ למ״ר / ₪ ליחידה */
+  mountCostM2: number;
+  mountCostUnit: number;
 };
+
 
 
 /** מדרגת כמות — מכמות minQty ומעלה, מחיר קבוע ליחידה. size ריק = כל המידות. */
@@ -388,8 +400,15 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     sheetMargin: num(v?.["sheet_margin"]) >= 0 ? num(v?.["sheet_margin"]) : 0,
     sheetGap: num(v?.["sheet_gap"]) >= 0 && v?.["sheet_gap"] != null ? num(v?.["sheet_gap"]) : SHEET_GAP_CM,
     minOrderQty: Math.max(0, Math.floor(num(v?.["min_order_qty"]))),
-
+    maxPrintW: Math.max(0, num(v?.["max_print_w"])),
+    maxPrintL: Math.max(0, num(v?.["max_print_l"])),
+    weldable: v?.["weldable"] !== false,
+    mountW: Math.max(0, num(v?.["mount_w"])),
+    mountH: Math.max(0, num(v?.["mount_h"])),
+    mountCostM2: Math.max(0, num(v?.["mount_cost_m2"])),
+    mountCostUnit: Math.max(0, num(v?.["mount_cost_unit"])),
   };
+
 }
 
 
@@ -416,6 +435,14 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       sheet_margin: cfg.sheetMargin,
       sheet_gap: cfg.sheetGap,
       min_order_qty: cfg.minOrderQty,
+      max_print_w: cfg.maxPrintW,
+      max_print_l: cfg.maxPrintL,
+      weldable: cfg.weldable,
+      mount_w: cfg.mountW,
+      mount_h: cfg.mountH,
+      mount_cost_m2: cfg.mountCostM2,
+      mount_cost_unit: cfg.mountCostUnit,
+
 
 
     },
@@ -440,6 +467,53 @@ export function matchQtyTier(
     pick(cfg.qtyTiers.filter((t) => !t.size))
   );
 }
+
+export type MachineCheck = {
+  /** number of welded panels (1 = single print) */
+  panels: number;
+  /** cannot be produced at all (over the length cap, or too wide and not weldable) */
+  blocked: boolean;
+  /** printed vinyl mounted on board instead of direct print */
+  mounted: boolean;
+  note: string;
+};
+
+/** Machine limits for a job: printable width, length cap and the mounting boundary. */
+export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineCheck {
+  const short = Math.min(w, h);
+  const long = Math.max(w, h);
+  let panels = 1;
+  let blocked = false;
+  const notes: string[] = [];
+
+  if (cfg.maxPrintL > 0 && long > cfg.maxPrintL + 0.01) {
+    blocked = true;
+    notes.push(`מעל האורך המרבי ${cfg.maxPrintL} ס״מ`);
+  }
+  if (cfg.maxPrintW > 0 && short > cfg.maxPrintW + 0.01) {
+    if (cfg.weldable) {
+      panels = Math.ceil(short / cfg.maxPrintW);
+      notes.push(`ריתוך פאנלים — ${panels} פאנלים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
+    } else {
+      blocked = true;
+      notes.push(`מעל רוחב ההדפסה ${cfg.maxPrintW} ס״מ — לא ניתן לייצור`);
+    }
+  }
+
+  const mounted =
+    cfg.mountW > 0 &&
+    cfg.mountH > 0 &&
+    (short > Math.min(cfg.mountW, cfg.mountH) + 0.01 ||
+      long > Math.max(cfg.mountW, cfg.mountH) + 0.01);
+  if (mounted) {
+    notes.push(
+      `הדבקת ויניל על הלוח (מעל ${Math.min(cfg.mountW, cfg.mountH)}×${Math.max(cfg.mountW, cfg.mountH)} ס״מ)`,
+    );
+  }
+
+  return { panels, blocked, mounted, note: notes.join(" · ") };
+}
+
 
 
 /** The usable (printable) sheet area for a family, in cm. */
@@ -1020,7 +1094,18 @@ export type JobPrice = {
   belowMinOrder: boolean;
   /** the configured minimum order quantity */
   minOrderQty: number;
+  /** welded panels needed (1 = a single print) */
+  panels: number;
+  /** over the machine limits and impossible to produce — no price is given */
+  overMachine: boolean;
+  /** printed vinyl mounted on board instead of direct print */
+  mounted: boolean;
+  /** free-text machine-limits note for the breakdown */
+  machineNote: string;
+  /** mounting labour cost included in `cost` */
+  mountCost: number;
 };
+
 
 
 /** The one pricing entry point. */
@@ -1047,16 +1132,23 @@ export function priceJob(
   const per = cfg.method === "sheet" ? sheetUnitsFor(cfg, w, h) : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
 
-  const cost = above
-    ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
-    : cfg.method === "sheet"
-      ? Math.ceil(sheets) * cfg.cost
-      : cfg.cost * area * units;
+  const machine = machineCheck(cfg, w, h);
+  const mountCost = machine.mounted
+    ? (cfg.mountCostM2 * area + cfg.mountCostUnit) * units
+    : 0;
+
+  const cost =
+    (above
+      ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
+      : cfg.method === "sheet"
+        ? Math.ceil(sheets) * cfg.cost
+        : cfg.cost * area * units) + mountCost;
 
   const sheetExtra = per ? { sheets, unitsPerSheet: per.units } : {};
 
   /* above the threshold the outsourcing cost is only a floor — anchors still lead */
   const outsourceFloor = above && cfg.outsourceCost > 0 ? cost * margin : 0;
+
 
   /* anchors describing the same job at different prices — reported everywhere */
   const allConflicts = mergeCloseAnchors(
@@ -1086,11 +1178,17 @@ export function priceJob(
       costFloorValue: floorValue,
       belowCost: cost > 0 && total < floorValue - 0.001,
       label: floorHit ? "מעל הסף — רצפת מיקור חוץ" : label,
-      detail: floorHit
-        ? `${detail} · רצפת מיקור חוץ ${shekel(outsourceFloor)} (${shekel(cfg.outsourceCost)} למ״ר × ${Math.max(minUnitArea, area).toFixed(2)} מ״ר ליחידה × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin})`
-        : above && outsourceFloor > 0
-          ? `${detail} · מעל הסף · רצפת מיקור חוץ ${shekel(outsourceFloor)}`
-          : detail,
+      detail: [
+        floorHit
+          ? `${detail} · רצפת מיקור חוץ ${shekel(outsourceFloor)} (${shekel(cfg.outsourceCost)} למ״ר × ${Math.max(minUnitArea, area).toFixed(2)} מ״ר ליחידה × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin})`
+          : above && outsourceFloor > 0
+            ? `${detail} · מעל הסף · רצפת מיקור חוץ ${shekel(outsourceFloor)}`
+            : detail,
+        machine.note,
+        mountCost > 0 ? `עלות הדבקה ${shekel(mountCost)}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       sheets: null,
       unitsPerSheet: null,
       inconsistent: [],
@@ -1102,10 +1200,27 @@ export function priceJob(
       noOutsourceCost: above && !(cfg.outsourceCost > 0),
       belowMinOrder: false,
       minOrderQty: cfg.minOrderQty,
+      panels: machine.panels,
+      overMachine: false,
+      mounted: machine.mounted,
+      machineNote: machine.note,
+      mountCost,
       ...sheetExtra,
       ...extra,
     };
   };
+
+  /* machine limits — impossible to produce, no price */
+  if (machine.blocked) {
+    return {
+      ...finish(0, "לא ניתן לייצור — מעל מגבלות המכונה", "", "cost"),
+      total: 0,
+      unit: 0,
+      belowCost: false,
+      overMachine: true,
+      detail: machine.note,
+    };
+  }
 
   /* minimum order — no price below it */
   if (cfg.minOrderQty > 1 && units < cfg.minOrderQty) {
@@ -1118,6 +1233,7 @@ export function priceJob(
       detail: `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
     };
   }
+
 
 
   /* 1 — validated catalog price: exact size + exact quantity, as-is */

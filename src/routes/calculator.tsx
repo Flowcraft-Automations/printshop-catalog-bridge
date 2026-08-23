@@ -112,7 +112,15 @@ type Draft = {
   sheetMargin: string;
   sheetGap: string;
   minOrderQty: string;
+  maxPrintW: string;
+  maxPrintL: string;
+  weldable: boolean;
+  mountW: string;
+  mountH: string;
+  mountCostM2: string;
+  mountCostUnit: string;
 };
+
 
 
 
@@ -158,7 +166,15 @@ function Calculator() {
     sheetMargin: "0",
     sheetGap: String(SHEET_GAP_CM),
     minOrderQty: "",
+    maxPrintW: "",
+    maxPrintL: "",
+    weldable: true,
+    mountW: "",
+    mountH: "",
+    mountCostM2: "",
+    mountCostUnit: "",
   });
+
 
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
   const [tiersOn, setTiersOn] = useState(false);
@@ -182,6 +198,14 @@ function Calculator() {
       sheetMargin: String(saved.sheetMargin),
       sheetGap: String(saved.sheetGap),
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
+      maxPrintW: saved.maxPrintW ? String(saved.maxPrintW) : "",
+      maxPrintL: saved.maxPrintL ? String(saved.maxPrintL) : "",
+      weldable: saved.weldable,
+      mountW: saved.mountW ? String(saved.mountW) : "",
+      mountH: saved.mountH ? String(saved.mountH) : "",
+      mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
+      mountCostUnit: saved.mountCostUnit ? String(saved.mountCostUnit) : "",
+
     });
 
     setSheetUnits(saved.sheetUnits);
@@ -240,7 +264,15 @@ function Calculator() {
       sheetMargin: Math.max(0, Number(draft.sheetMargin) || 0),
       sheetGap: draft.sheetGap === "" ? SHEET_GAP_CM : Math.max(0, Number(draft.sheetGap) || 0),
       minOrderQty: Math.max(0, Math.floor(Number(draft.minOrderQty) || 0)),
+      maxPrintW: n(draft.maxPrintW),
+      maxPrintL: n(draft.maxPrintL),
+      weldable: draft.weldable,
+      mountW: n(draft.mountW),
+      mountH: n(draft.mountH),
+      mountCostM2: n(draft.mountCostM2),
+      mountCostUnit: n(draft.mountCostUnit),
     };
+
 
   }, [draft, sheetUnits, tiersOn, tiers]);
 
@@ -533,6 +565,8 @@ function Calculator() {
             <div className={labelCls}>מחיר מוצע</div>
             {!nw || !nh ? (
               <div className="text-lg font-bold text-muted-foreground">הזינו מידות</div>
+            ) : job?.overMachine ? (
+              <div className="text-lg font-bold text-destructive">לא ניתן לייצור</div>
             ) : job?.belowMinOrder ? (
               <div className="text-lg font-bold text-destructive">
                 מינימום הזמנה: {job.minOrderQty.toLocaleString()} יחידות
@@ -548,11 +582,12 @@ function Calculator() {
           </div>
         </div>
 
-        {job?.belowMinOrder && nw && nh ? (
+        {(job?.belowMinOrder || job?.overMachine) && nw && nh ? (
           <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
             {job.detail}
           </div>
         ) : job && nw && nh ? (
+
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
             {job.belowCost ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
@@ -567,6 +602,13 @@ function Calculator() {
             {!job.hasAnchors && job.source !== "validated" ? (
               <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
             ) : null}
+            {job.machineNote ? (
+              <div className="border-2 border-[var(--ink)] px-2 py-1 font-bold text-[var(--ink)]">
+                {job.machineNote}
+                {job.mountCost > 0 ? ` · עלות הדבקה ${shekel(job.mountCost)}` : ""}
+              </div>
+            ) : null}
+
             {job.unitsPerSheet ? (
               <div>
                 {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)} גיליונות · שטח הדפסה{" "}
@@ -783,6 +825,67 @@ function Calculator() {
               width="w-44"
               placeholder="ללא"
             />
+            <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+              <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                מגבלות מכונה וחומר
+              </div>
+              <div className="flex flex-wrap items-end gap-6">
+                <Field
+                  label='רוחב הדפסה מרבי (ס"מ)'
+                  value={draft.maxPrintW}
+                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
+                  width="w-44"
+                  placeholder="ללא"
+                />
+                <Field
+                  label='אורך מרבי (ס"מ)'
+                  value={draft.maxPrintL}
+                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
+                  width="w-40"
+                  placeholder="ללא"
+                />
+                <label className="flex cursor-pointer items-center gap-2 pb-1 text-xs font-bold text-[var(--ink)]">
+                  <input
+                    type="checkbox"
+                    checked={draft.weldable}
+                    onChange={(e) => setDraft((p) => ({ ...p, weldable: e.target.checked }))}
+                    className="size-4 accent-[var(--accent-raw)]"
+                  />
+                  ניתן לריתוך פאנלים מעל הרוחב
+                </label>
+              </div>
+              <div className="mt-4 flex flex-wrap items-end gap-6">
+                <Field
+                  label='גבול הדפסה ישירה — רוחב (ס"מ)'
+                  value={draft.mountW}
+                  onChange={(v) => setDraft((p) => ({ ...p, mountW: v }))}
+                  width="w-52"
+                  placeholder="ללא"
+                />
+                <Field
+                  label='גבול הדפסה ישירה — גובה (ס"מ)'
+                  value={draft.mountH}
+                  onChange={(v) => setDraft((p) => ({ ...p, mountH: v }))}
+                  width="w-52"
+                  placeholder="ללא"
+                />
+                <Field
+                  label="עלות הדבקה ₪ למ״ר"
+                  value={draft.mountCostM2}
+                  onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
+                  width="w-40"
+                  placeholder="0"
+                />
+                <Field
+                  label="עלות הדבקה ₪ ליחידה"
+                  value={draft.mountCostUnit}
+                  onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
+                  width="w-40"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
             {draft.method === "sheet" && (
               <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
                 <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
