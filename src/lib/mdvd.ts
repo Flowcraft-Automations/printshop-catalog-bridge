@@ -969,7 +969,7 @@ export type JobPrice = {
 
   hasAnchors: boolean;
   /** where the number came from */
-  source: "validated" | "anchor" | "cost";
+  source: "validated" | "anchor" | "cost" | "tier";
   /** units^qtyExponent actually applied */
   qtyFactor: number;
   /** above the threshold but the family has no outsourcing cost configured */
