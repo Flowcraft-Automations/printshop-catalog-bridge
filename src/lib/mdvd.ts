@@ -442,21 +442,36 @@ export function matchQtyTier(
 }
 
 
+/** The usable (printable) sheet area for a family, in cm. */
+export function printableSheet(cfg?: Partial<FamilyPricing>) {
+  const sw = cfg?.sheetW && cfg.sheetW > 0 ? cfg.sheetW : SHEET_W_CM;
+  const sh = cfg?.sheetH && cfg.sheetH > 0 ? cfg.sheetH : SHEET_H_CM;
+  const m = cfg?.sheetMargin && cfg.sheetMargin > 0 ? cfg.sheetMargin : 0;
+  const gap = cfg?.sheetGap != null && cfg.sheetGap >= 0 ? cfg.sheetGap : SHEET_GAP_CM;
+  return { w: Math.max(0, sw - 2 * m), h: Math.max(0, sh - 2 * m), gap, sheetW: sw, sheetH: sh, margin: m };
+}
+
 /** Auto (geometric) יחידות בגיליון, ignoring manual overrides. */
-export function autoUnitsPerSheet(w: number, h: number): number {
+export function autoUnitsPerSheet(
+  w: number,
+  h: number,
+  cfg?: Partial<FamilyPricing>,
+): number {
   if (w <= 0 || h <= 0) return 0;
-  const g = SHEET_GAP_CM;
+  const s = printableSheet(cfg);
+  const g = s.gap;
   const fit = (iw: number, ih: number) =>
-    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
-  return Math.max(fit(w, h), fit(h, w));
+    Math.floor((s.w + g) / (iw + g)) * Math.floor((s.h + g) / (ih + g));
+  return Math.max(0, Math.max(fit(w, h), fit(h, w)));
 }
 
 export function sheetUnitsFor(cfg: FamilyPricing, w: number, h: number) {
   const key = sizeKey(w, h);
   const manual = cfg.sheetUnits[key];
   if (manual && manual > 0) return { units: manual, manual: true };
-  return { units: autoUnitsPerSheet(w, h), manual: false };
+  return { units: autoUnitsPerSheet(w, h, cfg), manual: false };
 }
+
 
 export function fitsThreshold(cfg: FamilyPricing, w: number, h: number) {
   if (cfg.thresholdW <= 0 || cfg.thresholdH <= 0) return true;
