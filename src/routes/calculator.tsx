@@ -1065,8 +1065,10 @@ function Calculator() {
               שמור
             </button>
           </div>
+          </fieldset>
           </div>
         </details>
+
 
       ) : null}
     </div>
