@@ -555,7 +555,7 @@ function Catalog() {
   const [limit, setLimit] = useState(200);
   const [colFilters, setColFilters] = useState<Partial<Record<ColKey, string>>>({});
   const [showColFilters, setShowColFilters] = useState(true);
-  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" }>({ key: "size", dir: "asc" });
+  const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
     senzey_ids: true,
     name: true,
