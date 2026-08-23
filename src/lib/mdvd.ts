@@ -996,6 +996,28 @@ export function priceJob(
       );
     }
 
+    /* never quote below an anchor that is smaller (or equal) in both size and
+       quantity — keeps suggestions monotone across the family */
+    const anchorFloor = usableAnchors.reduce(
+      (m, a) => (a.area <= area + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
+      0,
+    );
+    const withFloor = (y: number) => Math.max(y, anchorFloor);
+
+    /* same-quantity anchors describe the size curve for this run length */
+    const sameQty = usableAnchors.filter((a) => a.qty === units);
+    if (sameQty.length >= 2) {
+      const rq = shapeCurvePrice(sameQty, w, h);
+      if (rq.y > 0) {
+        return finish(
+          withFloor(rq.y),
+          rq.label,
+          `${area.toFixed(3)} מ״ר · ${units.toLocaleString()} יח׳${rq.detail ? ` · ${rq.detail}` : ""}`,
+          "anchor",
+        );
+      }
+    }
+
     const fit = fitQtyCurve(usableAnchors);
     const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
     const b = fit?.b ?? 0;
@@ -1007,6 +1029,7 @@ export function priceJob(
       if (Math.abs(dx) > 1e-9) return dx;
       return Math.abs(Math.log(x.qty / units)) - Math.abs(Math.log(y.qty / units));
     })[0]!;
+
 
     /* setup + marginal model — preferred when the anchors support it */
     if (!cfg.qtyExponentPinned) {
@@ -1022,7 +1045,7 @@ export function priceJob(
         if (yLin > 0) {
           const effUnit = yLin / units;
           return finish(
-            yLin,
+            withFloor(yLin),
             "בסיס + מחיר יחידה יורד",
             `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()}^${lin.k.toFixed(2)} יח׳${
               Math.abs(scale - 1) > 1e-6 ? ` × מקדם גודל ${scale.toFixed(2)} (מעריך ${lin.b.toFixed(2)})` : ""
@@ -1041,7 +1064,8 @@ export function priceJob(
         ? ` · מעריך גודל ${b.toFixed(2)}`
         : "";
     return finish(
-      y,
+      withFloor(y),
+
       "עקומת גודל וכמות",
       `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${e.toFixed(2)} (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
       "anchor",
