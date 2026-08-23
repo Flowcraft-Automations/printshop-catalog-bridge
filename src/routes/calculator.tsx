@@ -112,7 +112,15 @@ type Draft = {
   sheetMargin: string;
   sheetGap: string;
   minOrderQty: string;
+  maxPrintW: string;
+  maxPrintL: string;
+  weldable: boolean;
+  mountW: string;
+  mountH: string;
+  mountCostM2: string;
+  mountCostUnit: string;
 };
+
 
 
 
