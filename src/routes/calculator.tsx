@@ -105,7 +105,13 @@ type Draft = {
   minUnitArea: string;
   shortRunPct: string;
   qtyExponent: string;
+  sheetW: string;
+  sheetH: string;
+  sheetMargin: string;
+  sheetGap: string;
+  minOrderQty: string;
 };
+
 
 
 function Calculator() {
