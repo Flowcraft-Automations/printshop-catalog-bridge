@@ -1094,7 +1094,18 @@ export type JobPrice = {
   belowMinOrder: boolean;
   /** the configured minimum order quantity */
   minOrderQty: number;
+  /** welded panels needed (1 = a single print) */
+  panels: number;
+  /** over the machine limits and impossible to produce — no price is given */
+  overMachine: boolean;
+  /** printed vinyl mounted on board instead of direct print */
+  mounted: boolean;
+  /** free-text machine-limits note for the breakdown */
+  machineNote: string;
+  /** mounting labour cost included in `cost` */
+  mountCost: number;
 };
+
 
 
 /** The one pricing entry point. */
