@@ -233,8 +233,13 @@ function Calculator() {
         .filter((t) => t.minQty > 0 && t.unitPrice > 0)
         .sort((a, b) => a.minQty - b.minQty),
       sheetUnits,
-
+      sheetW: n(draft.sheetW) || SHEET_W_CM,
+      sheetH: n(draft.sheetH) || SHEET_H_CM,
+      sheetMargin: Math.max(0, Number(draft.sheetMargin) || 0),
+      sheetGap: draft.sheetGap === "" ? SHEET_GAP_CM : Math.max(0, Number(draft.sheetGap) || 0),
+      minOrderQty: Math.max(0, Math.floor(Number(draft.minOrderQty) || 0)),
     };
+
   }, [draft, sheetUnits, tiersOn, tiers]);
 
 
