@@ -963,7 +963,7 @@ function Calculator() {
             <div className="text-xs font-bold text-muted-foreground">
               {cfg.method === "area"
                 ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
-                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (שטח הדפסה ${printableSheet(cfg).w}×${printableSheet(cfg).h}, רווח ${printableSheet(cfg).gap}), ניתן לעריכה`}
             </div>
             <div className="w-56">
               <label className={labelCls}>חיפוש לפי שם</label>
