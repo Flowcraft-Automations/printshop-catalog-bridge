@@ -759,7 +759,13 @@ function Calculator() {
                   >
                     <td className="p-2">
                       {v.w}×{v.h}
+                      {paperLabel(v.w, v.h) ? (
+                        <span className="mr-1 border border-[var(--ink)] px-1 text-[10px] font-black">
+                          {paperLabel(v.w, v.h)}
+                        </span>
+                      ) : null}
                     </td>
+
                     <td className="p-2 font-normal text-muted-foreground">{v.area.toFixed(3)}</td>
                     <td className="p-2">{v.qty.toLocaleString()}</td>
                     <td className="p-2 text-[var(--accent-raw)]">{shekel(v.price)}</td>
