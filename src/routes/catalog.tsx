@@ -1302,7 +1302,6 @@ function Catalog() {
               }}
               className="underline"
             >
-            >
               ניקוי סינון עמודות ומיון
             </button>
           )}
