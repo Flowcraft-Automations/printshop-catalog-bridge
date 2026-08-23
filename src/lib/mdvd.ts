@@ -1234,9 +1234,10 @@ export function priceJob(
   const effQtyExp = pinnedQty ? qtyExp : (fittedQtyExp ?? 1);
   const scaleQty = (price: number, from: number, to: number) =>
     from === to ? price : price * Math.pow(to / from, effQtyExp);
-  const qtyExpNote = ` · מקדם כמות ${effQtyExp.toFixed(2)} (${
+  const qtyExpNote = ` · מקדם כמות ${Math.round(effQtyExp * 100)}% (${
     pinnedQty ? "מקובע" : fittedQtyExp !== null ? "מותאם מהעוגנים" : "ברירת מחדל"
   })`;
+
 
   /* never quote below an anchor smaller-or-equal in both size and quantity */
   const anchorFloor = mergedAll.reduce(
