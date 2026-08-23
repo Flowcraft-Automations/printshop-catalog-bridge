@@ -910,7 +910,9 @@ function Calculator() {
               שמור
             </button>
           </div>
-        </section>
+          </div>
+        </details>
+
       ) : null}
     </div>
   );
