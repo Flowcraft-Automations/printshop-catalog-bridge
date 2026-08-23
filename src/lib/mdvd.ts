@@ -1045,7 +1045,7 @@ export function priceJob(
         if (yLin > 0) {
           const effUnit = yLin / units;
           return finish(
-            yLin,
+            withFloor(yLin),
             "בסיס + מחיר יחידה יורד",
             `${shekel(lin.setup)} בסיס + ${shekel(lin.perUnit)} ליחידה × ${units.toLocaleString()}^${lin.k.toFixed(2)} יח׳${
               Math.abs(scale - 1) > 1e-6 ? ` × מקדם גודל ${scale.toFixed(2)} (מעריך ${lin.b.toFixed(2)})` : ""
