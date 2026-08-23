@@ -1016,7 +1016,12 @@ export type JobPrice = {
   qtyFactor: number;
   /** above the threshold but the family has no outsourcing cost configured */
   noOutsourceCost: boolean;
+  /** the quantity is below the family minimum order — no price is given */
+  belowMinOrder: boolean;
+  /** the configured minimum order quantity */
+  minOrderQty: number;
 };
+
 
 /** The one pricing entry point. */
 export function priceJob(
