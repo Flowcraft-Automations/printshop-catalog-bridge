@@ -429,6 +429,22 @@ function Catalog() {
     return out;
   }, [families, products]);
 
+  /* anchors that describe the same job at different prices */
+  const conflictAnchors = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const e of Object.values(engineByFamily)) {
+      for (const c of mergeCloseAnchors(e.anchors).conflicts) {
+        const text = c.members
+          .map((m) => `${m.w}×${m.h} · ${m.qty} יח׳ = ₪${m.price}`)
+          .join(" | ");
+        for (const m of c.members)
+          out.set(m.id, `עוגן סותר: ${text} → העקומה משתמשת בממוצע ₪${c.price.toFixed(2)}`);
+      }
+    }
+    return out;
+  }, [engineByFamily]);
+
+
   const curveByProduct = useMemo(() => {
     const out: Record<string, CurveSuggestion> = {};
     for (const p of products) {
