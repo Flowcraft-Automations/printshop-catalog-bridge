@@ -198,6 +198,14 @@ function Calculator() {
       sheetMargin: String(saved.sheetMargin),
       sheetGap: String(saved.sheetGap),
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
+      maxPrintW: saved.maxPrintW ? String(saved.maxPrintW) : "",
+      maxPrintL: saved.maxPrintL ? String(saved.maxPrintL) : "",
+      weldable: saved.weldable,
+      mountW: saved.mountW ? String(saved.mountW) : "",
+      mountH: saved.mountH ? String(saved.mountH) : "",
+      mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
+      mountCostUnit: saved.mountCostUnit ? String(saved.mountCostUnit) : "",
+
     });
 
     setSheetUnits(saved.sheetUnits);
