@@ -839,7 +839,6 @@ function Catalog() {
       if (!matchNum(p.senzey_price, colFilters.senzey_price ?? "")) return false;
       if (!matchNum(p.site_price, colFilters.site_price ?? "")) return false;
       if (!matchNum(priceGap(p), colFilters.price_gap ?? "")) return false;
-      if (!matchNum(p.final_price, colFilters.final_price ?? "")) return false;
       if (!matchNum(curveByProduct[p.id]?.suggested ?? null, colFilters.curve_price ?? "")) return false;
       if (
         !matchNum(
@@ -1009,8 +1008,6 @@ function Catalog() {
       "מחיר אתר": p.site_price ?? "",
       "מחיר אתר מקורי": orig(p, "site_price", p.site_price),
       "פער אתר-סנזיי": priceGap(p) ?? "",
-      "מחיר סופי": p.final_price ?? "",
-      "מחיר סופי מקורי": orig(p, "final_price", p.final_price),
 
       "מחיר לפי עקומה": curveByProduct[p.id]?.suggested ?? "",
       "סטייה מהעקומה %": curveByProduct[p.id] ? Math.round(curveByProduct[p.id]!.dev) : "",
