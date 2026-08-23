@@ -113,6 +113,7 @@ function Calculator() {
   );
 
   const [family, setFamily] = useState("");
+  const [famSearch, setFamSearch] = useState("");
   const [search, setSearch] = useState("");
   useEffect(() => {
     if (!family && families.length) setFamily(families[0]!.family);
