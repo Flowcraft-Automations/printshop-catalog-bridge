@@ -318,6 +318,13 @@ type ColKey =
   | "verified"
   | "is_anchor";
 
+type SortSpec = { key: ColKey; dir: "asc" | "desc" };
+
+const DEFAULT_SORTS: SortSpec[] = [
+  { key: "size", dir: "asc" },
+  { key: "qty", dir: "asc" },
+];
+
 
 let NOTE_TEXT: Record<string, string> = {};
 function noteTextOf(id: string) {
