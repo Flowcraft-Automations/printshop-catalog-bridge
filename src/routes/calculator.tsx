@@ -531,6 +531,10 @@ function Calculator() {
             <div className={labelCls}>מחיר מוצע</div>
             {!nw || !nh ? (
               <div className="text-lg font-bold text-muted-foreground">הזינו מידות</div>
+            ) : job?.belowMinOrder ? (
+              <div className="text-lg font-bold text-destructive">
+                מינימום הזמנה: {job.minOrderQty.toLocaleString()} יחידות
+              </div>
             ) : job ? (
               <>
                 <div className="text-4xl font-black text-[var(--accent-raw)]">{shekel(job.total)}</div>
@@ -542,7 +546,11 @@ function Calculator() {
           </div>
         </div>
 
-        {job && nw && nh ? (
+        {job?.belowMinOrder && nw && nh ? (
+          <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
+            {job.detail}
+          </div>
+        ) : job && nw && nh ? (
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
             {job.belowCost ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
@@ -557,6 +565,12 @@ function Calculator() {
             {!job.hasAnchors && job.source !== "validated" ? (
               <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
             ) : null}
+            {job.unitsPerSheet ? (
+              <div>
+                {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)} גיליונות · שטח הדפסה{" "}
+                {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+              </div>
+            ) : null}
             {isAdmin ? (
               <>
                 <div>{job.detail}</div>
@@ -568,6 +582,7 @@ function Calculator() {
             ) : null}
           </div>
         ) : null}
+
       </section>
 
       {/* verified reference items */}
