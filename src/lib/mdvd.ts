@@ -1048,7 +1048,10 @@ export function priceJob(
       );
     }
 
-    const usableAnchors = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+    const usableAnchors = mergeCloseAnchors(
+      anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0),
+    ).points;
+
     if (usableAnchors.length === 0) {
       return finish(
         cost * margin,
