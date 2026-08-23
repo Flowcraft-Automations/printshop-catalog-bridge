@@ -435,6 +435,12 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     })(),
     mountCostM2: Math.max(0, num(v?.["mount_cost_m2"])),
     mountCostUnit: Math.max(0, num(v?.["mount_cost_unit"])),
+    capW: Math.max(0, num(v?.["cap_w"])),
+    capL: Math.max(0, num(v?.["cap_l"])),
+    wholeBoard: v?.["whole_board"] === true,
+    boardW: Math.max(0, num(v?.["board_w"])),
+    boardH: Math.max(0, num(v?.["board_h"])),
+
 
   };
 
