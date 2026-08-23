@@ -782,6 +782,7 @@ function Catalog() {
         if (view === "closed" && !closed) return false;
       }
       if (view !== "closed" && (!showClosed || !isAdmin) && isClosedOut(p)) return false;
+      if (allowedFamilies !== null && !allowedFamilies.includes(p.family ?? "")) return false;
 
 
       // per-column filters (Zoho-style)
