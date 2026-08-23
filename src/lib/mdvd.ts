@@ -1162,10 +1162,11 @@ export function priceJob(
     fittedQtyExp !== null ? ` · מקדם כמות מותאם ${fittedQtyExp.toFixed(2)}` : qtyNote;
 
   /* never quote below an anchor smaller-or-equal in both size and quantity */
-  const anchorFloor = usableAll.reduce(
-    (m, a) => (a.area <= area + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
+  const anchorFloor = mergedAll.reduce(
+    (m, a) => (a.area <= area * 0.98 + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
     0,
   );
+
   const withFloor = (y: number) => Math.max(y, anchorFloor);
 
   /* exact size + exact quantity → the anchor price verbatim */
