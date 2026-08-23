@@ -454,7 +454,7 @@ function Catalog() {
       const h = Number(p.height_cm);
       const cur = currentPrice(p);
       if (!e || !w || !h || cur === null) continue;
-      if (p.is_anchor) {
+      if (p.is_anchor && p.verified) {
         out[p.id] = { suggested: cur, current: cur, dev: 0 };
         continue;
       }
