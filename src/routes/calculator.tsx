@@ -602,6 +602,13 @@ function Calculator() {
             {!job.hasAnchors && job.source !== "validated" ? (
               <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
             ) : null}
+            {job.machineNote ? (
+              <div className="border-2 border-[var(--ink)] px-2 py-1 font-bold text-[var(--ink)]">
+                {job.machineNote}
+                {job.mountCost > 0 ? ` · עלות הדבקה ${shekel(job.mountCost)}` : ""}
+              </div>
+            ) : null}
+
             {job.unitsPerSheet ? (
               <div>
                 {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)} גיליונות · שטח הדפסה{" "}
