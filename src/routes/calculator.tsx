@@ -896,7 +896,61 @@ function Calculator() {
                 </button>
               )}
             </div>
+
+            <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+              <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                מגבלות מכונה
+              </div>
+              <div className="flex flex-wrap items-end gap-6">
+                <Field
+                  label='גבול הדפסה — רוחב (ס"מ)'
+                  value={draft.maxPrintW}
+                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
+                  width="w-44"
+                  placeholder="ללא"
+                />
+                <Field
+                  label='גבול הדפסה — אורך (ס"מ)'
+                  value={draft.maxPrintL}
+                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
+                  width="w-44"
+                  placeholder="ללא"
+                />
+                <Field
+                  label="מעל הגבול"
+                  value={draft.overLimit}
+                  onChange={(v) =>
+                    setDraft((p) => ({ ...p, overLimit: v as Draft["overLimit"] }))
+                  }
+                  width="w-56"
+                  as="select"
+                >
+                  <option value="weld">ריתוך פאנלים</option>
+                  <option value="mount">הדבקת ויניל על הלוח</option>
+                  <option value="block">לא ניתן לייצור</option>
+                </Field>
+                {draft.overLimit === "mount" ? (
+                  <>
+                    <Field
+                      label="עלות הדבקה ₪ למ״ר"
+                      value={draft.mountCostM2}
+                      onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
+                      width="w-40"
+                      placeholder="0"
+                    />
+                    <Field
+                      label="עלות הדבקה ₪ ליחידה"
+                      value={draft.mountCostUnit}
+                      onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
+                      width="w-40"
+                      placeholder="0"
+                    />
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
+
           <div className="mt-2 text-[11px] font-bold text-muted-foreground">
             {draft.qtyExponent.trim()
               ? `מקדם כמות מקובע: ${Math.round(Number(draft.qtyExponent) * 100)}% — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 20%–100%.`
