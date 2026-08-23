@@ -458,9 +458,10 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       min_order_qty: cfg.minOrderQty,
       max_print_w: cfg.maxPrintW,
       max_print_l: cfg.maxPrintL,
-      weldable: cfg.weldable,
-      mount_w: cfg.mountW,
-      mount_h: cfg.mountH,
+      over_limit: cfg.overLimit,
+      mount_cost_m2: cfg.mountCostM2,
+      mount_cost_unit: cfg.mountCostUnit,
+
       mount_cost_m2: cfg.mountCostM2,
       mount_cost_unit: cfg.mountCostUnit,
 
