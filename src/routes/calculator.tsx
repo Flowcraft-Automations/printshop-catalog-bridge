@@ -222,8 +222,9 @@ function Calculator() {
     const n = (s: string) => (Number(s) > 0 ? Number(s) : 0);
     return {
       method: draft.method === "sheet" ? "sheet" : "area",
-      thresholdW: n(draft.tw),
-      thresholdH: n(draft.th),
+      /* גבול ההדפסה הוא גם סף מיקור החוץ — שדה אחד בלבד */
+      thresholdW: n(draft.maxPrintW),
+      thresholdH: n(draft.maxPrintL),
       cost: n(draft.cost),
       outsourceCost: n(draft.out),
       margin: n(draft.margin) || DEFAULT_MARGIN,
