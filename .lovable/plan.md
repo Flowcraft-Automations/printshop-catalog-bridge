@@ -50,7 +50,7 @@ Leaving it at 100% makes any quantity under a package simply cost the package pr
 ## Calculator display
 
 For a quantity below the smallest package, the breakdown line reads, for example:
-`ריצה קצרה · 22 יח׳ · מינימום ₪80 (70% ממחיר 100 יח׳) → ₪88 · ₪4.00 ליחידה`
+`ריצה קצרה · 22 יח׳ · בסיס ₪187 (100 יח׳) × 76% → ₪143 · ₪6.50 ליחידה`
 
 The package chips (100/150/200/250/500) stay as they are; typing a free quantity under 100 now gets this treatment.
 
