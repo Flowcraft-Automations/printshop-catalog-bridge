@@ -1190,12 +1190,20 @@ export function priceJob(
     ? (cfg.mountCostM2 * area + cfg.mountCostUnit) * units
     : 0;
 
+  /* קאפה וכד' — החומר מחויב לפי לוח שלם כי השארית נזרקת */
+  const boardArea =
+    cfg.wholeBoard && cfg.boardW > 0 && cfg.boardH > 0
+      ? (cfg.boardW * cfg.boardH) / 10000
+      : 0;
+  const billedArea = boardArea > 0 ? Math.max(area, boardArea) : area;
+
   const cost =
     (above
-      ? cfg.outsourceCost * Math.max(minUnitArea, area) * qtyFactor
+      ? cfg.outsourceCost * Math.max(minUnitArea, billedArea) * qtyFactor
       : cfg.method === "sheet"
         ? Math.ceil(sheets) * cfg.cost
-        : cfg.cost * area * units) + mountCost;
+        : cfg.cost * billedArea * units) + mountCost;
+
 
   const sheetExtra = per ? { sheets, unitsPerSheet: per.units } : {};
 
