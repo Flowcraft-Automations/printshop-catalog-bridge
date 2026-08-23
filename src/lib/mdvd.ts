@@ -305,6 +305,8 @@ export type FamilyPricing = {
   packages: number[];
   /** מ״ר מינימלי לחיוב לכל יחידה (מעל הסף) */
   minUnitArea: number;
+  /** ריצה קצרה: אחוז ממחיר החבילה הקטנה ביותר עבור יחידה בודדת (שיטת גיליון) */
+  shortRunPct: number;
   /** מקדם כמות: העלות מוכפלת ב-units^qtyExponent (1 = ליניארי, <1 = הנחת כמות) */
   qtyExponent: number;
   /** true when the user pinned מקדם כמות instead of letting it be fitted */
