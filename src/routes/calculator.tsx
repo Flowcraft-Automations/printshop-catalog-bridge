@@ -119,7 +119,13 @@ type Draft = {
   overLimit: OverLimit;
   mountCostM2: string;
   mountCostUnit: string;
+  capW: string;
+  capL: string;
+  wholeBoard: boolean;
+  boardW: string;
+  boardH: string;
 };
+
 
 
 
