@@ -718,6 +718,18 @@ function Calculator() {
                 : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
 
+          <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
+            <button
+              onClick={() => saveCfg.mutate()}
+              disabled={saveCfg.isPending}
+              className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
+            >
+              {saveCfg.isPending ? "שומר…" : "שמור הגדרות תמחור"}
+            </button>
+          </div>
+
+
+
 
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
