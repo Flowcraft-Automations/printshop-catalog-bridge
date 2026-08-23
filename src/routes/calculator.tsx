@@ -30,6 +30,8 @@ import {
   slugify,
   writeFamilyPricing,
   type FamilyPricing,
+  type OverLimit,
+
 } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/calculator")({
@@ -114,12 +116,11 @@ type Draft = {
   minOrderQty: string;
   maxPrintW: string;
   maxPrintL: string;
-  weldable: boolean;
-  mountW: string;
-  mountH: string;
+  overLimit: OverLimit;
   mountCostM2: string;
   mountCostUnit: string;
 };
+
 
 
 
@@ -168,9 +169,8 @@ function Calculator() {
     minOrderQty: "",
     maxPrintW: "",
     maxPrintL: "",
-    weldable: true,
-    mountW: "",
-    mountH: "",
+    overLimit: "weld",
+
     mountCostM2: "",
     mountCostUnit: "",
   });
@@ -200,9 +200,8 @@ function Calculator() {
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
       maxPrintW: saved.maxPrintW ? String(saved.maxPrintW) : "",
       maxPrintL: saved.maxPrintL ? String(saved.maxPrintL) : "",
-      weldable: saved.weldable,
-      mountW: saved.mountW ? String(saved.mountW) : "",
-      mountH: saved.mountH ? String(saved.mountH) : "",
+      overLimit: saved.overLimit,
+
       mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
       mountCostUnit: saved.mountCostUnit ? String(saved.mountCostUnit) : "",
 
@@ -266,9 +265,8 @@ function Calculator() {
       minOrderQty: Math.max(0, Math.floor(Number(draft.minOrderQty) || 0)),
       maxPrintW: n(draft.maxPrintW),
       maxPrintL: n(draft.maxPrintL),
-      weldable: draft.weldable,
-      mountW: n(draft.mountW),
-      mountH: n(draft.mountH),
+      overLimit: draft.overLimit,
+
       mountCostM2: n(draft.mountCostM2),
       mountCostUnit: n(draft.mountCostUnit),
     };
@@ -754,8 +752,9 @@ function Calculator() {
               <option value="area">לפי מ״ר</option>
               <option value="sheet">לפי גיליון</option>
             </Field>
-            <Field label='סף רוחב (ס"מ)' value={draft.tw} onChange={(v) => setDraft((p) => ({ ...p, tw: v }))} />
-            <Field label='סף גובה (ס"מ)' value={draft.th} onChange={(v) => setDraft((p) => ({ ...p, th: v }))} />
+            <Field label='סף מיקור חוץ — רוחב (ס"מ)' value={draft.tw} onChange={(v) => setDraft((p) => ({ ...p, tw: v }))} width="w-48" />
+            <Field label='סף מיקור חוץ — גובה (ס"מ)' value={draft.th} onChange={(v) => setDraft((p) => ({ ...p, th: v }))} width="w-48" />
+
           </div>
 
           <div className="mt-4 flex flex-wrap items-end gap-6">
@@ -825,66 +824,8 @@ function Calculator() {
               width="w-44"
               placeholder="ללא"
             />
-            <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
-              <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                מגבלות מכונה וחומר
-              </div>
-              <div className="flex flex-wrap items-end gap-6">
-                <Field
-                  label='רוחב הדפסה מרבי (ס"מ)'
-                  value={draft.maxPrintW}
-                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
-                  width="w-44"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='אורך מרבי (ס"מ)'
-                  value={draft.maxPrintL}
-                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
-                  width="w-40"
-                  placeholder="ללא"
-                />
-                <label className="flex cursor-pointer items-center gap-2 pb-1 text-xs font-bold text-[var(--ink)]">
-                  <input
-                    type="checkbox"
-                    checked={draft.weldable}
-                    onChange={(e) => setDraft((p) => ({ ...p, weldable: e.target.checked }))}
-                    className="size-4 accent-[var(--accent-raw)]"
-                  />
-                  ניתן לריתוך פאנלים מעל הרוחב
-                </label>
-              </div>
-              <div className="mt-4 flex flex-wrap items-end gap-6">
-                <Field
-                  label='גבול הדפסה ישירה — רוחב (ס"מ)'
-                  value={draft.mountW}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountW: v }))}
-                  width="w-52"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='גבול הדפסה ישירה — גובה (ס"מ)'
-                  value={draft.mountH}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountH: v }))}
-                  width="w-52"
-                  placeholder="ללא"
-                />
-                <Field
-                  label="עלות הדבקה ₪ למ״ר"
-                  value={draft.mountCostM2}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
-                  width="w-40"
-                  placeholder="0"
-                />
-                <Field
-                  label="עלות הדבקה ₪ ליחידה"
-                  value={draft.mountCostUnit}
-                  onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
-                  width="w-40"
-                  placeholder="0"
-                />
-              </div>
-            </div>
+
+
 
             {draft.method === "sheet" && (
               <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
@@ -958,7 +899,61 @@ function Calculator() {
                 </button>
               )}
             </div>
+
+            <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+              <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                מגבלות מכונה
+              </div>
+              <div className="flex flex-wrap items-end gap-6">
+                <Field
+                  label='גבול הדפסה — רוחב (ס"מ)'
+                  value={draft.maxPrintW}
+                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
+                  width="w-44"
+                  placeholder="ללא"
+                />
+                <Field
+                  label='גבול הדפסה — אורך (ס"מ)'
+                  value={draft.maxPrintL}
+                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
+                  width="w-44"
+                  placeholder="ללא"
+                />
+                <Field
+                  label="מעל הגבול"
+                  value={draft.overLimit}
+                  onChange={(v) =>
+                    setDraft((p) => ({ ...p, overLimit: v as Draft["overLimit"] }))
+                  }
+                  width="w-56"
+                  as="select"
+                >
+                  <option value="weld">ריתוך פאנלים</option>
+                  <option value="mount">הדבקת ויניל על הלוח</option>
+                  <option value="block">לא ניתן לייצור</option>
+                </Field>
+                {draft.overLimit === "mount" ? (
+                  <>
+                    <Field
+                      label="עלות הדבקה ₪ למ״ר"
+                      value={draft.mountCostM2}
+                      onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
+                      width="w-40"
+                      placeholder="0"
+                    />
+                    <Field
+                      label="עלות הדבקה ₪ ליחידה"
+                      value={draft.mountCostUnit}
+                      onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
+                      width="w-40"
+                      placeholder="0"
+                    />
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
+
           <div className="mt-2 text-[11px] font-bold text-muted-foreground">
             {draft.qtyExponent.trim()
               ? `מקדם כמות מקובע: ${Math.round(Number(draft.qtyExponent) * 100)}% — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 20%–100%.`

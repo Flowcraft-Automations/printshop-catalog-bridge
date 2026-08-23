@@ -323,18 +323,19 @@ export type FamilyPricing = {
   sheetGap: number;
   /** מינימום הזמנה ביחידות (0 = ללא מינימום) */
   minOrderQty: number;
-  /** מגבלות מכונה — רוחב הדפסה מרבי / אורך מרבי בס"מ (0 = ללא הגבלה) */
+  /** מגבלות מכונה — גבול הדפסה: רוחב / אורך בס"מ (0 = ללא הגבלה) */
   maxPrintW: number;
   maxPrintL: number;
-  /** מעל הרוחב המרבי — ריתוך פאנלים (true) או לא ניתן לייצור (false) */
-  weldable: boolean;
-  /** גבול הדפסה ישירה (ס"מ) — מעליו הדבקת ויניל על הלוח */
-  mountW: number;
-  mountH: number;
-  /** עלות הדבקה ₪ למ״ר / ₪ ליחידה */
+  /** ההתנהגות מעל גבול ההדפסה */
+  overLimit: OverLimit;
+  /** עלות הדבקה ₪ למ״ר / ₪ ליחידה (רלוונטי ל"הדבקת ויניל על הלוח") */
   mountCostM2: number;
   mountCostUnit: number;
 };
+
+/** מה קורה מעל גבול ההדפסה */
+export type OverLimit = "weld" | "mount" | "block";
+
 
 
 
@@ -400,13 +401,33 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     sheetMargin: num(v?.["sheet_margin"]) >= 0 ? num(v?.["sheet_margin"]) : 0,
     sheetGap: num(v?.["sheet_gap"]) >= 0 && v?.["sheet_gap"] != null ? num(v?.["sheet_gap"]) : SHEET_GAP_CM,
     minOrderQty: Math.max(0, Math.floor(num(v?.["min_order_qty"]))),
-    maxPrintW: Math.max(0, num(v?.["max_print_w"])),
-    maxPrintL: Math.max(0, num(v?.["max_print_l"])),
-    weldable: v?.["weldable"] !== false,
-    mountW: Math.max(0, num(v?.["mount_w"])),
-    mountH: Math.max(0, num(v?.["mount_h"])),
+    ...(() => {
+      /* legacy keys: weldable + separate mount_w/mount_h boundary */
+      const legacyMountW = Math.max(0, num(v?.["mount_w"]));
+      const legacyMountH = Math.max(0, num(v?.["mount_h"]));
+      const raw = String(v?.["over_limit"] ?? "");
+      const overLimit: OverLimit =
+        raw === "weld" || raw === "mount" || raw === "block"
+          ? raw
+          : legacyMountW > 0 && legacyMountH > 0
+            ? "mount"
+            : v?.["weldable"] === false
+              ? "block"
+              : "weld";
+      const useLegacyBoundary = !raw && overLimit === "mount";
+      return {
+        maxPrintW: useLegacyBoundary
+          ? Math.min(legacyMountW, legacyMountH)
+          : Math.max(0, num(v?.["max_print_w"])),
+        maxPrintL: useLegacyBoundary
+          ? Math.max(legacyMountW, legacyMountH)
+          : Math.max(0, num(v?.["max_print_l"])),
+        overLimit,
+      };
+    })(),
     mountCostM2: Math.max(0, num(v?.["mount_cost_m2"])),
     mountCostUnit: Math.max(0, num(v?.["mount_cost_unit"])),
+
   };
 
 }
@@ -437,11 +458,10 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       min_order_qty: cfg.minOrderQty,
       max_print_w: cfg.maxPrintW,
       max_print_l: cfg.maxPrintL,
-      weldable: cfg.weldable,
-      mount_w: cfg.mountW,
-      mount_h: cfg.mountH,
+      over_limit: cfg.overLimit,
       mount_cost_m2: cfg.mountCostM2,
       mount_cost_unit: cfg.mountCostUnit,
+
 
 
 
@@ -484,35 +504,34 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
   const long = Math.max(w, h);
   let panels = 1;
   let blocked = false;
+  let mounted = false;
   const notes: string[] = [];
 
-  if (cfg.maxPrintL > 0 && long > cfg.maxPrintL + 0.01) {
-    blocked = true;
-    notes.push(`מעל האורך המרבי ${cfg.maxPrintL} ס״מ`);
-  }
-  if (cfg.maxPrintW > 0 && short > cfg.maxPrintW + 0.01) {
-    if (cfg.weldable) {
-      panels = Math.ceil(short / cfg.maxPrintW);
-      notes.push(`ריתוך פאנלים — ${panels} פאנלים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
+  const overW = cfg.maxPrintW > 0 && short > cfg.maxPrintW + 0.01;
+  const overL = cfg.maxPrintL > 0 && long > cfg.maxPrintL + 0.01;
+  const limitText = `${cfg.maxPrintW || "∞"}×${cfg.maxPrintL || "∞"} ס״מ`;
+
+  if (overW || overL) {
+    if (cfg.overLimit === "weld") {
+      if (overL) {
+        blocked = true;
+        notes.push(`מעל האורך המרבי ${cfg.maxPrintL} ס״מ — לא ניתן לייצור`);
+      } else {
+        panels = Math.ceil(short / cfg.maxPrintW);
+        notes.push(`ריתוך פאנלים — ${panels} פאנלים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
+      }
+    } else if (cfg.overLimit === "mount") {
+      mounted = true;
+      notes.push(`הדבקת ויניל על הלוח (מעל ${limitText})`);
     } else {
       blocked = true;
-      notes.push(`מעל רוחב ההדפסה ${cfg.maxPrintW} ס״מ — לא ניתן לייצור`);
+      notes.push(`מעל גבול ההדפסה ${limitText} — לא ניתן לייצור`);
     }
-  }
-
-  const mounted =
-    cfg.mountW > 0 &&
-    cfg.mountH > 0 &&
-    (short > Math.min(cfg.mountW, cfg.mountH) + 0.01 ||
-      long > Math.max(cfg.mountW, cfg.mountH) + 0.01);
-  if (mounted) {
-    notes.push(
-      `הדבקת ויניל על הלוח (מעל ${Math.min(cfg.mountW, cfg.mountH)}×${Math.max(cfg.mountW, cfg.mountH)} ס״מ)`,
-    );
   }
 
   return { panels, blocked, mounted, note: notes.join(" · ") };
 }
+
 
 
 
