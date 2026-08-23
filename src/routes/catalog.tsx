@@ -1369,11 +1369,6 @@ function Catalog() {
                     <SortHead k="price_gap" label="פער" />
                   </th>
                 )}
-                {visibleCols.final_price && (
-                  <th style={{ width: scaledWidths.final_price }} className="px-2 py-2">
-                    <SortHead k="final_price" label="מחיר סופי" />
-                  </th>
-                )}
                 {visibleCols.curve_price && (
                   <th style={{ width: scaledWidths.curve_price }} className="px-2 py-2">
                     <SortHead k="curve_price" label="לפי עקומה" />
