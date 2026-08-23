@@ -638,6 +638,15 @@ function Calculator() {
                           עוגן לא עקבי
                         </span>
                       ) : null}
+                      {conflictIds.has(a.id) ? (
+                        <span
+                          className="mr-2 text-xs font-normal text-[oklch(0.6_0.15_70)]"
+                          title="עוגן נוסף באותו גודל וכמות במחיר אחר — העקומה משתמשת בממוצע"
+                        >
+                          עוגן סותר
+                        </span>
+                      ) : null}
+
                     </td>
                     {cfg.method === "sheet" ? (
                       <>
