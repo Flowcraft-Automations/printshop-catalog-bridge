@@ -14,6 +14,8 @@ import {
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
+  mergeCloseAnchors,
+
   fitQtyCurve,
   familyValidated,
   isClosedOut,
