@@ -304,7 +304,6 @@ type ColKey =
   | "senzey_price"
   | "site_price"
   | "price_gap"
-  | "final_price"
   | "curve_price"
   | "curve_dev"
   | "cost_floor"
@@ -378,7 +377,6 @@ const SORT_VALUE: Record<ColKey, (p: Product) => string | number | null> = {
   senzey_price: (p) => p.senzey_price,
   site_price: (p) => p.site_price,
   price_gap: (p) => priceGap(p),
-  final_price: (p) => p.final_price,
   curve_price: (p) => curveOf(p.id)?.suggested ?? null,
   curve_dev: (p) => curveOf(p.id)?.dev ?? null,
   cost_floor: (p) => {
