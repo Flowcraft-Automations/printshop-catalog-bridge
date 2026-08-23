@@ -760,6 +760,57 @@ function Calculator() {
               />
             )}
             <Field
+              label="מינימום הזמנה (יחידות)"
+              value={draft.minOrderQty}
+              onChange={(v) => setDraft((p) => ({ ...p, minOrderQty: v }))}
+              width="w-44"
+              placeholder="ללא"
+            />
+            {draft.method === "sheet" && (
+              <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                  גיליון הדפסה
+                </div>
+                <div className="flex flex-wrap items-end gap-6">
+                  <Field
+                    label='רוחב גיליון (ס"מ)'
+                    value={draft.sheetW}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetW: v }))}
+                    width="w-36"
+                  />
+                  <Field
+                    label='גובה גיליון (ס"מ)'
+                    value={draft.sheetH}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetH: v }))}
+                    width="w-36"
+                  />
+                  <Field
+                    label='שוליים לא מודפסים (ס"מ)'
+                    value={draft.sheetMargin}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetMargin: v }))}
+                    width="w-48"
+                  />
+                  <Field
+                    label='מרווח בין יחידות (ס"מ)'
+                    value={draft.sheetGap}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetGap: v }))}
+                    width="w-44"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    שטח הדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                    {nw && nh ? (
+                      <>
+                        {" · "}
+                        {sheetUnitsFor(cfg, nw, nh).units} יח׳ בגיליון עבור {nw}×{nh}
+                        {sheetUnitsFor(cfg, nw, nh).manual ? " (ידני)" : ""}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Field
               label='מ״ר מינימלי ליחידה (מעל הסף)'
               value={draft.minUnitArea}
               onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
