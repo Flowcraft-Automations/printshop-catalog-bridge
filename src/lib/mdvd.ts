@@ -602,7 +602,7 @@ export function areaCurvePrice(
       detail: `${size(first)} = ${shekel(first.price)}`,
     };
 
-  if (area >= last.area) {
+  if (area > last.area) {
     if (global) {
       const fitted = global.a * Math.pow(area, global.b);
       return {
@@ -1160,9 +1160,7 @@ export function priceJob(
           .map((a) => ({ ...a, price: scaleQty(a.price, a.qty, units), qty: units }))
           .sort((x, y) => x.area - y.area);
 
-  const { kept, bad } = consistentAreaAnchors(pool);
-  const shapeFit = fitShapeCurve(pool);
-  const usable = shapeFit && shapeFit.c > 0 ? pool : kept;
+  const { kept: usable, bad } = consistentAreaAnchors(pool);
   if (usable.length === 0) {
     return finish(
       cfg.cost * area * qtyFactor * margin,
@@ -1184,7 +1182,9 @@ export function priceJob(
     );
   }
 
-  const r = shapeCurvePrice(usable, w, h);
+  /* Area-method families are priced by total area. Interpolate only between
+     the surrounding area anchors so aspect ratio cannot create an outlier. */
+  const r = areaCurvePrice(usable, area);
   return finish(
     withFloor(r.y),
     r.label,
