@@ -103,6 +103,7 @@ type Draft = {
   rounding: string;
   packages: string;
   minUnitArea: string;
+  shortRunPct: string;
   qtyExponent: string;
 };
 
@@ -142,6 +143,7 @@ function Calculator() {
     rounding: String(DEFAULT_ROUNDING),
     packages: "",
     minUnitArea: "1",
+    shortRunPct: "70",
     qtyExponent: "",
 
   });
@@ -160,6 +162,7 @@ function Calculator() {
       rounding: String(saved.rounding),
       packages: saved.packages.join(", "),
       minUnitArea: String(saved.minUnitArea),
+      shortRunPct: String(Math.round(saved.shortRunPct * 100)),
       qtyExponent: saved.qtyExponentPinned ? String(saved.qtyExponent) : "",
 
     });
@@ -190,6 +193,7 @@ function Calculator() {
         .filter((x) => Number.isFinite(x) && x > 0)
         .sort((a, b) => a - b),
       minUnitArea: n(draft.minUnitArea) || 1,
+      shortRunPct: Math.min(1, Math.max(0.05, (n(draft.shortRunPct) || 70) / 100)),
       qtyExponent: n(draft.qtyExponent) || 1,
       qtyExponentPinned: n(draft.qtyExponent) > 0,
       qtyTiersEnabled: tiersOn,
@@ -723,6 +727,15 @@ function Calculator() {
                 value={draft.packages}
                 onChange={(v) => setDraft((p) => ({ ...p, packages: v }))}
                 width="w-56"
+              />
+            )}
+            {draft.method === "sheet" && (
+              <Field
+                label="ריצה קצרה — % ממחיר החבילה הקטנה"
+                value={draft.shortRunPct}
+                onChange={(v) => setDraft((p) => ({ ...p, shortRunPct: v }))}
+                width="w-56"
+                placeholder="70"
               />
             )}
             <Field

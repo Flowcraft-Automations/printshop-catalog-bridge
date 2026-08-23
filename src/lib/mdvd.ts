@@ -305,6 +305,8 @@ export type FamilyPricing = {
   packages: number[];
   /** מ״ר מינימלי לחיוב לכל יחידה (מעל הסף) */
   minUnitArea: number;
+  /** ריצה קצרה: אחוז ממחיר החבילה הקטנה ביותר עבור יחידה בודדת (שיטת גיליון) */
+  shortRunPct: number;
   /** מקדם כמות: העלות מוכפלת ב-units^qtyExponent (1 = ליניארי, <1 = הנחת כמות) */
   qtyExponent: number;
   /** true when the user pinned מקדם כמות instead of letting it be fitted */
@@ -351,6 +353,10 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
       ? (v?.["packages"] as unknown[]).map(num).filter((n) => n > 0).sort((a, b) => a - b)
       : [],
     minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
+    shortRunPct:
+      num(v?.["short_run_pct"]) > 0 && num(v?.["short_run_pct"]) <= 1
+        ? num(v?.["short_run_pct"])
+        : 0.7,
     qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
     qtyExponentPinned: num(v?.["qty_exponent"]) > 0,
     qtyTiersEnabled: v?.["qty_tiers_enabled"] === true,
@@ -382,6 +388,7 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       rounding: cfg.rounding,
       packages: cfg.packages,
       min_unit_area: cfg.minUnitArea,
+      short_run_pct: cfg.shortRunPct,
       qty_exponent: cfg.qtyExponentPinned ? cfg.qtyExponent : null,
       qty_tiers_enabled: cfg.qtyTiersEnabled,
       qty_tiers: cfg.qtyTiers.map((t) => ({
@@ -1140,7 +1147,65 @@ export function priceJob(
       (m, a) => (a.area <= area + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
       0,
     );
-    const withFloor = (y: number) => Math.max(y, anchorFloor);
+    /* monotone-in-quantity guard: at or above the smallest anchored package the
+       price can never drop below the top of the short-run zone (that package's
+       price for this size) — filled in once priceAtQty exists */
+    let qtyFloor = 0;
+    const withFloor = (y: number) => Math.max(y, anchorFloor, qtyFloor);
+
+    const fit = fitQtyCurve(usableAnchors);
+    const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
+    const b = fit?.b ?? 0;
+
+    /* the smallest package of the family (or the smallest anchored quantity when
+       no packages are configured) — the ladder says nothing below it */
+    const pkgMin = cfg.packages.length ? Math.min(...cfg.packages) : Infinity;
+    const anchorMinQty = usableAnchors.reduce((m, a) => Math.min(m, a.qty), Infinity);
+    const minAnchorQty = Number.isFinite(pkgMin) ? pkgMin : anchorMinQty;
+
+    /** price of this size at a quantity that the anchors do cover */
+    const priceAtQty = (u: number): { y: number; detail: string } => {
+      const exact = usableAnchors.find((a) => sameDims(a) && a.qty === u);
+      if (exact) return { y: exact.price, detail: `עוגן ${exact.w}×${exact.h}` };
+      const sameQ = usableAnchors.filter((a) => a.qty === u);
+      if (sameQ.length >= 2) {
+        const r = shapeCurvePrice(sameQ, w, h);
+        if (r.y > 0) return { y: r.y, detail: r.label };
+      }
+      const nearest = [...usableAnchors].sort((x, y) => {
+        const dq = Math.abs(Math.log(x.qty / u)) - Math.abs(Math.log(y.qty / u));
+        if (Math.abs(dq) > 1e-9) return dq;
+        return Math.abs(Math.log(x.area / area)) - Math.abs(Math.log(y.area / area));
+      })[0]!;
+      return {
+        y: nearest.price * Math.pow(area / nearest.area, b) * Math.pow(u / nearest.qty, e),
+        detail: `לפי עוגן ${nearest.w}×${nearest.h} · ${nearest.qty.toLocaleString()} יח׳`,
+      };
+    };
+
+    if (Number.isFinite(minAnchorQty) && units >= minAnchorQty) {
+      qtyFloor = Math.max(0, priceAtQty(minAnchorQty).y);
+    }
+
+    /* 3a — short run: below the smallest anchored package.
+       base = the smallest-package price for this size, ramped down to
+       shortRunPct at a single unit and back up to 100% at that package. */
+    if (Number.isFinite(minAnchorQty) && minAnchorQty > 1 && units < minAnchorQty) {
+      const pct = cfg.shortRunPct > 0 && cfg.shortRunPct <= 1 ? cfg.shortRunPct : 1;
+      const baseAt = priceAtQty(minAnchorQty);
+      if (baseAt.y > 0) {
+        const ratio = pct + (1 - pct) * ((units - 1) / (minAnchorQty - 1));
+        const y = baseAt.y * ratio;
+        return finish(
+          withFloor(y),
+          "ריצה קצרה",
+          `${units.toLocaleString()} יח׳ · בסיס ${shekel(baseAt.y)} (${minAnchorQty.toLocaleString()} יח׳, ${baseAt.detail}) × ${Math.round(
+            ratio * 100,
+          )}% → ${shekel(y)} · ${shekel(y / units)} ליחידה`,
+          "anchor",
+        );
+      }
+    }
 
     /* same-quantity anchors describe the size curve for this run length */
     const sameQty = usableAnchors.filter((a) => a.qty === units);
@@ -1155,10 +1220,6 @@ export function priceJob(
         );
       }
     }
-
-    const fit = fitQtyCurve(usableAnchors);
-    const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
-    const b = fit?.b ?? 0;
 
     /* reference anchor: closest size, then closest quantity — the curve passes
        through it so a known package price is never contradicted */
@@ -1210,6 +1271,7 @@ export function priceJob(
     );
 
   }
+
 
 
   /* 4 — area method: quantity-aware anchor curve */
