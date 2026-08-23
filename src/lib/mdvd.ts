@@ -1205,14 +1205,16 @@ export function priceJob(
     return finish(
       withFloor(scaleQty(exactSize.price, exactSize.qty, units)),
       "מחיר עוגן לפי כמות",
-      `${exactSize.w}×${exactSize.h} · ${exactSize.qty.toLocaleString()} יח׳ = ${shekel(exactSize.price)} → ${units.toLocaleString()} יח׳${qtyExpNote}`,
+      `${exactSize.w}×${exactSize.h} · ${exactSize.qty.toLocaleString()} יח׳ = ${shekel(exactSize.price)} → ${units.toLocaleString()} יח׳${qtyExpNote}${floorNote()}`,
       "anchor",
     );
   }
 
   /* size curve for the requested quantity: prefer anchors of that exact
-     quantity, otherwise normalize each size's closest anchor to it */
-  const sameQty = mergedAll.filter((a) => a.qty === units);
+     quantity, otherwise normalize each size's closest anchor to it.
+     A pinned מקדם כמות always goes through the normalized path so the
+     exponent actually moves the price. */
+  const sameQty = pinnedQty ? [] : mergedAll.filter((a) => a.qty === units);
   const bySize = new Map<string, JobAnchor>();
   for (const a of mergedAll) {
 
