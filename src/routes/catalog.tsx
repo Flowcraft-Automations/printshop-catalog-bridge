@@ -1565,16 +1565,6 @@ function Catalog() {
                       />
                     </th>
                   )}
-                  {visibleCols.final_price && (
-                    <th style={{ width: scaledWidths.final_price }} className="px-2 pb-2">
-                      <input
-                        className={colInput}
-                        value={cf("final_price")}
-                        onChange={(e) => setCf("final_price", e.target.value)}
-                        placeholder="-"
-                      />
-                    </th>
-                  )}
                   {visibleCols.curve_price && (
                     <th style={{ width: scaledWidths.curve_price }} className="px-2 pb-2">
                       <input
