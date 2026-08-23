@@ -956,6 +956,12 @@ export function priceJob(
   /* above the threshold the outsourcing cost is only a floor — anchors still lead */
   const outsourceFloor = above && cfg.outsourceCost > 0 ? cost * margin : 0;
 
+  /* anchors describing the same job at different prices — reported everywhere */
+  const allConflicts = mergeCloseAnchors(
+    anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0),
+  ).conflicts;
+
+
   const finish = (
     raw: number,
     label: string,
