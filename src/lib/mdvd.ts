@@ -315,7 +315,7 @@ export type FamilyPricing = {
 
 
 export const DEFAULT_MARGIN = 1.3;
-export const DEFAULT_ROUNDING = 5;
+export const DEFAULT_ROUNDING = 1;
 
 export function readFamilyPricing(family: Family | undefined): FamilyPricing {
   const raw = (family?.pricing_config ?? null) as Record<string, unknown> | null;
@@ -463,8 +463,48 @@ export function consistentAreaAnchors(anchors: JobAnchor[]) {
   return { kept, bad };
 }
 
-const roundUpTo = (v: number, step: number) =>
-  step > 0 ? Math.ceil(v / step) * step : Math.round(v);
+/** Two anchors of the same quantity whose areas are within ±2%. */
+export type AnchorConflict = { members: JobAnchor[]; price: number };
+
+/**
+ * Merge anchors that describe practically the same job (same quantity, area
+ * within ±2%) into a single curve point at their average price, and report the
+ * groups whose prices disagree.
+ */
+export function mergeCloseAnchors(anchors: JobAnchor[]): {
+  points: JobAnchor[];
+  conflicts: AnchorConflict[];
+} {
+  const sorted = [...anchors].sort((a, b) => a.qty - b.qty || a.area - b.area);
+  const groups: JobAnchor[][] = [];
+  for (const a of sorted) {
+    const g = groups[groups.length - 1];
+    const last = g?.[g.length - 1];
+    if (g && last && last.qty === a.qty && Math.abs(a.area - last.area) <= last.area * 0.02)
+      g.push(a);
+    else groups.push([a]);
+  }
+  const points: JobAnchor[] = [];
+  const conflicts: AnchorConflict[] = [];
+  for (const g of groups) {
+    const first = g[0]!;
+    if (g.length === 1) {
+      points.push(first);
+      continue;
+    }
+    const price = g.reduce((s, x) => s + x.price, 0) / g.length;
+    points.push({ ...first, price, name: g.map((x) => x.name).join(" / ") });
+    if (g.some((x) => Math.abs(x.price - price) > 0.01)) conflicts.push({ members: g, price });
+  }
+  return {
+    points: points.sort((a, b) => a.area - b.area || a.qty - b.qty),
+    conflicts,
+  };
+}
+
+const roundTo = (v: number, step: number) =>
+  step > 0 ? Math.round(v / step) * step : Math.round(v);
+
 
 const clampExp = (b: number) => Math.min(1, Math.max(0.3, b));
 
@@ -870,6 +910,9 @@ export type JobPrice = {
   sheets: number | null;
   unitsPerSheet: number | null;
   inconsistent: JobAnchor[];
+  /** anchor groups describing the same job at different prices */
+  conflicts: AnchorConflict[];
+
   hasAnchors: boolean;
   /** where the number came from */
   source: "validated" | "anchor" | "cost";
@@ -913,6 +956,12 @@ export function priceJob(
   /* above the threshold the outsourcing cost is only a floor — anchors still lead */
   const outsourceFloor = above && cfg.outsourceCost > 0 ? cost * margin : 0;
 
+  /* anchors describing the same job at different prices — reported everywhere */
+  const allConflicts = mergeCloseAnchors(
+    anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0),
+  ).conflicts;
+
+
   const finish = (
     raw: number,
     label: string,
@@ -923,7 +972,7 @@ export function priceJob(
   ): JobPrice => {
     const base = Math.max(raw, 0);
     const floored = source === "validated" ? base : Math.max(base, outsourceFloor);
-    const total = noRound && floored === base ? floored : roundUpTo(floored, cfg.rounding);
+    const total = noRound && floored === base ? floored : roundTo(floored, cfg.rounding);
     const floorValue = cost * margin;
     const floorHit = floored > base + 0.001;
     return {
@@ -942,6 +991,8 @@ export function priceJob(
       sheets: null,
       unitsPerSheet: null,
       inconsistent: [],
+      conflicts: allConflicts,
+
       hasAnchors: anchors.length > 0,
       source,
       qtyFactor,
@@ -997,7 +1048,10 @@ export function priceJob(
       );
     }
 
-    const usableAnchors = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+    const usableAnchors = mergeCloseAnchors(
+      anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0),
+    ).points;
+
     if (usableAnchors.length === 0) {
       return finish(
         cost * margin,
@@ -1086,6 +1140,9 @@ export function priceJob(
 
   /* 4 — area method: quantity-aware anchor curve */
   const usableAll = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+  /* anchors of the same job (same qty, area within ±2%) collapse to their average */
+  const mergedAll = mergeCloseAnchors(usableAll).points;
+
 
   if (usableAll.length === 0) {
     return finish(
@@ -1105,10 +1162,11 @@ export function priceJob(
     fittedQtyExp !== null ? ` · מקדם כמות מותאם ${fittedQtyExp.toFixed(2)}` : qtyNote;
 
   /* never quote below an anchor smaller-or-equal in both size and quantity */
-  const anchorFloor = usableAll.reduce(
-    (m, a) => (a.area <= area + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
+  const anchorFloor = mergedAll.reduce(
+    (m, a) => (a.area <= area * 0.98 + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
     0,
   );
+
   const withFloor = (y: number) => Math.max(y, anchorFloor);
 
   /* exact size + exact quantity → the anchor price verbatim */
@@ -1142,9 +1200,10 @@ export function priceJob(
 
   /* size curve for the requested quantity: prefer anchors of that exact
      quantity, otherwise normalize each size's closest anchor to it */
-  const sameQty = usableAll.filter((a) => a.qty === units);
+  const sameQty = mergedAll.filter((a) => a.qty === units);
   const bySize = new Map<string, JobAnchor>();
-  for (const a of usableAll) {
+  for (const a of mergedAll) {
+
     const key = sizeKey(a.w, a.h);
     const cur = bySize.get(key);
     if (

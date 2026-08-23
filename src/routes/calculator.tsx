@@ -14,6 +14,8 @@ import {
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
+  mergeCloseAnchors,
+
   fitQtyCurve,
   familyValidated,
   isClosedOut,
@@ -315,6 +317,14 @@ function Calculator() {
 
   const inconsistent = job?.inconsistent ?? [];
 
+  /* anchors describing the same job (same qty, area within ±2%) at different prices */
+  const conflicts = useMemo(() => mergeCloseAnchors(anchors).conflicts, [anchors]);
+  const conflictIds = useMemo(
+    () => new Set(conflicts.flatMap((c) => c.members.map((m) => m.id))),
+    [conflicts],
+  );
+
+
   const packagePrices = useMemo(
     () =>
       cfg.packages.map((p) => ({ qty: p, job: priceJob(cfg, anchors, nw, nh, p, validated) })),
@@ -560,6 +570,26 @@ function Calculator() {
             </div>
           </div>
 
+          {conflicts.length > 0 ? (
+            <div className="mt-3 border-r-4 border-[oklch(0.72_0.16_70)] bg-[oklch(0.96_0.05_85_/_0.55)] p-3 text-sm">
+              <div className="font-bold text-[var(--ink)]">עוגנים סותרים</div>
+              <ul className="mt-1 space-y-1">
+                {conflicts.map((c, i) => (
+                  <li key={i} className="text-[13px] leading-5">
+                    {c.members
+                      .map((m) => `${m.w}×${m.h} · ${m.qty.toLocaleString()} יח׳ = ${shekel(m.price)}`)
+                      .join("  |  ")}
+                    <span className="mr-2 text-muted-foreground">
+                      → העקומה משתמשת בממוצע {shekel(c.price)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+
+
           <div className="mt-2 max-h-[26rem] overflow-y-auto">
           <table className="w-full">
 
@@ -608,6 +638,15 @@ function Calculator() {
                           עוגן לא עקבי
                         </span>
                       ) : null}
+                      {conflictIds.has(a.id) ? (
+                        <span
+                          className="mr-2 text-xs font-normal text-[oklch(0.6_0.15_70)]"
+                          title="עוגן נוסף באותו גודל וכמות במחיר אחר — העקומה משתמשת בממוצע"
+                        >
+                          עוגן סותר
+                        </span>
+                      ) : null}
+
                     </td>
                     {cfg.method === "sheet" ? (
                       <>
