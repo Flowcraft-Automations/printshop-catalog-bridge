@@ -40,7 +40,7 @@ function AdminPage() {
   const users = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => listUsers(),
-    enabled: isAdmin,
+    enabled: isAdmin && !!session,
   });
 
   const [email, setEmail] = useState("");
