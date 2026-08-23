@@ -318,6 +318,13 @@ type ColKey =
   | "verified"
   | "is_anchor";
 
+type SortSpec = { key: ColKey; dir: "asc" | "desc" };
+
+const DEFAULT_SORTS: SortSpec[] = [
+  { key: "size", dir: "asc" },
+  { key: "qty", dir: "asc" },
+];
+
 
 let NOTE_TEXT: Record<string, string> = {};
 function noteTextOf(id: string) {
@@ -548,7 +555,7 @@ function Catalog() {
   const [limit, setLimit] = useState(200);
   const [colFilters, setColFilters] = useState<Partial<Record<ColKey, string>>>({});
   const [showColFilters, setShowColFilters] = useState(true);
-  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" }>({ key: "size", dir: "asc" });
+  const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
     senzey_ids: true,
     name: true,
@@ -622,17 +629,27 @@ function Catalog() {
   const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
   const activeColFilters = Object.values(colFilters).filter((v) => (v ?? "").trim()).length;
   function toggleSort(k: ColKey) {
-    setSort((s) => (s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : { key: k, dir: "asc" }));
+    setSorts((prev) => {
+      const first = prev[0];
+      if (first?.key === k) {
+        return [{ key: k, dir: first.dir === "asc" ? "desc" : "asc" }, ...prev.slice(1)];
+      }
+      const rest = prev.filter((s) => s.key !== k);
+      return [{ key: k, dir: "asc" }, ...rest];
+    });
   }
   function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
-    const active = sort.key === k;
+    const idx = sorts.findIndex((s) => s.key === k);
+    const active = idx >= 0;
+    const spec = sorts[idx];
+    const dir = spec?.dir ?? "asc";
     return (
       <button
         onClick={() => toggleSort(k)}
         className={`flex items-center gap-1 font-semibold ${active ? "text-[var(--paper,#fff)] underline" : ""} ${className}`}
       >
         {label}
-        <span className="text-[10px] opacity-70">{active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+        <span className="text-[10px] opacity-70">{active ? (dir === "asc" ? "▲" : "▼") : "↕"}</span>
       </button>
     );
   }
@@ -854,16 +871,24 @@ function Catalog() {
       return true;
     });
 
-    const get = SORT_VALUE[sort.key];
-    const dir = sort.dir === "asc" ? 1 : -1;
     out.sort((a, b) => {
-      const va = get(a);
-      const vb = get(b);
-      if (va == null && vb == null) return 0;
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
-      return String(va).localeCompare(String(vb), "he") * dir;
+      for (const { key, dir } of sorts) {
+        const get = SORT_VALUE[key];
+        const va = get(a);
+        const vb = get(b);
+        const d = dir === "asc" ? 1 : -1;
+        if (va == null && vb == null) continue;
+        if (va == null) return 1 * d;
+        if (vb == null) return -1 * d;
+        if (typeof va === "number" && typeof vb === "number") {
+          const diff = (va - vb) * d;
+          if (diff !== 0) return diff;
+        } else {
+          const diff = String(va).localeCompare(String(vb), "he") * d;
+          if (diff !== 0) return diff;
+        }
+      }
+      return 0;
     });
     return out;
   }, [
@@ -893,7 +918,7 @@ function Catalog() {
     category,
     presence,
     colFilters,
-    sort,
+    sorts,
   ]);
 
 
@@ -925,7 +950,7 @@ function Catalog() {
     setView("");
 
     setColFilters({});
-    setSort({ key: "size", dir: "asc" });
+    setSorts(DEFAULT_SORTS);
     setSelected(new Set());
     setLimit(200);
     navigate({ to: ".", search: {} });
@@ -1270,11 +1295,11 @@ function Catalog() {
             {activeColFilters > 0 && ` (${activeColFilters})`}
           </button>
           <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
-          {(activeColFilters > 0 || sort.key !== "size" || sort.dir !== "asc") && (
+          {(activeColFilters > 0 || JSON.stringify(sorts) !== JSON.stringify(DEFAULT_SORTS)) && (
             <button
               onClick={() => {
                 setColFilters({});
-                setSort({ key: "size", dir: "asc" });
+                setSorts(DEFAULT_SORTS);
               }}
               className="underline"
             >
