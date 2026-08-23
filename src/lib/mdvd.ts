@@ -985,6 +985,8 @@ export function priceJob(
       sheets: null,
       unitsPerSheet: null,
       inconsistent: [],
+      conflicts: allConflicts,
+
       hasAnchors: anchors.length > 0,
       source,
       qtyFactor,
