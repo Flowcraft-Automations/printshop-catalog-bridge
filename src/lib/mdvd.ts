@@ -1142,6 +1142,53 @@ export function priceJob(
     );
     const withFloor = (y: number) => Math.max(y, anchorFloor);
 
+    const fit = fitQtyCurve(usableAnchors);
+    const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
+    const b = fit?.b ?? 0;
+
+    /* the smallest anchored package — the ladder says nothing below it */
+    const minAnchorQty = usableAnchors.reduce((m, a) => Math.min(m, a.qty), Infinity);
+
+    /** price of this size at a quantity that the anchors do cover */
+    const priceAtQty = (u: number): { y: number; detail: string } => {
+      const exact = usableAnchors.find((a) => sameDims(a) && a.qty === u);
+      if (exact) return { y: exact.price, detail: `עוגן ${exact.w}×${exact.h}` };
+      const sameQ = usableAnchors.filter((a) => a.qty === u);
+      if (sameQ.length >= 2) {
+        const r = shapeCurvePrice(sameQ, w, h);
+        if (r.y > 0) return { y: r.y, detail: r.label };
+      }
+      const nearest = [...usableAnchors].sort((x, y) => {
+        const dq = Math.abs(Math.log(x.qty / u)) - Math.abs(Math.log(y.qty / u));
+        if (Math.abs(dq) > 1e-9) return dq;
+        return Math.abs(Math.log(x.area / area)) - Math.abs(Math.log(y.area / area));
+      })[0]!;
+      return {
+        y: nearest.price * Math.pow(area / nearest.area, b) * Math.pow(u / nearest.qty, e),
+        detail: `לפי עוגן ${nearest.w}×${nearest.h} · ${nearest.qty.toLocaleString()} יח׳`,
+      };
+    };
+
+    /* 3a — short run: below the smallest anchored package.
+       base = the smallest-package price for this size, ramped down to
+       shortRunPct at a single unit and back up to 100% at that package. */
+    if (Number.isFinite(minAnchorQty) && minAnchorQty > 1 && units < minAnchorQty) {
+      const pct = cfg.shortRunPct > 0 && cfg.shortRunPct <= 1 ? cfg.shortRunPct : 1;
+      const baseAt = priceAtQty(minAnchorQty);
+      if (baseAt.y > 0) {
+        const ratio = pct + (1 - pct) * ((units - 1) / (minAnchorQty - 1));
+        const y = baseAt.y * ratio;
+        return finish(
+          withFloor(y),
+          "ריצה קצרה",
+          `${units.toLocaleString()} יח׳ · בסיס ${shekel(baseAt.y)} (${minAnchorQty.toLocaleString()} יח׳, ${baseAt.detail}) × ${Math.round(
+            ratio * 100,
+          )}% → ${shekel(y)} · ${shekel(y / units)} ליחידה`,
+          "anchor",
+        );
+      }
+    }
+
     /* same-quantity anchors describe the size curve for this run length */
     const sameQty = usableAnchors.filter((a) => a.qty === units);
     if (sameQty.length >= 2) {
@@ -1155,10 +1202,6 @@ export function priceJob(
         );
       }
     }
-
-    const fit = fitQtyCurve(usableAnchors);
-    const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
-    const b = fit?.b ?? 0;
 
     /* reference anchor: closest size, then closest quantity — the curve passes
        through it so a known package price is never contradicted */
@@ -1210,6 +1253,7 @@ export function priceJob(
     );
 
   }
+
 
 
   /* 4 — area method: quantity-aware anchor curve */
