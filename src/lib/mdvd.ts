@@ -316,7 +316,15 @@ export type FamilyPricing = {
   qtyTiers: QtyTier[];
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
+  /** גיליון הדפסה — מידות, שוליים לא מודפסים ומרווח בין יחידות (ס"מ) */
+  sheetW: number;
+  sheetH: number;
+  sheetMargin: number;
+  sheetGap: number;
+  /** מינימום הזמנה ביחידות (0 = ללא מינימום) */
+  minOrderQty: number;
 };
+
 
 /** מדרגת כמות — מכמות minQty ומעלה, מחיר קבוע ליחידה. size ריק = כל המידות. */
 export type QtyTier = {
