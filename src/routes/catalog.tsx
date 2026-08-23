@@ -1933,21 +1933,6 @@ function Catalog() {
                       })()}
                     </td>
                   )}
-                  {visibleCols.final_price && (
-                    <td style={{ width: scaledWidths.final_price }} className="truncate px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        defaultValue={p.final_price ?? ""}
-                        key={`fp-${p.id}-${p.final_price}`}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          const num = v === "" ? null : Number(v);
-                          if (num !== (p.final_price ?? null))
-                            update.mutate({ ids: [p.id], patch: { final_price: num } });
-                        }}
-                        className="num w-full border-b border-dashed border-muted-foreground bg-transparent px-1 outline-none focus:border-solid focus:border-[var(--accent-raw)]"
-                      />
-                    </td>
-                  )}
                   {visibleCols.curve_price && (
                     <td
                       style={{ width: scaledWidths.curve_price }}
