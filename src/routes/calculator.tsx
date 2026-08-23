@@ -288,7 +288,13 @@ function Calculator() {
 
       mountCostM2: n(draft.mountCostM2),
       mountCostUnit: n(draft.mountCostUnit),
+      capW: n(draft.capW),
+      capL: n(draft.capL),
+      wholeBoard: draft.wholeBoard,
+      boardW: n(draft.boardW),
+      boardH: n(draft.boardH),
     };
+
 
 
   }, [draft, sheetUnits, tiersOn, tiers]);
