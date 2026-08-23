@@ -570,6 +570,26 @@ function Calculator() {
             </div>
           </div>
 
+          {conflicts.length > 0 ? (
+            <div className="mt-3 border-r-4 border-[oklch(0.72_0.16_70)] bg-[oklch(0.96_0.05_85_/_0.55)] p-3 text-sm">
+              <div className="font-bold text-[var(--ink)]">עוגנים סותרים</div>
+              <ul className="mt-1 space-y-1">
+                {conflicts.map((c, i) => (
+                  <li key={i} className="text-[13px] leading-5">
+                    {c.members
+                      .map((m) => `${m.w}×${m.h} · ${m.qty.toLocaleString()} יח׳ = ${shekel(m.price)}`)
+                      .join("  |  ")}
+                    <span className="mr-2 text-muted-foreground">
+                      → העקומה משתמשת בממוצע {shekel(c.price)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+
+
           <div className="mt-2 max-h-[26rem] overflow-y-auto">
           <table className="w-full">
 
