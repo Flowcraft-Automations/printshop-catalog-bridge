@@ -749,6 +749,86 @@ function Calculator() {
                 : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
 
+          {/* מדרגות כמות — מחיר קבוע ליחידה, גובר על מקדם כמות */}
+          <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-black text-[var(--ink)]">
+              <input
+                type="checkbox"
+                checked={tiersOn}
+                onChange={(e) => setTiersOn(e.target.checked)}
+                className="h-4 w-4 accent-[var(--ink)]"
+              />
+              מדרגות כמות — מחיר קבוע ליחידה (גובר על מקדם כמות)
+            </label>
+            <div className="mt-1 text-[11px] font-bold text-muted-foreground">
+              לדוגמה: מכמות 10 ומעלה — 47 ₪ ליחידה. מידה ריקה = כל המידות במשפחה. מחיר מאומת
+              בקטלוג באותה מידה ובאותה כמות עדיין גובר.
+            </div>
+
+            {tiersOn ? (
+              <div className="mt-3 space-y-2">
+                {tiers.map((t, i) => (
+                  <div key={i} className="flex flex-wrap items-end gap-3">
+                    <div className="w-28">
+                      <label className={labelCls}>מכמות</label>
+                      <input
+                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                        value={t.minQty}
+                        onChange={(e) =>
+                          setTiers((p) =>
+                            p.map((x, j) => (j === i ? { ...x, minQty: e.target.value } : x)),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="w-32">
+                      <label className={labelCls}>₪ ליחידה</label>
+                      <input
+                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                        value={t.unitPrice}
+                        onChange={(e) =>
+                          setTiers((p) =>
+                            p.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value } : x)),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="w-36">
+                      <label className={labelCls}>מידה (אופציונלי)</label>
+                      <input
+                        placeholder="כל המידות"
+                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                        value={t.size}
+                        onChange={(e) =>
+                          setTiers((p) =>
+                            p.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)),
+                          )
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTiers((p) => p.filter((_, j) => j !== i))}
+                      className="mb-1 border-2 border-[var(--ink)] px-3 py-1 text-xs font-black"
+                    >
+                      הסר
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTiers((p) => [...p, { minQty: "", unitPrice: "", size: "" }])
+                  }
+                  className="border-2 border-[var(--ink)] bg-background px-4 py-1 text-sm font-bold"
+                >
+                  + הוסף מדרגה
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+
           <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
             <button
               onClick={() => saveCfg.mutate()}
