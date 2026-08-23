@@ -1173,6 +1173,10 @@ export function priceJob(
       };
     };
 
+    if (Number.isFinite(minAnchorQty) && units >= minAnchorQty) {
+      qtyFloor = Math.max(0, priceAtQty(minAnchorQty).y);
+    }
+
     /* 3a — short run: below the smallest anchored package.
        base = the smallest-package price for this size, ramped down to
        shortRunPct at a single unit and back up to 100% at that package. */
