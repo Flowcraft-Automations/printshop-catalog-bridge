@@ -565,6 +565,8 @@ function Calculator() {
             <div className={labelCls}>מחיר מוצע</div>
             {!nw || !nh ? (
               <div className="text-lg font-bold text-muted-foreground">הזינו מידות</div>
+            ) : job?.overMachine ? (
+              <div className="text-lg font-bold text-destructive">לא ניתן לייצור</div>
             ) : job?.belowMinOrder ? (
               <div className="text-lg font-bold text-destructive">
                 מינימום הזמנה: {job.minOrderQty.toLocaleString()} יחידות
@@ -580,11 +582,12 @@ function Calculator() {
           </div>
         </div>
 
-        {job?.belowMinOrder && nw && nh ? (
+        {(job?.belowMinOrder || job?.overMachine) && nw && nh ? (
           <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
             {job.detail}
           </div>
         ) : job && nw && nh ? (
+
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
             {job.belowCost ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
