@@ -629,17 +629,26 @@ function Catalog() {
   const setCf = (k: ColKey, v: string) => setColFilters((s) => ({ ...s, [k]: v }));
   const activeColFilters = Object.values(colFilters).filter((v) => (v ?? "").trim()).length;
   function toggleSort(k: ColKey) {
-    setSort((s) => (s?.key !== k ? { key: k, dir: "asc" } : s.dir === "asc" ? { key: k, dir: "desc" } : { key: k, dir: "asc" }));
+    setSorts((prev) => {
+      const first = prev[0];
+      if (first?.key === k) {
+        return [{ key: k, dir: first.dir === "asc" ? "desc" : "asc" }, ...prev.slice(1)];
+      }
+      const rest = prev.filter((s) => s.key !== k);
+      return [{ key: k, dir: "asc" }, ...rest];
+    });
   }
   function SortHead({ k, label, className = "" }: { k: ColKey; label: string; className?: string }) {
-    const active = sort.key === k;
+    const idx = sorts.findIndex((s) => s.key === k);
+    const active = idx >= 0;
+    const dir = active ? sorts[idx].dir : "asc";
     return (
       <button
         onClick={() => toggleSort(k)}
         className={`flex items-center gap-1 font-semibold ${active ? "text-[var(--paper,#fff)] underline" : ""} ${className}`}
       >
         {label}
-        <span className="text-[10px] opacity-70">{active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+        <span className="text-[10px] opacity-70">{active ? (dir === "asc" ? "▲" : "▼") : "↕"}</span>
       </button>
     );
   }
