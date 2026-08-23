@@ -56,6 +56,7 @@ function Field({
   as = "input",
   children,
   placeholder,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -64,25 +65,33 @@ function Field({
   as?: "input" | "select";
   children?: React.ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className={width}>
       <label className={labelCls}>{label}</label>
       {as === "select" ? (
-        <select className={`${inputCls} text-base`} value={value} onChange={(e) => onChange(e.target.value)}>
+        <select
+          className={`${inputCls} text-base ${disabled ? "opacity-50" : ""}`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        >
           {children}
         </select>
       ) : (
         <input
-          className={inputCls}
+          className={`${inputCls} ${disabled ? "opacity-50" : ""}`}
           value={value}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
         />
       )}
     </div>
   );
 }
+
 
 type Draft = {
   method: string;
@@ -627,14 +636,16 @@ function Calculator() {
 
 
 
-      {/* family config — admin only, collapsed */}
-      {family && isAdmin ? (
+      {/* family config — viewable by everyone, editable only by admins; collapsed by default */}
+      {family ? (
         <details className="group border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_var(--ink)]">
           <summary className="cursor-pointer list-none px-5 py-3 text-sm font-black text-muted-foreground hover:text-[var(--ink)]">
             <span className="ml-2 inline-block transition group-open:rotate-90">›</span>
             הגדרות מתקדמות — תמחור ועוגנים
           </summary>
           <div className="border-t-2 border-[var(--line,#c9d4de)] p-5">
+            <fieldset disabled={!isAdmin} className="min-w-0 border-0 p-0">
+
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
             <button
@@ -722,11 +733,13 @@ function Calculator() {
             />
             <div className="flex items-end gap-2">
               <Field
-                label="מקדם כמות (חזקה)"
-                value={draft.qtyExponent}
-                onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+                label="מקדם כמות (%)"
+                value={draft.qtyExponent ? String(Math.round(Number(draft.qtyExponent) * 100)) : ""}
+                onChange={(v) =>
+                  setDraft((p) => ({ ...p, qtyExponent: v ? String(Number(v) / 100) : "" }))
+                }
                 width="w-40"
-                placeholder={fittedQtyExp ? fittedQtyExp.toFixed(2) : "1"}
+                placeholder={fittedQtyExp ? String(Math.round(fittedQtyExp * 100)) : "100"}
               />
               {fittedQtyExp !== null && (
                 <button
@@ -743,11 +756,12 @@ function Calculator() {
           </div>
           <div className="mt-2 text-[11px] font-bold text-muted-foreground">
             {draft.qtyExponent.trim()
-              ? `מקדם כמות מקובע: ${draft.qtyExponent} — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 0.2–1.`
+              ? `מקדם כמות מקובע: ${Math.round(Number(draft.qtyExponent) * 100)}% — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 20%–100%.`
               : fittedQtyExp !== null
-                ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (0.2–1) כדי לקבע.`
-                : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
+                ? `מקדם כמות מותאם מהעוגנים: ${Math.round(fittedQtyExp * 100)}% — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (20%–100%) כדי לקבע.`
+                : "מקדם כמות 100% = ליניארי, קטן מ-100% = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
+
 
           {/* מדרגות כמות — מחיר קבוע ליחידה, גובר על מקדם כמות */}
           <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
@@ -1054,8 +1068,10 @@ function Calculator() {
               שמור
             </button>
           </div>
+          </fieldset>
           </div>
         </details>
+
 
       ) : null}
     </div>

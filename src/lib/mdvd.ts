@@ -994,7 +994,8 @@ export function priceJob(
   const minUnitArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
   const qtyExp = cfg.qtyExponent > 0 ? cfg.qtyExponent : 1;
   const qtyFactor = Math.pow(units, qtyExp);
-  const qtyNote = qtyExp !== 1 ? ` · מקדם כמות ${qtyExp} (${qtyFactor.toFixed(2)})` : "";
+  const qtyNote = qtyExp !== 1 ? ` · מקדם כמות ${Math.round(qtyExp * 100)}% (${qtyFactor.toFixed(2)})` : "";
+
 
   const per = cfg.method === "sheet" ? sheetUnitsFor(cfg, w, h) : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
@@ -1204,9 +1205,10 @@ export function priceJob(
       withFloor(y),
 
       "עקומת גודל וכמות",
-      `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${e.toFixed(2)} (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
+      `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${Math.round(e * 100)}% (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
       "anchor",
     );
+
   }
 
 
@@ -1232,9 +1234,10 @@ export function priceJob(
   const effQtyExp = pinnedQty ? qtyExp : (fittedQtyExp ?? 1);
   const scaleQty = (price: number, from: number, to: number) =>
     from === to ? price : price * Math.pow(to / from, effQtyExp);
-  const qtyExpNote = ` · מקדם כמות ${effQtyExp.toFixed(2)} (${
+  const qtyExpNote = ` · מקדם כמות ${Math.round(effQtyExp * 100)}% (${
     pinnedQty ? "מקובע" : fittedQtyExp !== null ? "מותאם מהעוגנים" : "ברירת מחדל"
   })`;
+
 
   /* never quote below an anchor smaller-or-equal in both size and quantity */
   const anchorFloor = mergedAll.reduce(
