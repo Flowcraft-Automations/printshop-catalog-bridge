@@ -411,6 +411,12 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
         size: t.size || null,
       })),
       sheet_units: cfg.sheetUnits,
+      sheet_w: cfg.sheetW,
+      sheet_h: cfg.sheetH,
+      sheet_margin: cfg.sheetMargin,
+      sheet_gap: cfg.sheetGap,
+      min_order_qty: cfg.minOrderQty,
+
 
     },
   };
