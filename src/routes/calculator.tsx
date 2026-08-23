@@ -166,7 +166,15 @@ function Calculator() {
     sheetMargin: "0",
     sheetGap: String(SHEET_GAP_CM),
     minOrderQty: "",
+    maxPrintW: "",
+    maxPrintL: "",
+    weldable: true,
+    mountW: "",
+    mountH: "",
+    mountCostM2: "",
+    mountCostUnit: "",
   });
+
 
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
   const [tiersOn, setTiersOn] = useState(false);
