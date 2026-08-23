@@ -1205,9 +1205,10 @@ export function priceJob(
       withFloor(y),
 
       "עקומת גודל וכמות",
-      `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${e.toFixed(2)} (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
+      `${ref.w}×${ref.h} · ${ref.qty.toLocaleString()} יח׳ = ${shekel(ref.price)} → ${units.toLocaleString()} יח׳ · מקדם כמות ${Math.round(e * 100)}% (×${Math.pow(units / ref.qty, e).toFixed(2)})${sizeNote} · ${sheets.toFixed(2)} גיליונות`,
       "anchor",
     );
+
   }
 
 
