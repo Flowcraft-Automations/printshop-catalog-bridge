@@ -1084,11 +1084,85 @@ export function priceJob(
   }
 
 
-  /* 4 — area method below the threshold */
-  const { kept, bad } = consistentAreaAnchors(anchors);
-  const shapeFit = fitShapeCurve(anchors);
-  /* with a real shape premium every anchor is on-curve, nothing to drop */
-  const usable = shapeFit && shapeFit.c > 0 ? anchors : kept;
+  /* 4 — area method: quantity-aware anchor curve */
+  const usableAll = anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0);
+
+  if (usableAll.length === 0) {
+    return finish(
+      cfg.cost * area * qtyFactor * margin,
+      "אין עוגנים — לפי עלות",
+      `${shekel(cfg.cost)} למ״ר × ${area.toFixed(2)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin}`,
+      "cost",
+      { inconsistent: [] },
+    );
+  }
+
+  const fittedQtyExp = fitAreaQtyExponent(usableAll);
+  const effQtyExp = fittedQtyExp ?? qtyExp;
+  const scaleQty = (price: number, from: number, to: number) =>
+    from === to ? price : price * Math.pow(to / from, effQtyExp);
+  const qtyExpNote =
+    fittedQtyExp !== null ? ` · מקדם כמות מותאם ${fittedQtyExp.toFixed(2)}` : qtyNote;
+
+  /* never quote below an anchor smaller-or-equal in both size and quantity */
+  const anchorFloor = usableAll.reduce(
+    (m, a) => (a.area <= area + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
+    0,
+  );
+  const withFloor = (y: number) => Math.max(y, anchorFloor);
+
+  /* exact size + exact quantity → the anchor price verbatim */
+  const exactBoth = usableAll.find((a) => sameDims(a) && a.qty === units);
+  if (exactBoth) {
+    return finish(
+      exactBoth.price,
+      "מחיר עוגן",
+      `${exactBoth.w}×${exactBoth.h} · ${units.toLocaleString()} יח׳`,
+      "anchor",
+      {},
+      true,
+    );
+  }
+
+  /* exact size, other quantity → scale along the quantity curve */
+  const exactSize = [...usableAll]
+    .filter((a) => sameDims(a))
+    .sort(
+      (x, y) =>
+        Math.abs(Math.log(x.qty / units)) - Math.abs(Math.log(y.qty / units)),
+    )[0];
+  if (exactSize) {
+    return finish(
+      withFloor(scaleQty(exactSize.price, exactSize.qty, units)),
+      "מחיר עוגן לפי כמות",
+      `${exactSize.w}×${exactSize.h} · ${exactSize.qty.toLocaleString()} יח׳ = ${shekel(exactSize.price)} → ${units.toLocaleString()} יח׳${qtyExpNote}`,
+      "anchor",
+    );
+  }
+
+  /* size curve for the requested quantity: prefer anchors of that exact
+     quantity, otherwise normalize each size's closest anchor to it */
+  const sameQty = usableAll.filter((a) => a.qty === units);
+  const bySize = new Map<string, JobAnchor>();
+  for (const a of usableAll) {
+    const key = sizeKey(a.w, a.h);
+    const cur = bySize.get(key);
+    if (
+      !cur ||
+      Math.abs(Math.log(a.qty / units)) < Math.abs(Math.log(cur.qty / units))
+    )
+      bySize.set(key, a);
+  }
+  const pool =
+    sameQty.length >= 2
+      ? sameQty
+      : [...bySize.values()]
+          .map((a) => ({ ...a, price: scaleQty(a.price, a.qty, units), qty: units }))
+          .sort((x, y) => x.area - y.area);
+
+  const { kept, bad } = consistentAreaAnchors(pool);
+  const shapeFit = fitShapeCurve(pool);
+  const usable = shapeFit && shapeFit.c > 0 ? pool : kept;
   if (usable.length === 0) {
     return finish(
       cfg.cost * area * qtyFactor * margin,
@@ -1098,26 +1172,56 @@ export function priceJob(
       { inconsistent: bad },
     );
   }
-  const exact = usable.find(sameDims);
 
-  if (exact) {
+  if (usable.length === 1) {
+    const only = usable[0]!;
     return finish(
-      exact.price * qtyFactor,
-      "מחיר עוגן",
-      `${exact.w}×${exact.h} = ${shekel(exact.price)} ליחידה × ${units.toLocaleString()} יח׳${qtyNote}`,
+      withFloor(only.price * Math.pow(area / only.area, clampExp(0.6))),
+      "עוגן יחיד",
+      `${only.w}×${only.h} = ${shekel(only.price)} · ${units.toLocaleString()} יח׳${qtyExpNote}`,
       "anchor",
       { inconsistent: bad },
-      qtyExp === 1,
     );
   }
+
   const r = shapeCurvePrice(usable, w, h);
   return finish(
-    r.y * qtyFactor,
+    withFloor(r.y),
     r.label,
-    `${area.toFixed(3)} מ״ר × ${units.toLocaleString()} יח׳${qtyNote}${r.detail ? ` · ${r.detail}` : ""}`,
+    `${area.toFixed(3)} מ״ר · ${units.toLocaleString()} יח׳${
+      sameQty.length >= 2 ? " (עוגנים באותה כמות)" : qtyExpNote
+    }${r.detail ? ` · ${r.detail}` : ""}`,
     "anchor",
     { inconsistent: bad },
   );
-
 }
+
+/**
+ * Quantity exponent fitted from anchors of the same size at different
+ * quantities: price ∝ qty^e. Returns null when the anchors show no such pair.
+ */
+export function fitAreaQtyExponent(anchors: JobAnchor[]): number | null {
+  const bySize = new Map<string, JobAnchor[]>();
+  for (const a of anchors) {
+    const key = sizeKey(a.w, a.h);
+    const arr = bySize.get(key);
+    if (arr) arr.push(a);
+    else bySize.set(key, [a]);
+  }
+  const exps: number[] = [];
+  for (const arr of bySize.values()) {
+    const sorted = [...arr].sort((x, y) => x.qty - y.qty);
+    for (let i = 1; i < sorted.length; i++) {
+      const lo = sorted[i - 1]!;
+      const hi = sorted[i]!;
+      if (hi.qty <= lo.qty || lo.price <= 0 || hi.price <= 0) continue;
+      exps.push(Math.log(hi.price / lo.price) / Math.log(hi.qty / lo.qty));
+    }
+  }
+  if (exps.length === 0) return null;
+  const avg = exps.reduce((s, v) => s + v, 0) / exps.length;
+  if (!Number.isFinite(avg)) return null;
+  return Math.min(1, Math.max(0.5, avg));
+}
+
 
