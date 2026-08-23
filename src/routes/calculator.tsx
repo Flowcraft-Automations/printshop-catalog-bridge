@@ -114,12 +114,11 @@ type Draft = {
   minOrderQty: string;
   maxPrintW: string;
   maxPrintL: string;
-  weldable: boolean;
-  mountW: string;
-  mountH: string;
+  overLimit: OverLimit;
   mountCostM2: string;
   mountCostUnit: string;
 };
+
 
 
 
