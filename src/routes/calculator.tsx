@@ -733,11 +733,13 @@ function Calculator() {
             />
             <div className="flex items-end gap-2">
               <Field
-                label="מקדם כמות (חזקה)"
-                value={draft.qtyExponent}
-                onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+                label="מקדם כמות (%)"
+                value={draft.qtyExponent ? String(Math.round(Number(draft.qtyExponent) * 100)) : ""}
+                onChange={(v) =>
+                  setDraft((p) => ({ ...p, qtyExponent: v ? String(Number(v) / 100) : "" }))
+                }
                 width="w-40"
-                placeholder={fittedQtyExp ? fittedQtyExp.toFixed(2) : "1"}
+                placeholder={fittedQtyExp ? String(Math.round(fittedQtyExp * 100)) : "100"}
               />
               {fittedQtyExp !== null && (
                 <button
@@ -754,11 +756,12 @@ function Calculator() {
           </div>
           <div className="mt-2 text-[11px] font-bold text-muted-foreground">
             {draft.qtyExponent.trim()
-              ? `מקדם כמות מקובע: ${draft.qtyExponent} — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 0.2–1.`
+              ? `מקדם כמות מקובע: ${Math.round(Number(draft.qtyExponent) * 100)}% — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 20%–100%.`
               : fittedQtyExp !== null
-                ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (0.2–1) כדי לקבע.`
-                : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
+                ? `מקדם כמות מותאם מהעוגנים: ${Math.round(fittedQtyExp * 100)}% — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (20%–100%) כדי לקבע.`
+                : "מקדם כמות 100% = ליניארי, קטן מ-100% = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
+
 
           {/* מדרגות כמות — מחיר קבוע ליחידה, גובר על מקדם כמות */}
           <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
