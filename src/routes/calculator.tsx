@@ -264,7 +264,15 @@ function Calculator() {
       sheetMargin: Math.max(0, Number(draft.sheetMargin) || 0),
       sheetGap: draft.sheetGap === "" ? SHEET_GAP_CM : Math.max(0, Number(draft.sheetGap) || 0),
       minOrderQty: Math.max(0, Math.floor(Number(draft.minOrderQty) || 0)),
+      maxPrintW: n(draft.maxPrintW),
+      maxPrintL: n(draft.maxPrintL),
+      weldable: draft.weldable,
+      mountW: n(draft.mountW),
+      mountH: n(draft.mountH),
+      mountCostM2: n(draft.mountCostM2),
+      mountCostUnit: n(draft.mountCostUnit),
     };
+
 
   }, [draft, sheetUnits, tiersOn, tiers]);
 
