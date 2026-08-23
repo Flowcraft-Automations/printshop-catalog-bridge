@@ -7,7 +7,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { isAdmin, email, signOut } = useAuth();
   const qc = useQueryClient();
   const nav = [
-    { to: "/", label: "לוח בקרה" },
+    ...(isAdmin ? [{ to: "/", label: "לוח בקרה" }] : []),
     { to: "/catalog", label: "קטלוג" },
 
     { to: "/calculator", label: "מחשבון מידות" },
