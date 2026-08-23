@@ -1200,9 +1200,10 @@ export function priceJob(
 
   /* size curve for the requested quantity: prefer anchors of that exact
      quantity, otherwise normalize each size's closest anchor to it */
-  const sameQty = usableAll.filter((a) => a.qty === units);
+  const sameQty = mergedAll.filter((a) => a.qty === units);
   const bySize = new Map<string, JobAnchor>();
-  for (const a of usableAll) {
+  for (const a of mergedAll) {
+
     const key = sizeKey(a.w, a.h);
     const cur = bySize.get(key);
     if (
