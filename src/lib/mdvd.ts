@@ -323,18 +323,19 @@ export type FamilyPricing = {
   sheetGap: number;
   /** מינימום הזמנה ביחידות (0 = ללא מינימום) */
   minOrderQty: number;
-  /** מגבלות מכונה — רוחב הדפסה מרבי / אורך מרבי בס"מ (0 = ללא הגבלה) */
+  /** מגבלות מכונה — גבול הדפסה: רוחב / אורך בס"מ (0 = ללא הגבלה) */
   maxPrintW: number;
   maxPrintL: number;
-  /** מעל הרוחב המרבי — ריתוך פאנלים (true) או לא ניתן לייצור (false) */
-  weldable: boolean;
-  /** גבול הדפסה ישירה (ס"מ) — מעליו הדבקת ויניל על הלוח */
-  mountW: number;
-  mountH: number;
-  /** עלות הדבקה ₪ למ״ר / ₪ ליחידה */
+  /** ההתנהגות מעל גבול ההדפסה */
+  overLimit: OverLimit;
+  /** עלות הדבקה ₪ למ״ר / ₪ ליחידה (רלוונטי ל"הדבקת ויניל על הלוח") */
   mountCostM2: number;
   mountCostUnit: number;
 };
+
+/** מה קורה מעל גבול ההדפסה */
+export type OverLimit = "weld" | "mount" | "block";
+
 
 
 
