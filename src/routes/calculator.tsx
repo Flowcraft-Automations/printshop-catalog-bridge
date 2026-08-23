@@ -151,8 +151,13 @@ function Calculator() {
     minUnitArea: "1",
     shortRunPct: "70",
     qtyExponent: "",
-
+    sheetW: String(SHEET_W_CM),
+    sheetH: String(SHEET_H_CM),
+    sheetMargin: "0",
+    sheetGap: String(SHEET_GAP_CM),
+    minOrderQty: "",
   });
+
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
   const [tiersOn, setTiersOn] = useState(false);
   const [tiers, setTiers] = useState<{ minQty: string; unitPrice: string; size: string }[]>([]);
