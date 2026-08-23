@@ -198,9 +198,8 @@ function Calculator() {
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
       maxPrintW: saved.maxPrintW ? String(saved.maxPrintW) : "",
       maxPrintL: saved.maxPrintL ? String(saved.maxPrintL) : "",
-      weldable: saved.weldable,
-      mountW: saved.mountW ? String(saved.mountW) : "",
-      mountH: saved.mountH ? String(saved.mountH) : "",
+      overLimit: saved.overLimit,
+
       mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
       mountCostUnit: saved.mountCostUnit ? String(saved.mountCostUnit) : "",
 
