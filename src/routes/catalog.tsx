@@ -917,7 +917,7 @@ function Catalog() {
     category,
     presence,
     colFilters,
-    sort,
+    sorts,
   ]);
 
 
@@ -949,7 +949,7 @@ function Catalog() {
     setView("");
 
     setColFilters({});
-    setSort({ key: "size", dir: "asc" });
+    setSorts(DEFAULT_SORTS);
     setSelected(new Set());
     setLimit(200);
     navigate({ to: ".", search: {} });
@@ -1294,13 +1294,14 @@ function Catalog() {
             {activeColFilters > 0 && ` (${activeColFilters})`}
           </button>
           <ColumnChooser visible={visibleCols} onChange={setVisibleCols} />
-          {(activeColFilters > 0 || sort.key !== "size" || sort.dir !== "asc") && (
+          {(activeColFilters > 0 || JSON.stringify(sorts) !== JSON.stringify(DEFAULT_SORTS)) && (
             <button
               onClick={() => {
                 setColFilters({});
-                setSort({ key: "size", dir: "asc" });
+                setSorts(DEFAULT_SORTS);
               }}
               className="underline"
+            >
             >
               ניקוי סינון עמודות ומיון
             </button>
