@@ -701,9 +701,11 @@ function Calculator() {
             </div>
           </div>
           <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-            {fittedQtyExp !== null && !draft.qtyExponent.trim()
-              ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך כדי לקבע.`
-              : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
+            {draft.qtyExponent.trim()
+              ? `מקדם כמות מקובע: ${draft.qtyExponent} — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 0.2–1.`
+              : fittedQtyExp !== null
+                ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (0.2–1) כדי לקבע.`
+                : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
 
 
