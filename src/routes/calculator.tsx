@@ -315,6 +315,14 @@ function Calculator() {
 
   const inconsistent = job?.inconsistent ?? [];
 
+  /* anchors describing the same job (same qty, area within ±2%) at different prices */
+  const conflicts = useMemo(() => mergeCloseAnchors(anchors).conflicts, [anchors]);
+  const conflictIds = useMemo(
+    () => new Set(conflicts.flatMap((c) => c.members.map((m) => m.id))),
+    [conflicts],
+  );
+
+
   const packagePrices = useMemo(
     () =>
       cfg.packages.map((p) => ({ qty: p, job: priceJob(cfg, anchors, nw, nh, p, validated) })),
