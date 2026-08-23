@@ -1140,7 +1140,11 @@ export function priceJob(
       (m, a) => (a.area <= area + 1e-9 && a.qty <= units ? Math.max(m, a.price) : m),
       0,
     );
-    const withFloor = (y: number) => Math.max(y, anchorFloor);
+    /* monotone-in-quantity guard: at or above the smallest anchored package the
+       price can never drop below the top of the short-run zone (that package's
+       price for this size) — filled in once priceAtQty exists */
+    let qtyFloor = 0;
+    const withFloor = (y: number) => Math.max(y, anchorFloor, qtyFloor);
 
     const fit = fitQtyCurve(usableAnchors);
     const e = cfg.qtyExponentPinned ? qtyExp : (fit?.e ?? qtyExp);
