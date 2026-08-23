@@ -401,13 +401,33 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     sheetMargin: num(v?.["sheet_margin"]) >= 0 ? num(v?.["sheet_margin"]) : 0,
     sheetGap: num(v?.["sheet_gap"]) >= 0 && v?.["sheet_gap"] != null ? num(v?.["sheet_gap"]) : SHEET_GAP_CM,
     minOrderQty: Math.max(0, Math.floor(num(v?.["min_order_qty"]))),
-    maxPrintW: Math.max(0, num(v?.["max_print_w"])),
-    maxPrintL: Math.max(0, num(v?.["max_print_l"])),
-    weldable: v?.["weldable"] !== false,
-    mountW: Math.max(0, num(v?.["mount_w"])),
-    mountH: Math.max(0, num(v?.["mount_h"])),
+    ...(() => {
+      /* legacy keys: weldable + separate mount_w/mount_h boundary */
+      const legacyMountW = Math.max(0, num(v?.["mount_w"]));
+      const legacyMountH = Math.max(0, num(v?.["mount_h"]));
+      const raw = String(v?.["over_limit"] ?? "");
+      const overLimit: OverLimit =
+        raw === "weld" || raw === "mount" || raw === "block"
+          ? raw
+          : legacyMountW > 0 && legacyMountH > 0
+            ? "mount"
+            : v?.["weldable"] === false
+              ? "block"
+              : "weld";
+      const useLegacyBoundary = !raw && overLimit === "mount";
+      return {
+        maxPrintW: useLegacyBoundary
+          ? Math.min(legacyMountW, legacyMountH)
+          : Math.max(0, num(v?.["max_print_w"])),
+        maxPrintL: useLegacyBoundary
+          ? Math.max(legacyMountW, legacyMountH)
+          : Math.max(0, num(v?.["max_print_l"])),
+        overLimit,
+      };
+    })(),
     mountCostM2: Math.max(0, num(v?.["mount_cost_m2"])),
     mountCostUnit: Math.max(0, num(v?.["mount_cost_unit"])),
+
   };
 
 }
