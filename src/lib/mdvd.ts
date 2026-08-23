@@ -910,6 +910,9 @@ export type JobPrice = {
   sheets: number | null;
   unitsPerSheet: number | null;
   inconsistent: JobAnchor[];
+  /** anchor groups describing the same job at different prices */
+  conflicts: AnchorConflict[];
+
   hasAnchors: boolean;
   /** where the number came from */
   source: "validated" | "anchor" | "cost";
