@@ -1074,6 +1074,23 @@ export function priceJob(
     );
   }
 
+  /* 1.5 — מדרגת כמות: מחיר קבוע ליחידה, גובר על מקדם כמות ועל העקומה */
+  const tier = matchQtyTier(cfg, w, h, units);
+  if (tier) {
+    return finish(
+      tier.unitPrice * units,
+      "מדרגת כמות",
+      `${tier.minQty.toLocaleString()}+ יח׳ · ${shekel(tier.unitPrice)} ליחידה × ${units.toLocaleString()} יח׳${
+        tier.size ? ` · מידה ${tier.size.replace("x", "×")}` : " · כל המידות"
+      }`,
+      "tier",
+      {},
+      true,
+    );
+  }
+
+
+
   /* 2 — above the threshold with no anchors at all: pure outsourcing cost */
   if (above && anchors.length === 0) {
     const billedUnitArea = Math.max(minUnitArea, area);
