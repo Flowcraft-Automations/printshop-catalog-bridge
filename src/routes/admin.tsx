@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "ניהול משתמשים — קונסולת MDVD" },
@@ -33,13 +34,13 @@ const inputCls =
   "w-full border-b-2 border-[var(--ink)] bg-transparent px-2 py-2 outline-none focus:border-[var(--accent-raw)]";
 
 function AdminPage() {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, loading, session } = useAuth();
   const qc = useQueryClient();
   const { data: families = [] } = useQuery(familiesQuery());
   const users = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => listUsers(),
-    enabled: isAdmin,
+    enabled: isAdmin && !!session,
   });
 
   const [email, setEmail] = useState("");
