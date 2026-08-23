@@ -638,12 +638,12 @@ function Catalog() {
   }
 
   const groupOptions = useMemo(
-    () => [...new Set(products.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
-    [products],
+    () => [...new Set(visibleProducts.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
+    [visibleProducts],
   );
   const categoryOptions = useMemo(
-    () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
-    [products],
+    () => [...new Set(visibleProducts.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
+    [visibleProducts],
   );
 
   const update = useMutation({
