@@ -203,6 +203,7 @@ function Calculator() {
           qty: Math.max(1, Number(p.qty) || 1),
           price,
           isAnchor: !!p.is_anchor,
+          verified: !!p.verified,
         };
       })
       .filter((r) => r.w > 0 && r.h > 0)
