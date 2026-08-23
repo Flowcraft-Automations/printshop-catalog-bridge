@@ -394,21 +394,35 @@ function Calculator() {
       <PageTitle title="מחשבון מידות" sub="תמחור לפי עוגנים" />
 
       {/* family picker */}
-      <div className="flex flex-wrap gap-2">
-        {families.map((f) => (
-          <button
-            key={f.family}
-            onClick={() => setFamily(f.family)}
-            className="border-2 px-3 py-1 text-sm font-bold"
-            style={
-              family === f.family
-                ? { background: familyColor(f.family), borderColor: familyColor(f.family), color: "#fff" }
-                : { borderColor: familyColor(f.family), color: familyColor(f.family) }
-            }
-          >
-            {f.family}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <input
+          className="w-full max-w-xs border-0 border-b-2 border-[var(--ink)] bg-transparent px-1 py-1 text-sm font-bold outline-none focus:border-[var(--accent-raw)]"
+          value={famSearch}
+          onChange={(e) => setFamSearch(e.target.value)}
+          placeholder="חיפוש קטגוריה..."
+        />
+        <div className="flex flex-wrap gap-2">
+          {famList.map((f) => (
+            <button
+              key={f.family}
+              onClick={() => setFamily(f.family)}
+              className={`border-2 px-3 py-1 text-sm font-bold text-white transition ${
+                family === f.family
+                  ? "shadow-[3px_3px_0_var(--ink)]"
+                  : "opacity-60 hover:opacity-100"
+              }`}
+              style={{
+                background: familyColor(f.family),
+                borderColor: family === f.family ? "var(--ink)" : familyColor(f.family),
+              }}
+            >
+              {f.family}
+            </button>
+          ))}
+          {!famList.length ? (
+            <span className="text-sm text-muted-foreground">לא נמצאה קטגוריה</span>
+          ) : null}
+        </div>
       </div>
 
       {/* calculator */}
@@ -439,8 +453,16 @@ function Calculator() {
             ) : null}
           </div>
 
+          {/* area — always visible */}
+          <div className="w-32">
+            <div className={labelCls}>שטח (מ״ר)</div>
+            <div className="border-b-2 border-dashed border-[var(--line,#c9d4de)] px-1 py-1 text-lg font-black text-[var(--ink)]">
+              {jobArea ? jobArea.toFixed(3) : "—"}
+            </div>
+          </div>
 
           <div className="mr-auto text-left">
+            <div className={labelCls}>מחיר מוצע</div>
             {!nw || !nh ? (
               <div className="text-lg font-bold text-muted-foreground">הזינו מידות</div>
             ) : job ? (
@@ -456,11 +478,6 @@ function Calculator() {
 
         {job && nw && nh ? (
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-            <div>{job.detail}</div>
-            <div>
-              עלות ייצור {shekel(job.cost)} · סף רווח {shekel(job.costFloorValue)}
-              {job.above ? " · מעל הסף" : ""}
-            </div>
             {job.belowCost ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
                 מתחת לעלות — המחיר נמוך מ־{shekel(job.costFloorValue)}
@@ -474,9 +491,109 @@ function Calculator() {
             {!job.hasAnchors && job.source !== "validated" ? (
               <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
             ) : null}
+            {isAdmin ? (
+              <>
+                <div>{job.detail}</div>
+                <div>
+                  עלות ייצור {shekel(job.cost)} · סף רווח {shekel(job.costFloorValue)}
+                  {job.above ? " · מעל הסף" : ""}
+                </div>
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>
+
+      {/* verified reference items */}
+      {family ? (
+        <section className="border-2 border-[var(--ink)] bg-card p-5 shadow-[4px_4px_0_var(--ink)]">
+          <h2 className="mb-1 text-base font-black text-[var(--ink)]">
+            מחירים מאומתים בקטלוג — {family}
+          </h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            רק פריטים שסומנו כמאומתים. אלו המחירים שכבר נגבים בפועל.
+          </p>
+
+          {nearest.length ? (
+            <>
+              <div className="mb-2 text-[11px] font-bold text-muted-foreground">
+                הכי קרובים למידה שהוזנה
+              </div>
+              <div className="mb-6 flex flex-wrap gap-2">
+                {nearest.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => {
+                      setW(String(v.w));
+                      setH(String(v.h));
+                      setQty(String(v.qty));
+                    }}
+                    className="border-2 border-[var(--ink)] bg-background px-3 py-2 text-right"
+                  >
+                    <div className="text-sm font-black text-[var(--ink)]">
+                      {v.w}×{v.h}
+                      {v.qty > 1 ? ` · ${v.qty.toLocaleString()} יח׳` : ""}
+                    </div>
+                    <div className="text-lg font-black text-[var(--accent-raw)]">
+                      {shekel(v.price)}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {v.area.toFixed(3)} מ״ר
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+
+          <div className="max-h-[22rem] overflow-y-auto">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
+                  <th className="p-2 text-right font-medium">מידה</th>
+                  <th className="p-2 text-right font-medium">שטח מ״ר</th>
+                  <th className="p-2 text-right font-medium">כמות</th>
+                  <th className="p-2 text-right font-medium">מחיר</th>
+                  <th className="p-2 text-right font-medium">שם</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verifiedList.map((v) => (
+                  <tr
+                    key={v.id}
+                    onClick={() => {
+                      setW(String(v.w));
+                      setH(String(v.h));
+                      setQty(String(v.qty));
+                    }}
+                    className="cursor-pointer border-b border-[var(--line,#c9d4de)] text-sm font-bold hover:bg-[var(--ink)]/5"
+                  >
+                    <td className="p-2">
+                      {v.w}×{v.h}
+                    </td>
+                    <td className="p-2 font-normal text-muted-foreground">{v.area.toFixed(3)}</td>
+                    <td className="p-2">{v.qty.toLocaleString()}</td>
+                    <td className="p-2 text-[var(--accent-raw)]">{shekel(v.price)}</td>
+                    <td className="max-w-[18rem] truncate p-2 text-xs font-normal text-muted-foreground">
+                      {v.name}
+                    </td>
+                  </tr>
+                ))}
+                {!verifiedList.length ? (
+                  <tr>
+                    <td colSpan={5} className="p-3 text-sm text-muted-foreground">
+                      אין עדיין פריטים מאומתים במשפחה זו.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+
 
       {/* family config — admin only */}
       {family && isAdmin ? (
