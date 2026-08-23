@@ -870,16 +870,24 @@ function Catalog() {
       return true;
     });
 
-    const get = SORT_VALUE[sort.key];
-    const dir = sort.dir === "asc" ? 1 : -1;
     out.sort((a, b) => {
-      const va = get(a);
-      const vb = get(b);
-      if (va == null && vb == null) return 0;
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
-      return String(va).localeCompare(String(vb), "he") * dir;
+      for (const { key, dir } of sorts) {
+        const get = SORT_VALUE[key];
+        const va = get(a);
+        const vb = get(b);
+        const d = dir === "asc" ? 1 : -1;
+        if (va == null && vb == null) continue;
+        if (va == null) return 1 * d;
+        if (vb == null) return -1 * d;
+        if (typeof va === "number" && typeof vb === "number") {
+          const diff = (va - vb) * d;
+          if (diff !== 0) return diff;
+        } else {
+          const diff = String(va).localeCompare(String(vb), "he") * d;
+          if (diff !== 0) return diff;
+        }
+      }
+      return 0;
     });
     return out;
   }, [
