@@ -1025,7 +1025,8 @@ export function priceJob(
     noRound = false,
   ): JobPrice => {
     const base = Math.max(raw, 0);
-    const floored = source === "validated" ? base : Math.max(base, outsourceFloor);
+    const floored =
+      source === "validated" || source === "tier" ? base : Math.max(base, outsourceFloor);
     const total = noRound && floored === base ? floored : roundTo(floored, cfg.rounding);
     const floorValue = cost * margin;
     const floorHit = floored > base + 0.001;
