@@ -383,6 +383,12 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
           .sort((a, b) => a.minQty - b.minQty)
       : [],
     sheetUnits: su,
+    sheetW: num(v?.["sheet_w"]) > 0 ? num(v?.["sheet_w"]) : SHEET_W_CM,
+    sheetH: num(v?.["sheet_h"]) > 0 ? num(v?.["sheet_h"]) : SHEET_H_CM,
+    sheetMargin: num(v?.["sheet_margin"]) >= 0 ? num(v?.["sheet_margin"]) : 0,
+    sheetGap: num(v?.["sheet_gap"]) >= 0 && v?.["sheet_gap"] != null ? num(v?.["sheet_gap"]) : SHEET_GAP_CM,
+    minOrderQty: Math.max(0, Math.floor(num(v?.["min_order_qty"]))),
+
   };
 }
 
