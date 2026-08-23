@@ -332,6 +332,36 @@ function Calculator() {
     [cfg, anchors, nw, nh, validated],
   );
 
+  /* the typed job's area, always shown */
+  const jobArea = (nw * nh) / 10000;
+
+  /* verified catalog items of this family, cheapest reference points for a human */
+  const verifiedList = useMemo(
+    () => [...validated].sort((a, b) => a.area - b.area || a.qty - b.qty),
+    [validated],
+  );
+
+  /* the verified items closest to what was typed */
+  const nearest = useMemo(() => {
+    if (!jobArea) return [];
+    return [...validated]
+      .map((v) => ({
+        ...v,
+        gap:
+          Math.abs(Math.log((v.area || 0.0001) / jobArea)) +
+          Math.abs(Math.log(v.qty / nq)) * 0.5,
+      }))
+      .sort((a, b) => a.gap - b.gap)
+      .slice(0, 5);
+  }, [validated, jobArea, nq]);
+
+  const famList = useMemo(() => {
+    const q = famSearch.trim().toLowerCase();
+    return q ? families.filter((f) => f.family.toLowerCase().includes(q)) : families;
+  }, [families, famSearch]);
+
+
+
   /* ---------------- new anchor row ---------------- */
   const [newRow, setNewRow] = useState({ w: "", h: "", qty: "", price: "" });
 
