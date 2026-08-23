@@ -25,6 +25,7 @@ import {
   STATUS_CLASS,
   STATUS_LABEL,
   familyAnchors,
+  mergeCloseAnchors,
   readFamilyPricing,
   priceJob,
   displayFieldValue,
