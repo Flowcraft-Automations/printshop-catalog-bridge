@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/categories")({
   head: () => ({
