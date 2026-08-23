@@ -1157,11 +1157,14 @@ export function priceJob(
   }
 
   const fittedQtyExp = fitAreaQtyExponent(usableAll);
-  const effQtyExp = fittedQtyExp ?? qtyExp;
+  /* a pinned מקדם כמות always wins over the fitted one */
+  const pinnedQty = cfg.qtyExponentPinned;
+  const effQtyExp = pinnedQty ? qtyExp : (fittedQtyExp ?? 1);
   const scaleQty = (price: number, from: number, to: number) =>
     from === to ? price : price * Math.pow(to / from, effQtyExp);
-  const qtyExpNote =
-    fittedQtyExp !== null ? ` · מקדם כמות מותאם ${fittedQtyExp.toFixed(2)}` : qtyNote;
+  const qtyExpNote = ` · מקדם כמות ${effQtyExp.toFixed(2)} (${
+    pinnedQty ? "מקובע" : fittedQtyExp !== null ? "מותאם מהעוגנים" : "ברירת מחדל"
+  })`;
 
   /* never quote below an anchor smaller-or-equal in both size and quantity */
   const anchorFloor = mergedAll.reduce(
@@ -1169,7 +1172,14 @@ export function priceJob(
     0,
   );
 
-  const withFloor = (y: number) => Math.max(y, anchorFloor);
+  let floorBound = false;
+  const withFloor = (y: number) => {
+    if (anchorFloor > y + 0.001) floorBound = true;
+    return Math.max(y, anchorFloor);
+  };
+  const floorNote = () =>
+    floorBound ? ` · רצפת עוגן ${shekel(anchorFloor)} (מחיר עוגן קטן יותר)` : "";
+
 
   /* exact size + exact quantity → the anchor price verbatim */
   const exactBoth = usableAll.find((a) => sameDims(a) && a.qty === units);
@@ -1195,14 +1205,16 @@ export function priceJob(
     return finish(
       withFloor(scaleQty(exactSize.price, exactSize.qty, units)),
       "מחיר עוגן לפי כמות",
-      `${exactSize.w}×${exactSize.h} · ${exactSize.qty.toLocaleString()} יח׳ = ${shekel(exactSize.price)} → ${units.toLocaleString()} יח׳${qtyExpNote}`,
+      `${exactSize.w}×${exactSize.h} · ${exactSize.qty.toLocaleString()} יח׳ = ${shekel(exactSize.price)} → ${units.toLocaleString()} יח׳${qtyExpNote}${floorNote()}`,
       "anchor",
     );
   }
 
   /* size curve for the requested quantity: prefer anchors of that exact
-     quantity, otherwise normalize each size's closest anchor to it */
-  const sameQty = mergedAll.filter((a) => a.qty === units);
+     quantity, otherwise normalize each size's closest anchor to it.
+     A pinned מקדם כמות always goes through the normalized path so the
+     exponent actually moves the price. */
+  const sameQty = pinnedQty ? [] : mergedAll.filter((a) => a.qty === units);
   const bySize = new Map<string, JobAnchor>();
   for (const a of mergedAll) {
 
@@ -1237,7 +1249,7 @@ export function priceJob(
     return finish(
       withFloor(only.price * Math.pow(area / only.area, clampExp(0.6))),
       "עוגן יחיד",
-      `${only.w}×${only.h} = ${shekel(only.price)} · ${units.toLocaleString()} יח׳${qtyExpNote}`,
+      `${only.w}×${only.h} = ${shekel(only.price)} · ${units.toLocaleString()} יח׳${qtyExpNote}${floorNote()}`,
       "anchor",
       { inconsistent: bad },
     );
@@ -1251,7 +1263,7 @@ export function priceJob(
     r.label,
     `${area.toFixed(3)} מ״ר · ${units.toLocaleString()} יח׳${
       sameQty.length >= 2 ? " (עוגנים באותה כמות)" : qtyExpNote
-    }${r.detail ? ` · ${r.detail}` : ""}`,
+    }${r.detail ? ` · ${r.detail}` : ""}${floorNote()}`,
     "anchor",
     { inconsistent: bad },
   );
