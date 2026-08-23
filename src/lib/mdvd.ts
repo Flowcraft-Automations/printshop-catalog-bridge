@@ -433,6 +433,8 @@ export function familyAnchors(products: Product[], family: string): JobAnchor[] 
   const out: JobAnchor[] = [];
   for (const p of products) {
     if (!p.is_anchor) continue;
+    // Unverified items never feed the pricing engine.
+    if (!p.verified) continue;
     if ((p.family ?? "").trim() !== family.trim()) continue;
     const w = Number(p.width_cm) || 0;
     const h = Number(p.height_cm) || 0;

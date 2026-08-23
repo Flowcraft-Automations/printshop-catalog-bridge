@@ -203,6 +203,7 @@ function Calculator() {
           qty: Math.max(1, Number(p.qty) || 1),
           price,
           isAnchor: !!p.is_anchor,
+          verified: !!p.verified,
         };
       })
       .filter((r) => r.w > 0 && r.h > 0)
@@ -787,6 +788,14 @@ function Calculator() {
                     </td>
                     <td className="p-2">
                       {a.w}×{a.h}
+                      {a.isAnchor && !a.verified ? (
+                        <span
+                          className="mr-2 text-xs font-normal text-muted-foreground"
+                          title="פריט לא מאומת — אינו משתתף בחישוב המחיר"
+                        >
+                          לא מאומת — לא משפיע על התמחור
+                        </span>
+                      ) : null}
                       {bad ? (
                         <span className="mr-2 text-xs font-normal text-destructive">
                           עוגן לא עקבי
