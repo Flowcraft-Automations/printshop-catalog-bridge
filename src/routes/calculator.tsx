@@ -715,8 +715,14 @@ function Calculator() {
                   >
                     <div className="text-sm font-black text-[var(--ink)]">
                       {v.w}×{v.h}
+                      {paperLabel(v.w, v.h) ? (
+                        <span className="mr-1 border border-[var(--ink)] px-1 text-[10px] font-black">
+                          {paperLabel(v.w, v.h)}
+                        </span>
+                      ) : null}
                       {v.qty > 1 ? ` · ${v.qty.toLocaleString()} יח׳` : ""}
                     </div>
+
                     <div className="text-lg font-black text-[var(--accent-raw)]">
                       {shekel(v.price)}
                     </div>
