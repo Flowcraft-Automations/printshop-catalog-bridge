@@ -175,8 +175,13 @@ function Calculator() {
       minUnitArea: String(saved.minUnitArea),
       shortRunPct: String(Math.round(saved.shortRunPct * 100)),
       qtyExponent: saved.qtyExponentPinned ? String(saved.qtyExponent) : "",
-
+      sheetW: String(saved.sheetW),
+      sheetH: String(saved.sheetH),
+      sheetMargin: String(saved.sheetMargin),
+      sheetGap: String(saved.sheetGap),
+      minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
     });
+
     setSheetUnits(saved.sheetUnits);
     setTiersOn(saved.qtyTiersEnabled);
     setTiers(
