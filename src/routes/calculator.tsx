@@ -604,7 +604,17 @@ function Calculator() {
             הגדרות מתקדמות — תמחור ועוגנים
           </summary>
           <div className="border-t-2 border-[var(--line,#c9d4de)] p-5">
-          <h2 className="mb-4 text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
+            <button
+              onClick={() => saveCfg.mutate()}
+              disabled={saveCfg.isPending}
+              className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
+            >
+              {saveCfg.isPending ? "שומר…" : "שמור הגדרות"}
+            </button>
+          </div>
+
 
 
           <div className="flex flex-wrap items-end gap-6">
@@ -707,6 +717,18 @@ function Calculator() {
                 ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (0.2–1) כדי לקבע.`
                 : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
+
+          <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
+            <button
+              onClick={() => saveCfg.mutate()}
+              disabled={saveCfg.isPending}
+              className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
+            >
+              {saveCfg.isPending ? "שומר…" : "שמור הגדרות תמחור"}
+            </button>
+          </div>
+
+
 
 
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
