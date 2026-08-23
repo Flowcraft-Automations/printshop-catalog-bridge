@@ -1100,10 +1100,25 @@ export function priceJob(
       source,
       qtyFactor,
       noOutsourceCost: above && !(cfg.outsourceCost > 0),
+      belowMinOrder: false,
+      minOrderQty: cfg.minOrderQty,
       ...sheetExtra,
       ...extra,
     };
   };
+
+  /* minimum order — no price below it */
+  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty) {
+    return {
+      ...finish(0, `מינימום הזמנה ${cfg.minOrderQty.toLocaleString()} יחידות`, "", "cost"),
+      total: 0,
+      unit: 0,
+      belowCost: false,
+      belowMinOrder: true,
+      detail: `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
+    };
+  }
+
 
   /* 1 — validated catalog price: exact size + exact quantity, as-is */
   const sameDims = (a: JobAnchor) =>
