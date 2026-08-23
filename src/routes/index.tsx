@@ -85,8 +85,10 @@ function Progress({
 
 function Dashboard() {
   const { data: products = [], isLoading } = useQuery(productsQuery());
+  const { isAdmin, loading } = useAuth();
 
-  if (isLoading) return <p className="text-muted-foreground">טוען נתונים…</p>;
+  if (loading || isLoading) return <p className="text-muted-foreground">טוען נתונים…</p>;
+  if (!isAdmin) return <Navigate to="/catalog" />;
 
   const both = products.filter((p) => p.site_exists && p.senzey_exists).length;
   const onlySite = products.filter((p) => p.site_exists && !p.senzey_exists).length;
