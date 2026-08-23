@@ -1178,11 +1178,17 @@ export function priceJob(
       costFloorValue: floorValue,
       belowCost: cost > 0 && total < floorValue - 0.001,
       label: floorHit ? "מעל הסף — רצפת מיקור חוץ" : label,
-      detail: floorHit
-        ? `${detail} · רצפת מיקור חוץ ${shekel(outsourceFloor)} (${shekel(cfg.outsourceCost)} למ״ר × ${Math.max(minUnitArea, area).toFixed(2)} מ״ר ליחידה × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin})`
-        : above && outsourceFloor > 0
-          ? `${detail} · מעל הסף · רצפת מיקור חוץ ${shekel(outsourceFloor)}`
-          : detail,
+      detail: [
+        floorHit
+          ? `${detail} · רצפת מיקור חוץ ${shekel(outsourceFloor)} (${shekel(cfg.outsourceCost)} למ״ר × ${Math.max(minUnitArea, area).toFixed(2)} מ״ר ליחידה × ${units.toLocaleString()} יח׳${qtyNote} × מקדם רווח ${margin})`
+          : above && outsourceFloor > 0
+            ? `${detail} · מעל הסף · רצפת מיקור חוץ ${shekel(outsourceFloor)}`
+            : detail,
+        machine.note,
+        mountCost > 0 ? `עלות הדבקה ${shekel(mountCost)}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       sheets: null,
       unitsPerSheet: null,
       inconsistent: [],
@@ -1194,10 +1200,27 @@ export function priceJob(
       noOutsourceCost: above && !(cfg.outsourceCost > 0),
       belowMinOrder: false,
       minOrderQty: cfg.minOrderQty,
+      panels: machine.panels,
+      overMachine: false,
+      mounted: machine.mounted,
+      machineNote: machine.note,
+      mountCost,
       ...sheetExtra,
       ...extra,
     };
   };
+
+  /* machine limits — impossible to produce, no price */
+  if (machine.blocked) {
+    return {
+      ...finish(0, "לא ניתן לייצור — מעל מגבלות המכונה", "", "cost"),
+      total: 0,
+      unit: 0,
+      belowCost: false,
+      overMachine: true,
+      detail: machine.note,
+    };
+  }
 
   /* minimum order — no price below it */
   if (cfg.minOrderQty > 1 && units < cfg.minOrderQty) {
@@ -1210,6 +1233,7 @@ export function priceJob(
       detail: `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
     };
   }
+
 
 
   /* 1 — validated catalog price: exact size + exact quantity, as-is */
