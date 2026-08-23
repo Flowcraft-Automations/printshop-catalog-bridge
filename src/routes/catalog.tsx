@@ -406,8 +406,26 @@ function Catalog() {
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery(productsQuery());
   const { data: allNotes = [] } = useQuery(productNotesQuery());
-  const { data: families = [] } = useQuery(familiesQuery());
+  const { data: allFamilies = [] } = useQuery(familiesQuery());
   const { data: bizCfg } = useQuery(businessConfigQuery());
+  const { isAdmin, allowedFamilies } = useAuth();
+
+  /* non-admins only ever see the families granted to them */
+  const families = useMemo(
+    () =>
+      allowedFamilies === null
+        ? allFamilies
+        : allFamilies.filter((f) => allowedFamilies.includes(f.family)),
+    [allFamilies, allowedFamilies],
+  );
+  const visibleProducts = useMemo(
+    () =>
+      allowedFamilies === null
+        ? products
+        : products.filter((p) => allowedFamilies.includes(p.family ?? "")),
+    [products, allowedFamilies],
+  );
+
 
 
   const notesByProduct = useMemo(() => {
@@ -520,7 +538,6 @@ function Catalog() {
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
-  const { isAdmin, allowedFamilies } = useAuth();
   const [showClosed, setShowClosed] = useState(false);
   const [colorRows, setColorRows] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
@@ -621,12 +638,12 @@ function Catalog() {
   }
 
   const groupOptions = useMemo(
-    () => [...new Set(products.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
-    [products],
+    () => [...new Set(visibleProducts.map((p) => (p.senzey_group ?? "").trim()).filter(Boolean))].sort(),
+    [visibleProducts],
   );
   const categoryOptions = useMemo(
-    () => [...new Set(products.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
-    [products],
+    () => [...new Set(visibleProducts.map((p) => (p.site_category ?? "").trim()).filter(Boolean))].sort(),
+    [visibleProducts],
   );
 
   const update = useMutation({
