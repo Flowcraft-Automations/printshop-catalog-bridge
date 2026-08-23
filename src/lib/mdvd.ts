@@ -1249,7 +1249,7 @@ export function priceJob(
     return finish(
       withFloor(only.price * Math.pow(area / only.area, clampExp(0.6))),
       "עוגן יחיד",
-      `${only.w}×${only.h} = ${shekel(only.price)} · ${units.toLocaleString()} יח׳${qtyExpNote}`,
+      `${only.w}×${only.h} = ${shekel(only.price)} · ${units.toLocaleString()} יח׳${qtyExpNote}${floorNote()}`,
       "anchor",
       { inconsistent: bad },
     );
@@ -1263,7 +1263,7 @@ export function priceJob(
     r.label,
     `${area.toFixed(3)} מ״ר · ${units.toLocaleString()} יח׳${
       sameQty.length >= 2 ? " (עוגנים באותה כמות)" : qtyExpNote
-    }${r.detail ? ` · ${r.detail}` : ""}`,
+    }${r.detail ? ` · ${r.detail}` : ""}${floorNote()}`,
     "anchor",
     { inconsistent: bad },
   );
