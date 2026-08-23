@@ -400,8 +400,15 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     sheetMargin: num(v?.["sheet_margin"]) >= 0 ? num(v?.["sheet_margin"]) : 0,
     sheetGap: num(v?.["sheet_gap"]) >= 0 && v?.["sheet_gap"] != null ? num(v?.["sheet_gap"]) : SHEET_GAP_CM,
     minOrderQty: Math.max(0, Math.floor(num(v?.["min_order_qty"]))),
-
+    maxPrintW: Math.max(0, num(v?.["max_print_w"])),
+    maxPrintL: Math.max(0, num(v?.["max_print_l"])),
+    weldable: v?.["weldable"] !== false,
+    mountW: Math.max(0, num(v?.["mount_w"])),
+    mountH: Math.max(0, num(v?.["mount_h"])),
+    mountCostM2: Math.max(0, num(v?.["mount_cost_m2"])),
+    mountCostUnit: Math.max(0, num(v?.["mount_cost_unit"])),
   };
+
 }
 
 
