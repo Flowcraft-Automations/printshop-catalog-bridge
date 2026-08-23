@@ -137,6 +137,8 @@ function Calculator() {
 
   });
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
+  const [tiersOn, setTiersOn] = useState(false);
+  const [tiers, setTiers] = useState<{ minQty: string; unitPrice: string; size: string }[]>([]);
 
   useEffect(() => {
     setDraft({
@@ -153,6 +155,14 @@ function Calculator() {
 
     });
     setSheetUnits(saved.sheetUnits);
+    setTiersOn(saved.qtyTiersEnabled);
+    setTiers(
+      saved.qtyTiers.map((t) => ({
+        minQty: String(t.minQty),
+        unitPrice: String(t.unitPrice),
+        size: t.size ? t.size.replace("x", "×") : "",
+      })),
+    );
   }, [saved]);
 
   const cfg: FamilyPricing = useMemo(() => {
@@ -173,10 +183,31 @@ function Calculator() {
       minUnitArea: n(draft.minUnitArea) || 1,
       qtyExponent: n(draft.qtyExponent) || 1,
       qtyExponentPinned: n(draft.qtyExponent) > 0,
+      qtyTiersEnabled: tiersOn,
+      qtyTiers: tiers
+        .map((t) => {
+          const parts = t.size
+            .replace(/[×*]/g, "x")
+            .split("x")
+            .map((x) => Number(x.trim()))
+            .filter((x) => Number.isFinite(x) && x > 0);
+          const size =
+            parts.length === 2
+              ? `${Math.max(parts[0]!, parts[1]!)}x${Math.min(parts[0]!, parts[1]!)}`
+              : "";
+          return {
+            minQty: Math.max(1, Math.floor(n(t.minQty))),
+            unitPrice: n(t.unitPrice),
+            size,
+          };
+        })
+        .filter((t) => t.minQty > 0 && t.unitPrice > 0)
+        .sort((a, b) => a.minQty - b.minQty),
       sheetUnits,
 
     };
-  }, [draft, sheetUnits]);
+  }, [draft, sheetUnits, tiersOn, tiers]);
+
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
 
