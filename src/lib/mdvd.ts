@@ -435,6 +435,14 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       sheet_margin: cfg.sheetMargin,
       sheet_gap: cfg.sheetGap,
       min_order_qty: cfg.minOrderQty,
+      max_print_w: cfg.maxPrintW,
+      max_print_l: cfg.maxPrintL,
+      weldable: cfg.weldable,
+      mount_w: cfg.mountW,
+      mount_h: cfg.mountH,
+      mount_cost_m2: cfg.mountCostM2,
+      mount_cost_unit: cfg.mountCostUnit,
+
 
 
     },
