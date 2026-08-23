@@ -475,6 +475,12 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       over_limit: cfg.overLimit,
       mount_cost_m2: cfg.mountCostM2,
       mount_cost_unit: cfg.mountCostUnit,
+      cap_w: cfg.capW,
+      cap_l: cfg.capL,
+      whole_board: cfg.wholeBoard,
+      board_w: cfg.boardW,
+      board_h: cfg.boardH,
+
 
 
 
