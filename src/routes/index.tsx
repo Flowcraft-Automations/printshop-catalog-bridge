@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { PageTitle } from "@/components/AppShell";
 import { productsQuery } from "@/lib/queries";
