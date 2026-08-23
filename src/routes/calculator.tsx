@@ -216,6 +216,12 @@ function Calculator() {
 
       mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
       mountCostUnit: saved.mountCostUnit ? String(saved.mountCostUnit) : "",
+      capW: saved.capW ? String(saved.capW) : "",
+      capL: saved.capL ? String(saved.capL) : "",
+      wholeBoard: saved.wholeBoard,
+      boardW: saved.boardW ? String(saved.boardW) : "",
+      boardH: saved.boardH ? String(saved.boardH) : "",
+
 
     });
 
