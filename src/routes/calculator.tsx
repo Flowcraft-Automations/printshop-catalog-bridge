@@ -179,7 +179,13 @@ function Calculator() {
 
     mountCostM2: "",
     mountCostUnit: "",
+    capW: "",
+    capL: "",
+    wholeBoard: false,
+    boardW: "",
+    boardH: "",
   });
+
 
 
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
