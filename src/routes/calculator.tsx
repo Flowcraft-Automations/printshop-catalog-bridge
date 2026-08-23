@@ -636,14 +636,16 @@ function Calculator() {
 
 
 
-      {/* family config — admin only, collapsed */}
-      {family && isAdmin ? (
+      {/* family config — viewable by everyone, editable only by admins; collapsed by default */}
+      {family ? (
         <details className="group border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_var(--ink)]">
           <summary className="cursor-pointer list-none px-5 py-3 text-sm font-black text-muted-foreground hover:text-[var(--ink)]">
             <span className="ml-2 inline-block transition group-open:rotate-90">›</span>
             הגדרות מתקדמות — תמחור ועוגנים
           </summary>
           <div className="border-t-2 border-[var(--line,#c9d4de)] p-5">
+            <fieldset disabled={!isAdmin} className="min-w-0 border-0 p-0">
+
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
             <button
