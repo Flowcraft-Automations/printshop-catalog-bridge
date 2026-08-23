@@ -316,7 +316,15 @@ export type FamilyPricing = {
   qtyTiers: QtyTier[];
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
+  /** גיליון הדפסה — מידות, שוליים לא מודפסים ומרווח בין יחידות (ס"מ) */
+  sheetW: number;
+  sheetH: number;
+  sheetMargin: number;
+  sheetGap: number;
+  /** מינימום הזמנה ביחידות (0 = ללא מינימום) */
+  minOrderQty: number;
 };
+
 
 /** מדרגת כמות — מכמות minQty ומעלה, מחיר קבוע ליחידה. size ריק = כל המידות. */
 export type QtyTier = {
@@ -375,6 +383,12 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
           .sort((a, b) => a.minQty - b.minQty)
       : [],
     sheetUnits: su,
+    sheetW: num(v?.["sheet_w"]) > 0 ? num(v?.["sheet_w"]) : SHEET_W_CM,
+    sheetH: num(v?.["sheet_h"]) > 0 ? num(v?.["sheet_h"]) : SHEET_H_CM,
+    sheetMargin: num(v?.["sheet_margin"]) >= 0 ? num(v?.["sheet_margin"]) : 0,
+    sheetGap: num(v?.["sheet_gap"]) >= 0 && v?.["sheet_gap"] != null ? num(v?.["sheet_gap"]) : SHEET_GAP_CM,
+    minOrderQty: Math.max(0, Math.floor(num(v?.["min_order_qty"]))),
+
   };
 }
 
@@ -397,6 +411,12 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
         size: t.size || null,
       })),
       sheet_units: cfg.sheetUnits,
+      sheet_w: cfg.sheetW,
+      sheet_h: cfg.sheetH,
+      sheet_margin: cfg.sheetMargin,
+      sheet_gap: cfg.sheetGap,
+      min_order_qty: cfg.minOrderQty,
+
 
     },
   };
@@ -422,21 +442,36 @@ export function matchQtyTier(
 }
 
 
+/** The usable (printable) sheet area for a family, in cm. */
+export function printableSheet(cfg?: Partial<FamilyPricing>) {
+  const sw = cfg?.sheetW && cfg.sheetW > 0 ? cfg.sheetW : SHEET_W_CM;
+  const sh = cfg?.sheetH && cfg.sheetH > 0 ? cfg.sheetH : SHEET_H_CM;
+  const m = cfg?.sheetMargin && cfg.sheetMargin > 0 ? cfg.sheetMargin : 0;
+  const gap = cfg?.sheetGap != null && cfg.sheetGap >= 0 ? cfg.sheetGap : SHEET_GAP_CM;
+  return { w: Math.max(0, sw - 2 * m), h: Math.max(0, sh - 2 * m), gap, sheetW: sw, sheetH: sh, margin: m };
+}
+
 /** Auto (geometric) יחידות בגיליון, ignoring manual overrides. */
-export function autoUnitsPerSheet(w: number, h: number): number {
+export function autoUnitsPerSheet(
+  w: number,
+  h: number,
+  cfg?: Partial<FamilyPricing>,
+): number {
   if (w <= 0 || h <= 0) return 0;
-  const g = SHEET_GAP_CM;
+  const s = printableSheet(cfg);
+  const g = s.gap;
   const fit = (iw: number, ih: number) =>
-    Math.floor((SHEET_W_CM + g) / (iw + g)) * Math.floor((SHEET_H_CM + g) / (ih + g));
-  return Math.max(fit(w, h), fit(h, w));
+    Math.floor((s.w + g) / (iw + g)) * Math.floor((s.h + g) / (ih + g));
+  return Math.max(0, Math.max(fit(w, h), fit(h, w)));
 }
 
 export function sheetUnitsFor(cfg: FamilyPricing, w: number, h: number) {
   const key = sizeKey(w, h);
   const manual = cfg.sheetUnits[key];
   if (manual && manual > 0) return { units: manual, manual: true };
-  return { units: autoUnitsPerSheet(w, h), manual: false };
+  return { units: autoUnitsPerSheet(w, h, cfg), manual: false };
 }
+
 
 export function fitsThreshold(cfg: FamilyPricing, w: number, h: number) {
   if (cfg.thresholdW <= 0 || cfg.thresholdH <= 0) return true;
@@ -981,7 +1016,12 @@ export type JobPrice = {
   qtyFactor: number;
   /** above the threshold but the family has no outsourcing cost configured */
   noOutsourceCost: boolean;
+  /** the quantity is below the family minimum order — no price is given */
+  belowMinOrder: boolean;
+  /** the configured minimum order quantity */
+  minOrderQty: number;
 };
+
 
 /** The one pricing entry point. */
 export function priceJob(
@@ -1060,10 +1100,25 @@ export function priceJob(
       source,
       qtyFactor,
       noOutsourceCost: above && !(cfg.outsourceCost > 0),
+      belowMinOrder: false,
+      minOrderQty: cfg.minOrderQty,
       ...sheetExtra,
       ...extra,
     };
   };
+
+  /* minimum order — no price below it */
+  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty) {
+    return {
+      ...finish(0, `מינימום הזמנה ${cfg.minOrderQty.toLocaleString()} יחידות`, "", "cost"),
+      total: 0,
+      unit: 0,
+      belowCost: false,
+      belowMinOrder: true,
+      detail: `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
+    };
+  }
+
 
   /* 1 — validated catalog price: exact size + exact quantity, as-is */
   const sameDims = (a: JobAnchor) =>

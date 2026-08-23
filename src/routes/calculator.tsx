@@ -23,6 +23,8 @@ import {
   priceJob,
   readFamilyPricing,
   sheetUnitsFor,
+  printableSheet,
+
   sizeKey,
   shekel,
   slugify,
@@ -105,7 +107,13 @@ type Draft = {
   minUnitArea: string;
   shortRunPct: string;
   qtyExponent: string;
+  sheetW: string;
+  sheetH: string;
+  sheetMargin: string;
+  sheetGap: string;
+  minOrderQty: string;
 };
+
 
 
 function Calculator() {
@@ -145,8 +153,13 @@ function Calculator() {
     minUnitArea: "1",
     shortRunPct: "70",
     qtyExponent: "",
-
+    sheetW: String(SHEET_W_CM),
+    sheetH: String(SHEET_H_CM),
+    sheetMargin: "0",
+    sheetGap: String(SHEET_GAP_CM),
+    minOrderQty: "",
   });
+
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
   const [tiersOn, setTiersOn] = useState(false);
   const [tiers, setTiers] = useState<{ minQty: string; unitPrice: string; size: string }[]>([]);
@@ -164,8 +177,13 @@ function Calculator() {
       minUnitArea: String(saved.minUnitArea),
       shortRunPct: String(Math.round(saved.shortRunPct * 100)),
       qtyExponent: saved.qtyExponentPinned ? String(saved.qtyExponent) : "",
-
+      sheetW: String(saved.sheetW),
+      sheetH: String(saved.sheetH),
+      sheetMargin: String(saved.sheetMargin),
+      sheetGap: String(saved.sheetGap),
+      minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
     });
+
     setSheetUnits(saved.sheetUnits);
     setTiersOn(saved.qtyTiersEnabled);
     setTiers(
@@ -217,8 +235,13 @@ function Calculator() {
         .filter((t) => t.minQty > 0 && t.unitPrice > 0)
         .sort((a, b) => a.minQty - b.minQty),
       sheetUnits,
-
+      sheetW: n(draft.sheetW) || SHEET_W_CM,
+      sheetH: n(draft.sheetH) || SHEET_H_CM,
+      sheetMargin: Math.max(0, Number(draft.sheetMargin) || 0),
+      sheetGap: draft.sheetGap === "" ? SHEET_GAP_CM : Math.max(0, Number(draft.sheetGap) || 0),
+      minOrderQty: Math.max(0, Math.floor(Number(draft.minOrderQty) || 0)),
     };
+
   }, [draft, sheetUnits, tiersOn, tiers]);
 
 
@@ -510,6 +533,10 @@ function Calculator() {
             <div className={labelCls}>מחיר מוצע</div>
             {!nw || !nh ? (
               <div className="text-lg font-bold text-muted-foreground">הזינו מידות</div>
+            ) : job?.belowMinOrder ? (
+              <div className="text-lg font-bold text-destructive">
+                מינימום הזמנה: {job.minOrderQty.toLocaleString()} יחידות
+              </div>
             ) : job ? (
               <>
                 <div className="text-4xl font-black text-[var(--accent-raw)]">{shekel(job.total)}</div>
@@ -521,7 +548,11 @@ function Calculator() {
           </div>
         </div>
 
-        {job && nw && nh ? (
+        {job?.belowMinOrder && nw && nh ? (
+          <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
+            {job.detail}
+          </div>
+        ) : job && nw && nh ? (
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
             {job.belowCost ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
@@ -536,6 +567,12 @@ function Calculator() {
             {!job.hasAnchors && job.source !== "validated" ? (
               <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
             ) : null}
+            {job.unitsPerSheet ? (
+              <div>
+                {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)} גיליונות · שטח הדפסה{" "}
+                {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+              </div>
+            ) : null}
             {isAdmin ? (
               <>
                 <div>{job.detail}</div>
@@ -547,6 +584,7 @@ function Calculator() {
             ) : null}
           </div>
         ) : null}
+
       </section>
 
       {/* verified reference items */}
@@ -739,6 +777,57 @@ function Calculator() {
               />
             )}
             <Field
+              label="מינימום הזמנה (יחידות)"
+              value={draft.minOrderQty}
+              onChange={(v) => setDraft((p) => ({ ...p, minOrderQty: v }))}
+              width="w-44"
+              placeholder="ללא"
+            />
+            {draft.method === "sheet" && (
+              <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                  גיליון הדפסה
+                </div>
+                <div className="flex flex-wrap items-end gap-6">
+                  <Field
+                    label='רוחב גיליון (ס"מ)'
+                    value={draft.sheetW}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetW: v }))}
+                    width="w-36"
+                  />
+                  <Field
+                    label='גובה גיליון (ס"מ)'
+                    value={draft.sheetH}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetH: v }))}
+                    width="w-36"
+                  />
+                  <Field
+                    label='שוליים לא מודפסים (ס"מ)'
+                    value={draft.sheetMargin}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetMargin: v }))}
+                    width="w-48"
+                  />
+                  <Field
+                    label='מרווח בין יחידות (ס"מ)'
+                    value={draft.sheetGap}
+                    onChange={(v) => setDraft((p) => ({ ...p, sheetGap: v }))}
+                    width="w-44"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    שטח הדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                    {nw && nh ? (
+                      <>
+                        {" · "}
+                        {sheetUnitsFor(cfg, nw, nh).units} יח׳ בגיליון עבור {nw}×{nh}
+                        {sheetUnitsFor(cfg, nw, nh).manual ? " (ידני)" : ""}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Field
               label='מ״ר מינימלי ליחידה (מעל הסף)'
               value={draft.minUnitArea}
               onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
@@ -874,7 +963,7 @@ function Calculator() {
             <div className="text-xs font-bold text-muted-foreground">
               {cfg.method === "area"
                 ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
-                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (${SHEET_W_CM}×${SHEET_H_CM}, רווח ${SHEET_GAP_CM}), ניתן לעריכה`}
+                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (שטח הדפסה ${printableSheet(cfg).w}×${printableSheet(cfg).h}, רווח ${printableSheet(cfg).gap}), ניתן לעריכה`}
             </div>
             <div className="w-56">
               <label className={labelCls}>חיפוש לפי שם</label>
