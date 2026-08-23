@@ -605,6 +605,38 @@ function Calculator() {
           </div>
         </div>
 
+        {/* standard size hot keys */}
+        <div className="mt-4 flex flex-wrap items-center gap-1">
+          <span className="ml-2 text-[11px] font-bold text-muted-foreground">מידות תקן</span>
+          {PAPER_SIZES.map((p) => {
+            const active = paperLabel(nw, nh) === p.label;
+            return (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setW(String(p.w));
+                  setH(String(p.h));
+                }}
+                title={`${p.w}×${p.h} ס״מ`}
+                className={`border-2 px-2 py-0.5 text-[11px] font-black transition ${
+                  active
+                    ? "border-[var(--ink)] bg-[var(--ink)] text-background"
+                    : "border-[var(--line,#c9d4de)] text-muted-foreground hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+          {paperLabel(nw, nh) ? (
+            <span className="mr-2 border-2 border-[var(--accent-raw)] px-2 py-0.5 text-[11px] font-black text-[var(--accent-raw)]">
+              המידה שהוזנה = {paperLabel(nw, nh)}
+            </span>
+          ) : null}
+        </div>
+
+
         {(job?.belowMinOrder || job?.overMachine) && nw && nh ? (
           <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
             {job.detail}
