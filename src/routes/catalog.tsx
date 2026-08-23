@@ -959,7 +959,7 @@ function Catalog() {
     }
 
     // original (pre-change) prices = earliest recorded old_value per product+field
-    const priceFields = ["senzey_price", "site_price", "final_price"] as const;
+    const priceFields = ["senzey_price", "site_price"] as const;
     const originals: Record<string, Partial<Record<(typeof priceFields)[number], string>>> = {};
     {
       const page = 1000;
