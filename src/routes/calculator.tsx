@@ -263,9 +263,8 @@ function Calculator() {
       minOrderQty: Math.max(0, Math.floor(Number(draft.minOrderQty) || 0)),
       maxPrintW: n(draft.maxPrintW),
       maxPrintL: n(draft.maxPrintL),
-      weldable: draft.weldable,
-      mountW: n(draft.mountW),
-      mountH: n(draft.mountH),
+      overLimit: draft.overLimit,
+
       mountCostM2: n(draft.mountCostM2),
       mountCostUnit: n(draft.mountCostUnit),
     };
