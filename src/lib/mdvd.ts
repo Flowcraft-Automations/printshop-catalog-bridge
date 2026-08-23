@@ -353,6 +353,21 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
     qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
     qtyExponentPinned: num(v?.["qty_exponent"]) > 0,
+    qtyTiersEnabled: v?.["qty_tiers_enabled"] === true,
+    qtyTiers: Array.isArray(v?.["qty_tiers"])
+      ? (v?.["qty_tiers"] as unknown[])
+          .map((t) => {
+            const o = (t ?? {}) as Record<string, unknown>;
+            const sizeRaw = String(o["size"] ?? "").trim();
+            return {
+              minQty: Math.max(1, Math.floor(num(o["min_qty"]))),
+              unitPrice: num(o["unit_price"]),
+              size: sizeRaw ? normalizeSizeText(sizeRaw) : "",
+            };
+          })
+          .filter((t) => t.minQty > 0 && t.unitPrice > 0)
+          .sort((a, b) => a.minQty - b.minQty)
+      : [],
     sheetUnits: su,
   };
 }
@@ -368,11 +383,37 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       packages: cfg.packages,
       min_unit_area: cfg.minUnitArea,
       qty_exponent: cfg.qtyExponentPinned ? cfg.qtyExponent : null,
+      qty_tiers_enabled: cfg.qtyTiersEnabled,
+      qty_tiers: cfg.qtyTiers.map((t) => ({
+        min_qty: t.minQty,
+        unit_price: t.unitPrice,
+        size: t.size || null,
+      })),
       sheet_units: cfg.sheetUnits,
 
     },
   };
 }
+
+/** The qty tier that applies to this job, if tiers are enabled. */
+export function matchQtyTier(
+  cfg: FamilyPricing,
+  w: number,
+  h: number,
+  units: number,
+): QtyTier | null {
+  if (!cfg.qtyTiersEnabled || !cfg.qtyTiers.length) return null;
+  const key = sizeKey(w, h);
+  const pick = (list: QtyTier[]) =>
+    list
+      .filter((t) => units >= t.minQty)
+      .sort((a, b) => b.minQty - a.minQty)[0] ?? null;
+  return (
+    pick(cfg.qtyTiers.filter((t) => t.size && t.size === key)) ??
+    pick(cfg.qtyTiers.filter((t) => !t.size))
+  );
+}
+
 
 /** Auto (geometric) יחידות בגיליון, ignoring manual overrides. */
 export function autoUnitsPerSheet(w: number, h: number): number {
