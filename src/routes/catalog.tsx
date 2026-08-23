@@ -520,7 +520,7 @@ function Catalog() {
   const [onlyNew, setOnlyNew] = useState(false);
   const [onlyProposed, setOnlyProposed] = useState(false);
   const [onlyCurveOut, setOnlyCurveOut] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isAdmin, allowedFamilies } = useAuth();
   const [showClosed, setShowClosed] = useState(false);
   const [colorRows, setColorRows] = useState(false);
   const [group, setGroup] = useState(groupParam ?? "");
