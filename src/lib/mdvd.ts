@@ -309,8 +309,19 @@ export type FamilyPricing = {
   qtyExponent: number;
   /** true when the user pinned מקדם כמות instead of letting it be fitted */
   qtyExponentPinned: boolean;
+  /** מדרגות כמות: מחיר קבוע ליחידה מכמות מסוימת ומעלה — גובר על מקדם כמות */
+  qtyTiersEnabled: boolean;
+  qtyTiers: QtyTier[];
   /** manual יחידות בגיליון per size key */
   sheetUnits: Record<string, number>;
+};
+
+/** מדרגת כמות — מכמות minQty ומעלה, מחיר קבוע ליחידה. size ריק = כל המידות. */
+export type QtyTier = {
+  minQty: number;
+  unitPrice: number;
+  /** normalized "WxH" size key, or "" for every size in the family */
+  size: string;
 };
 
 
@@ -342,6 +353,21 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     minUnitArea: num(v?.["min_unit_area"]) > 0 ? num(v?.["min_unit_area"]) : 1,
     qtyExponent: num(v?.["qty_exponent"]) > 0 ? num(v?.["qty_exponent"]) : 1,
     qtyExponentPinned: num(v?.["qty_exponent"]) > 0,
+    qtyTiersEnabled: v?.["qty_tiers_enabled"] === true,
+    qtyTiers: Array.isArray(v?.["qty_tiers"])
+      ? (v?.["qty_tiers"] as unknown[])
+          .map((t) => {
+            const o = (t ?? {}) as Record<string, unknown>;
+            const sizeRaw = String(o["size"] ?? "").trim();
+            return {
+              minQty: Math.max(1, Math.floor(num(o["min_qty"]))),
+              unitPrice: num(o["unit_price"]),
+              size: sizeRaw ? normalizeSizeText(sizeRaw) : "",
+            };
+          })
+          .filter((t) => t.minQty > 0 && t.unitPrice > 0)
+          .sort((a, b) => a.minQty - b.minQty)
+      : [],
     sheetUnits: su,
   };
 }
@@ -357,11 +383,37 @@ export function writeFamilyPricing(cfg: FamilyPricing) {
       packages: cfg.packages,
       min_unit_area: cfg.minUnitArea,
       qty_exponent: cfg.qtyExponentPinned ? cfg.qtyExponent : null,
+      qty_tiers_enabled: cfg.qtyTiersEnabled,
+      qty_tiers: cfg.qtyTiers.map((t) => ({
+        min_qty: t.minQty,
+        unit_price: t.unitPrice,
+        size: t.size || null,
+      })),
       sheet_units: cfg.sheetUnits,
 
     },
   };
 }
+
+/** The qty tier that applies to this job, if tiers are enabled. */
+export function matchQtyTier(
+  cfg: FamilyPricing,
+  w: number,
+  h: number,
+  units: number,
+): QtyTier | null {
+  if (!cfg.qtyTiersEnabled || !cfg.qtyTiers.length) return null;
+  const key = sizeKey(w, h);
+  const pick = (list: QtyTier[]) =>
+    list
+      .filter((t) => units >= t.minQty)
+      .sort((a, b) => b.minQty - a.minQty)[0] ?? null;
+  return (
+    pick(cfg.qtyTiers.filter((t) => t.size && t.size === key)) ??
+    pick(cfg.qtyTiers.filter((t) => !t.size))
+  );
+}
+
 
 /** Auto (geometric) יחידות בגיליון, ignoring manual overrides. */
 export function autoUnitsPerSheet(w: number, h: number): number {
@@ -917,7 +969,7 @@ export type JobPrice = {
 
   hasAnchors: boolean;
   /** where the number came from */
-  source: "validated" | "anchor" | "cost";
+  source: "validated" | "anchor" | "cost" | "tier";
   /** units^qtyExponent actually applied */
   qtyFactor: number;
   /** above the threshold but the family has no outsourcing cost configured */
@@ -973,7 +1025,8 @@ export function priceJob(
     noRound = false,
   ): JobPrice => {
     const base = Math.max(raw, 0);
-    const floored = source === "validated" ? base : Math.max(base, outsourceFloor);
+    const floored =
+      source === "validated" || source === "tier" ? base : Math.max(base, outsourceFloor);
     const total = noRound && floored === base ? floored : roundTo(floored, cfg.rounding);
     const floorValue = cost * margin;
     const floorHit = floored > base + 0.001;
@@ -1020,6 +1073,23 @@ export function priceJob(
       true,
     );
   }
+
+  /* 1.5 — מדרגת כמות: מחיר קבוע ליחידה, גובר על מקדם כמות ועל העקומה */
+  const tier = matchQtyTier(cfg, w, h, units);
+  if (tier) {
+    return finish(
+      tier.unitPrice * units,
+      "מדרגת כמות",
+      `${tier.minQty.toLocaleString()}+ יח׳ · ${shekel(tier.unitPrice)} ליחידה × ${units.toLocaleString()} יח׳${
+        tier.size ? ` · מידה ${tier.size.replace("x", "×")}` : " · כל המידות"
+      }`,
+      "tier",
+      {},
+      true,
+    );
+  }
+
+
 
   /* 2 — above the threshold with no anchors at all: pure outsourcing cost */
   if (above && anchors.length === 0) {

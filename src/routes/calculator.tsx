@@ -137,6 +137,8 @@ function Calculator() {
 
   });
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
+  const [tiersOn, setTiersOn] = useState(false);
+  const [tiers, setTiers] = useState<{ minQty: string; unitPrice: string; size: string }[]>([]);
 
   useEffect(() => {
     setDraft({
@@ -153,6 +155,14 @@ function Calculator() {
 
     });
     setSheetUnits(saved.sheetUnits);
+    setTiersOn(saved.qtyTiersEnabled);
+    setTiers(
+      saved.qtyTiers.map((t) => ({
+        minQty: String(t.minQty),
+        unitPrice: String(t.unitPrice),
+        size: t.size ? t.size.replace("x", "×") : "",
+      })),
+    );
   }, [saved]);
 
   const cfg: FamilyPricing = useMemo(() => {
@@ -173,10 +183,31 @@ function Calculator() {
       minUnitArea: n(draft.minUnitArea) || 1,
       qtyExponent: n(draft.qtyExponent) || 1,
       qtyExponentPinned: n(draft.qtyExponent) > 0,
+      qtyTiersEnabled: tiersOn,
+      qtyTiers: tiers
+        .map((t) => {
+          const parts = t.size
+            .replace(/[×*]/g, "x")
+            .split("x")
+            .map((x) => Number(x.trim()))
+            .filter((x) => Number.isFinite(x) && x > 0);
+          const size =
+            parts.length === 2
+              ? `${Math.max(parts[0]!, parts[1]!)}x${Math.min(parts[0]!, parts[1]!)}`
+              : "";
+          return {
+            minQty: Math.max(1, Math.floor(n(t.minQty))),
+            unitPrice: n(t.unitPrice),
+            size,
+          };
+        })
+        .filter((t) => t.minQty > 0 && t.unitPrice > 0)
+        .sort((a, b) => a.minQty - b.minQty),
       sheetUnits,
 
     };
-  }, [draft, sheetUnits]);
+  }, [draft, sheetUnits, tiersOn, tiers]);
+
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
 
@@ -717,6 +748,86 @@ function Calculator() {
                 ? `מקדם כמות מותאם מהעוגנים: ${fittedQtyExp.toFixed(2)} — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (0.2–1) כדי לקבע.`
                 : "מקדם כמות 1 = ליניארי, קטן מ-1 = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
+
+          {/* מדרגות כמות — מחיר קבוע ליחידה, גובר על מקדם כמות */}
+          <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-black text-[var(--ink)]">
+              <input
+                type="checkbox"
+                checked={tiersOn}
+                onChange={(e) => setTiersOn(e.target.checked)}
+                className="h-4 w-4 accent-[var(--ink)]"
+              />
+              מדרגות כמות — מחיר קבוע ליחידה (גובר על מקדם כמות)
+            </label>
+            <div className="mt-1 text-[11px] font-bold text-muted-foreground">
+              לדוגמה: מכמות 10 ומעלה — 47 ₪ ליחידה. מידה ריקה = כל המידות במשפחה. מחיר מאומת
+              בקטלוג באותה מידה ובאותה כמות עדיין גובר.
+            </div>
+
+            {tiersOn ? (
+              <div className="mt-3 space-y-2">
+                {tiers.map((t, i) => (
+                  <div key={i} className="flex flex-wrap items-end gap-3">
+                    <div className="w-28">
+                      <label className={labelCls}>מכמות</label>
+                      <input
+                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                        value={t.minQty}
+                        onChange={(e) =>
+                          setTiers((p) =>
+                            p.map((x, j) => (j === i ? { ...x, minQty: e.target.value } : x)),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="w-32">
+                      <label className={labelCls}>₪ ליחידה</label>
+                      <input
+                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                        value={t.unitPrice}
+                        onChange={(e) =>
+                          setTiers((p) =>
+                            p.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value } : x)),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="w-36">
+                      <label className={labelCls}>מידה (אופציונלי)</label>
+                      <input
+                        placeholder="כל המידות"
+                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                        value={t.size}
+                        onChange={(e) =>
+                          setTiers((p) =>
+                            p.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)),
+                          )
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTiers((p) => p.filter((_, j) => j !== i))}
+                      className="mb-1 border-2 border-[var(--ink)] px-3 py-1 text-xs font-black"
+                    >
+                      הסר
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTiers((p) => [...p, { minQty: "", unitPrice: "", size: "" }])
+                  }
+                  className="border-2 border-[var(--ink)] bg-background px-4 py-1 text-sm font-bold"
+                >
+                  + הוסף מדרגה
+                </button>
+              </div>
+            ) : null}
+          </div>
+
 
           <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
             <button
