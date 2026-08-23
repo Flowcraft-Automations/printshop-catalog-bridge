@@ -56,6 +56,7 @@ function Field({
   as = "input",
   children,
   placeholder,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -64,25 +65,33 @@ function Field({
   as?: "input" | "select";
   children?: React.ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className={width}>
       <label className={labelCls}>{label}</label>
       {as === "select" ? (
-        <select className={`${inputCls} text-base`} value={value} onChange={(e) => onChange(e.target.value)}>
+        <select
+          className={`${inputCls} text-base ${disabled ? "opacity-50" : ""}`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        >
           {children}
         </select>
       ) : (
         <input
-          className={inputCls}
+          className={`${inputCls} ${disabled ? "opacity-50" : ""}`}
           value={value}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
         />
       )}
     </div>
   );
 }
+
 
 type Draft = {
   method: string;
