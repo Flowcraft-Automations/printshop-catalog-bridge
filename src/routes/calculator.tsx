@@ -788,6 +788,14 @@ function Calculator() {
                     </td>
                     <td className="p-2">
                       {a.w}×{a.h}
+                      {a.isAnchor && !a.verified ? (
+                        <span
+                          className="mr-2 text-xs font-normal text-muted-foreground"
+                          title="פריט לא מאומת — אינו משתתף בחישוב המחיר"
+                        >
+                          לא מאומת — לא משפיע על התמחור
+                        </span>
+                      ) : null}
                       {bad ? (
                         <span className="mr-2 text-xs font-normal text-destructive">
                           עוגן לא עקבי
