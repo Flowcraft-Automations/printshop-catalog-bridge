@@ -752,8 +752,9 @@ function Calculator() {
               <option value="area">לפי מ״ר</option>
               <option value="sheet">לפי גיליון</option>
             </Field>
-            <Field label='סף רוחב (ס"מ)' value={draft.tw} onChange={(v) => setDraft((p) => ({ ...p, tw: v }))} />
-            <Field label='סף גובה (ס"מ)' value={draft.th} onChange={(v) => setDraft((p) => ({ ...p, th: v }))} />
+            <Field label='סף מיקור חוץ — רוחב (ס"מ)' value={draft.tw} onChange={(v) => setDraft((p) => ({ ...p, tw: v }))} width="w-48" />
+            <Field label='סף מיקור חוץ — גובה (ס"מ)' value={draft.th} onChange={(v) => setDraft((p) => ({ ...p, th: v }))} width="w-48" />
+
           </div>
 
           <div className="mt-4 flex flex-wrap items-end gap-6">
