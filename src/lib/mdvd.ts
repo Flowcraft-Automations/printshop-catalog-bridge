@@ -549,7 +549,21 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
     }
   }
 
+  /* absolute production cap — nothing can be made above it */
+  const capShort = Math.min(cfg.capW || Infinity, cfg.capL || Infinity);
+  const capLong = Math.max(cfg.capW || Infinity, cfg.capL || Infinity);
+  if (short > capShort + 0.01 || long > capLong + 0.01) {
+    blocked = true;
+    panels = 1;
+    mounted = false;
+    notes.length = 0;
+    notes.push(
+      `מעל גבול הייצור המוחלט ${cfg.capW || "∞"}×${cfg.capL || "∞"} ס״מ — לא ניתן לייצור`,
+    );
+  }
+
   return { panels, blocked, mounted, note: notes.join(" · ") };
+
 }
 
 
