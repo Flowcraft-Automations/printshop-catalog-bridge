@@ -752,8 +752,6 @@ function Calculator() {
               <option value="area">לפי מ״ר</option>
               <option value="sheet">לפי גיליון</option>
             </Field>
-            <Field label='סף מיקור חוץ — רוחב (ס"מ)' value={draft.tw} onChange={(v) => setDraft((p) => ({ ...p, tw: v }))} width="w-48" />
-            <Field label='סף מיקור חוץ — גובה (ס"מ)' value={draft.th} onChange={(v) => setDraft((p) => ({ ...p, th: v }))} width="w-48" />
 
           </div>
 
