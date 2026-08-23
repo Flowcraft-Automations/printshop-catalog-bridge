@@ -7,6 +7,8 @@ import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
+import { PAPER_SIZES, paperLabel } from "@/lib/paper";
+
 import {
   DEFAULT_MARGIN,
   DEFAULT_ROUNDING,
