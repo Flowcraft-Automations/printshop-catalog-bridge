@@ -331,7 +331,15 @@ export type FamilyPricing = {
   /** עלות הדבקה ₪ למ״ר / ₪ ליחידה (רלוונטי ל"הדבקת ויניל על הלוח") */
   mountCostM2: number;
   mountCostUnit: number;
+  /** גבול ייצור מוחלט (ס"מ) — מעליו לא ניתן לייצר בכלל (0 = ללא) */
+  capW: number;
+  capL: number;
+  /** חיוב חומר לפי לוח שלם (למשל קאפה — השארית נזרקת) */
+  wholeBoard: boolean;
+  boardW: number;
+  boardH: number;
 };
+
 
 /** מה קורה מעל גבול ההדפסה */
 export type OverLimit = "weld" | "mount" | "block";
