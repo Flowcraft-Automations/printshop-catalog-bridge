@@ -871,6 +871,7 @@ function Catalog() {
     view,
 
     isAdmin,
+    allowedFamilies,
     group,
     category,
     presence,
