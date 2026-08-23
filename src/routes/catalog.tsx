@@ -2132,18 +2132,24 @@ function Catalog() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
-                        title={p.is_anchor ? "עוגן עקומה — לחץ להסרה" : "סמן כעוגן עקומה למשפחה"}
+                        title={
+                          conflictAnchors.get(p.id) ??
+                          (p.is_anchor ? "עוגן עקומה — לחץ להסרה" : "סמן כעוגן עקומה למשפחה")
+                        }
                         onClick={() =>
                           update.mutate({ ids: [p.id], patch: { is_anchor: !p.is_anchor } })
                         }
                         className={
-                          p.is_anchor
-                            ? "text-[var(--accent-raw)]"
-                            : "text-muted-foreground/40 hover:text-[var(--accent-raw)]"
+                          conflictAnchors.has(p.id)
+                            ? "text-[oklch(0.65_0.16_70)]"
+                            : p.is_anchor
+                              ? "text-[var(--accent-raw)]"
+                              : "text-muted-foreground/40 hover:text-[var(--accent-raw)]"
                         }
                       >
                         <Anchor className="size-4" fill={p.is_anchor ? "currentColor" : "none"} />
                       </button>
+
                     </td>
                   )}
                   <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
