@@ -943,18 +943,19 @@ function Calculator() {
                   placeholder="ללא"
                 />
                 <Field
-                  label="מעל הגבול"
-                  value={draft.overLimit}
-                  onChange={(v) =>
-                    setDraft((p) => ({ ...p, overLimit: v as Draft["overLimit"] }))
-                  }
-                  width="w-56"
-                  as="select"
-                >
-                  <option value="weld">ריתוך פאנלים</option>
-                  <option value="mount">הדבקת ויניל על הלוח</option>
-                  <option value="block">לא ניתן לייצור</option>
-                </Field>
+                  label='גבול ייצור מוחלט — רוחב (ס"מ)'
+                  value={draft.capW}
+                  onChange={(v) => setDraft((p) => ({ ...p, capW: v }))}
+                  width="w-48"
+                  placeholder="ללא"
+                />
+                <Field
+                  label='גבול ייצור מוחלט — אורך (ס"מ)'
+                  value={draft.capL}
+                  onChange={(v) => setDraft((p) => ({ ...p, capL: v }))}
+                  width="w-48"
+                  placeholder="ללא"
+                />
                 {draft.overLimit === "mount" ? (
                   <>
                     <Field
@@ -973,7 +974,34 @@ function Calculator() {
                     />
                   </>
                 ) : null}
+                <label className="mb-[6px] flex items-center gap-2 text-xs font-black">
+                  <input
+                    type="checkbox"
+                    checked={draft.wholeBoard}
+                    onChange={(e) =>
+                      setDraft((p) => ({ ...p, wholeBoard: e.target.checked }))
+                    }
+                  />
+                  חיוב חומר לפי לוח שלם (השארית נזרקת)
+                </label>
+                {draft.wholeBoard ? (
+                  <>
+                    <Field
+                      label='לוח — רוחב (ס"מ)'
+                      value={draft.boardW}
+                      onChange={(v) => setDraft((p) => ({ ...p, boardW: v }))}
+                      width="w-40"
+                    />
+                    <Field
+                      label='לוח — אורך (ס"מ)'
+                      value={draft.boardH}
+                      onChange={(v) => setDraft((p) => ({ ...p, boardH: v }))}
+                      width="w-40"
+                    />
+                  </>
+                ) : null}
               </div>
+
             </div>
           </div>
 
