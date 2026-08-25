@@ -824,6 +824,8 @@ export type JobAnchor = {
   area: number;
   qty: number;
   price: number;
+  /** the row is a manually approved anchor (is_anchor) */
+  anchor?: boolean;
 };
 
 export function anchorPrice(p: Product): number | null {
