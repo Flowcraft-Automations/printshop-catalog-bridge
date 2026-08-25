@@ -212,8 +212,8 @@ function Calculator() {
       sheetMargin: String(saved.sheetMargin),
       sheetGap: String(saved.sheetGap),
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
-      maxPrintW: String(saved.maxPrintW || saved.thresholdW || ""),
-      maxPrintL: String(saved.maxPrintL || saved.thresholdH || ""),
+      maxPrintW: saved.maxPrintW ? String(saved.maxPrintW) : "",
+      maxPrintL: saved.maxPrintL ? String(saved.maxPrintL) : "",
       overLimit: saved.overLimit,
 
       mountCostM2: saved.mountCostM2 ? String(saved.mountCostM2) : "",
@@ -242,9 +242,9 @@ function Calculator() {
     const n = (s: string) => (Number(s) > 0 ? Number(s) : 0);
     return {
       method: draft.method === "sheet" ? "sheet" : "area",
-      /* גבול ההדפסה הוא גם סף מיקור החוץ — שדה אחד בלבד */
-      thresholdW: n(draft.maxPrintW),
-      thresholdH: n(draft.maxPrintL),
+      /* סף מיקור חוץ — נפרד לחלוטין מגבול ההדפסה של המכונה */
+      thresholdW: n(draft.tw),
+      thresholdH: n(draft.th),
       cost: n(draft.cost),
       outsourceCost: n(draft.out),
       margin: n(draft.margin) || DEFAULT_MARGIN,
@@ -858,6 +858,20 @@ function Calculator() {
                 />
               </>
             )}
+            <Field
+              label='סף מיקור חוץ — רוחב (ס"מ)'
+              value={draft.tw}
+              onChange={(v) => setDraft((p) => ({ ...p, tw: v }))}
+              width="w-44"
+              placeholder="ללא"
+            />
+            <Field
+              label='סף מיקור חוץ — גובה (ס"מ)'
+              value={draft.th}
+              onChange={(v) => setDraft((p) => ({ ...p, th: v }))}
+              width="w-44"
+              placeholder="ללא"
+            />
             <Field
               label="מקדם רווח (×)"
               value={draft.margin}
