@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Anchor, Columns, Copy, Download, ExternalLink, Eye, Info, MoreHorizontal, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "@/components/AppShell";
+import { EngineBadge } from "@/components/EngineBadge";
 import { NoteIndicator } from "@/components/NoteIndicator";
 import { NotesPanel } from "@/components/NotesPanel";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { parseNumber } from "@/lib/parse";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +27,9 @@ import {
   STATUS_CLASS,
   STATUS_LABEL,
   familyAnchors,
+  familyValidated,
   mergeCloseAnchors,
+  prepareFamily,
   readFamilyPricing,
   priceJob,
   displayFieldValue,
@@ -36,9 +40,14 @@ import {
 
   shekel,
   slugify,
+  validateSuggestion,
+  type FamilyPricing,
+  type JobAnchor,
+  type PreparedFamily,
   type Product,
   type ProductHistory,
   type ProductNote,
+  type SuggestionCheck,
 } from "@/lib/mdvd";
 
 
@@ -332,7 +341,13 @@ function noteTextOf(id: string) {
 
 
 /** Curve suggestion per product id, filled by the catalog's per-family fit memo. */
-export type CurveSuggestion = { suggested: number; current: number; dev: number };
+export type CurveSuggestion = {
+  suggested: number;
+  current: number;
+  dev: number;
+  /** בדיקת שפיות לאימוץ ההצעה (bug #7) — כפתור אמץ מנוטרל כשהיא נכשלת */
+  check: SuggestionCheck;
+};
 let CURVE: Record<string, CurveSuggestion> = {};
 function curveOf(id: string): CurveSuggestion | null {
   return CURVE[id] ?? null;
@@ -446,9 +461,25 @@ function Catalog() {
 
   // Anchor engine → a suggested price for every sized item, plus its cost line.
   const engineByFamily = useMemo(() => {
-    const out: Record<string, { cfg: ReturnType<typeof readFamilyPricing>; anchors: ReturnType<typeof familyAnchors> }> = {};
+    const out: Record<
+      string,
+      {
+        cfg: FamilyPricing;
+        anchors: JobAnchor[];
+        validated: JobAnchor[];
+        prepared: PreparedFamily;
+      }
+    > = {};
     for (const f of families) {
-      out[f.family] = { cfg: readFamilyPricing(f), anchors: familyAnchors(products, f.family) };
+      const cfg = readFamilyPricing(f);
+      const anchors = familyAnchors(products, f.family);
+      out[f.family] = {
+        cfg,
+        anchors,
+        validated: familyValidated(products, f.family),
+        /* מנורמל פעם אחת למשפחה — נמסר ל-priceJob כדי לחסוך לולאות קטלוג */
+        prepared: prepareFamily(cfg, anchors),
+      };
     }
     return out;
   }, [families, products]);
@@ -478,12 +509,31 @@ function Catalog() {
       const cur = currentPrice(p);
       if (!e || !w || !h || cur === null) continue;
       if (p.is_anchor && p.verified) {
-        out[p.id] = { suggested: cur, current: cur, dev: 0 };
+        out[p.id] = { suggested: cur, current: cur, dev: 0, check: { ok: true } };
         continue;
       }
-      const job = priceJob(e.cfg, e.anchors, w, h, Math.max(1, Number(p.qty) || 1));
+      const qty = Math.max(1, Number(p.qty) || 1);
+      const job = priceJob(e.cfg, e.anchors, w, h, qty, e.validated, {
+        prepared: e.prepared,
+        /* מק״טים דו-צדדיים קיימים — מזוהים לפי השם כדי למנוע סטיות שווא */
+        dualSided: /דו[\s-]?צדדי/.test(p.name),
+      });
       if (!job || job.total <= 0) continue;
-      out[p.id] = { suggested: job.total, current: cur, dev: ((job.total - cur) / cur) * 100 };
+      out[p.id] = {
+        suggested: job.total,
+        current: cur,
+        dev: ((job.total - cur) / cur) * 100,
+        check: validateSuggestion({
+          w,
+          h,
+          qty,
+          suggested: job.total,
+          job,
+          cfg: e.cfg,
+          anchors: e.anchors,
+          validated: e.validated,
+        }),
+      };
     }
     CURVE = out;
     return out;
@@ -499,7 +549,9 @@ function Catalog() {
       const h = Number(p.height_cm);
       if (!e || !w || !h) continue;
       const area = (w * h) / 10000;
-      const job = priceJob(e.cfg, e.anchors, w, h, Math.max(1, Number(p.qty) || 1));
+      const job = priceJob(e.cfg, e.anchors, w, h, Math.max(1, Number(p.qty) || 1), e.validated, {
+        prepared: e.prepared,
+      });
       if (!job) continue;
       const floor = Math.round(job.costFloorValue);
       const cur = currentPrice(p);
@@ -1809,11 +1861,27 @@ function Catalog() {
                             title={p.family}
                           />
                         )}
-                        <InlineEdit
-                          key={`fam-${p.id}-${p.family ?? ""}`}
-                          value={p.family}
-                          onSave={(v) => update.mutate({ ids: [p.id], patch: { family: v || null } })}
-                        />
+                          <span className="min-w-0 flex-1 truncate">
+                            <InlineEdit
+                              key={`fam-${p.id}-${p.family ?? ""}`}
+                              value={p.family}
+                              onSave={(v) =>
+                                update.mutate({ ids: [p.id], patch: { family: v || null } })
+                              }
+                            />
+                          </span>
+                          {(() => {
+                            const e = engineByFamily[(p.family ?? "").trim()];
+                            return e ? (
+                              <span className="shrink-0">
+                                <EngineBadge
+                                  size="xs"
+                                  engine={e.cfg.engine}
+                                  legacy={e.cfg.legacy}
+                                />
+                              </span>
+                            ) : null;
+                          })()}
                       </div>
                     </td>
                   )}
@@ -1956,19 +2024,29 @@ function Catalog() {
                             </span>
 
 
-                            {a > 5 && c.suggested !== (p.final_price ?? null) && (
-                              <button
-                                onClick={() =>
-                                  update.mutate({
-                                    ids: [p.id],
-                                    patch: { final_price: c.suggested },
-                                  })
-                                }
-                                className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
-                              >
-                                אמץ
-                              </button>
-                            )}
+                            {a > 5 &&
+                                c.suggested !== (p.final_price ?? null) &&
+                                (c.check.ok ? (
+                                  <button
+                                    onClick={() =>
+                                      update.mutate({
+                                        ids: [p.id],
+                                        patch: { final_price: c.suggested },
+                                      })
+                                    }
+                                    className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                                  >
+                                    אמץ
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled
+                                    title={c.check.reason}
+                                    className="ms-2 cursor-not-allowed border border-[var(--line,#c9d4de)] px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground/50"
+                                  >
+                                    אמץ
+                                  </button>
+                                ))}
                           </>
                         );
                       })()}
@@ -2062,19 +2140,44 @@ function Catalog() {
                   {visibleCols.proposed_price && (
                     <td style={{ width: scaledWidths.proposed_price }} className="num truncate whitespace-nowrap px-2 py-1" onClick={(e) => e.stopPropagation()}>
                       {shekel(p.proposed_price)}
-                      {p.proposed_price != null && p.final_price == null && (
-                        <button
-                          onClick={() =>
-                            update.mutate({
-                              ids: [p.id],
-                              patch: { final_price: p.proposed_price ?? null },
-                            })
-                          }
-                          className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
-                        >
-                          אמץ
-                        </button>
-                      )}
+                        {p.proposed_price != null &&
+                          p.final_price == null &&
+                          (() => {
+                            /* בדיקת שפיות למחיר המוצע (bug #7); משפחה ללא תצורה — אין אימוץ */
+                            const e = engineByFamily[(p.family ?? "").trim()];
+                            const check: SuggestionCheck = e
+                              ? validateSuggestion({
+                                  w: Number(p.width_cm) || 0,
+                                  h: Number(p.height_cm) || 0,
+                                  qty: Math.max(1, Number(p.qty) || 1),
+                                  suggested: p.proposed_price ?? 0,
+                                  cfg: e.cfg,
+                                  anchors: e.anchors,
+                                  validated: e.validated,
+                                })
+                              : { ok: false, reason: "אין תצורת משפחה" };
+                            return check.ok ? (
+                              <button
+                                onClick={() =>
+                                  update.mutate({
+                                    ids: [p.id],
+                                    patch: { final_price: p.proposed_price ?? null },
+                                  })
+                                }
+                                className="ms-2 border border-[var(--accent-raw)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-raw)] hover:bg-[oklch(0.95_0.03_250)]"
+                              >
+                                אמץ
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                title={check.reason}
+                                className="ms-2 cursor-not-allowed border border-[var(--line,#c9d4de)] px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground/50"
+                              >
+                                אמץ
+                              </button>
+                            );
+                          })()}
                     </td>
                   )}
                   {visibleCols.senzey_status && (
@@ -2252,7 +2355,7 @@ function EditDrawer({
 }) {
   const [f, setF] = useState<Product>(product);
   const set = (k: keyof Product, v: unknown) => setF((p) => ({ ...p, [k]: v }));
-  const num = (v: string) => (v.trim() === "" ? null : Number(v));
+  const num = (v: string) => parseNumber(v);
 
   return (
     <div className="fixed inset-0 z-50 flex" onClick={onClose}>

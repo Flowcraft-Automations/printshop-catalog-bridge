@@ -4,23 +4,26 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Anchor as AnchorIcon } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
+import { EngineBadge } from "@/components/EngineBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { familiesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { PAPER_SIZES, paperLabel } from "@/lib/paper";
 
 import {
+  BINDING_LABEL,
   DEFAULT_MARGIN,
   DEFAULT_ROUNDING,
+  ENGINE_LABEL,
   SHEET_W_CM,
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
   mergeCloseAnchors,
 
-  fitQtyCurve,
   familyValidated,
   isClosedOut,
+  isEngineKind,
   familyColor,
   priceJob,
   readFamilyPricing,
@@ -30,7 +33,9 @@ import {
   sizeKey,
   shekel,
   slugify,
+  validateFamilyPricing,
   writeFamilyPricing,
+  type EngineKind,
   type FamilyPricing,
   type OverLimit,
 
@@ -99,8 +104,25 @@ function Field({
 }
 
 
+/** שבבי TODO מהתצורה — אותה פלטת ענבר של תג "ללא מנוע". */
+function TodoChips({ todos }: { todos: string[] }) {
+  if (!todos.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {todos.map((t, i) => (
+        <span
+          key={i}
+          className="inline-block border border-[oklch(0.6_0.16_70)] bg-[oklch(0.96_0.05_85_/_0.55)] px-1.5 py-0.5 text-[10px] font-black text-[oklch(0.45_0.1_70)]"
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 type Draft = {
-  method: string;
+  engine: string;
   tw: string;
   th: string;
   cost: string;
@@ -116,6 +138,7 @@ type Draft = {
   sheetMargin: string;
   sheetGap: string;
   minOrderQty: string;
+  minOrderValue: string;
   maxPrintW: string;
   maxPrintL: string;
   overLimit: OverLimit;
@@ -159,7 +182,7 @@ function Calculator() {
   const saved = useMemo(() => readFamilyPricing(fam), [fam]);
 
   const [draft, setDraft] = useState<Draft>({
-    method: "area",
+    engine: "",
     tw: "",
     th: "",
     cost: "",
@@ -175,6 +198,7 @@ function Calculator() {
     sheetMargin: "0",
     sheetGap: String(SHEET_GAP_CM),
     minOrderQty: "",
+    minOrderValue: "",
     maxPrintW: "",
     maxPrintL: "",
     overLimit: "weld",
@@ -196,7 +220,7 @@ function Calculator() {
 
   useEffect(() => {
     setDraft({
-      method: saved.method,
+      engine: saved.engine,
       tw: saved.thresholdW ? String(saved.thresholdW) : "",
       th: saved.thresholdH ? String(saved.thresholdH) : "",
       cost: saved.cost ? String(saved.cost) : "",
@@ -212,6 +236,7 @@ function Calculator() {
       sheetMargin: String(saved.sheetMargin),
       sheetGap: String(saved.sheetGap),
       minOrderQty: saved.minOrderQty ? String(saved.minOrderQty) : "",
+      minOrderValue: saved.minOrderValue ? String(saved.minOrderValue) : "",
       maxPrintW: String(saved.maxPrintW || saved.thresholdW || ""),
       maxPrintL: String(saved.maxPrintL || saved.thresholdH || ""),
       overLimit: saved.overLimit,
@@ -240,8 +265,12 @@ function Calculator() {
 
   const cfg: FamilyPricing = useMemo(() => {
     const n = (s: string) => (Number(s) > 0 ? Number(s) : 0);
+    const engine: EngineKind = isEngineKind(draft.engine) ? draft.engine : saved.engine;
     return {
-      method: draft.method === "sheet" ? "sheet" : "area",
+      /* התצורה השמורה נושאת את כל שדות v3.1 (דליים, עקומות, סולמות, דו-צדדי,
+         טבלת תפוקה, TODO וכו׳) — הטופס עורך רק את הסקלרים שמעליה */
+      ...saved,
+      method: engine === "anchor_curve" ? "sheet" : "area",
       /* גבול ההדפסה הוא גם סף מיקור החוץ — שדה אחד בלבד */
       thresholdW: n(draft.maxPrintW),
       thresholdH: n(draft.maxPrintL),
@@ -295,17 +324,22 @@ function Calculator() {
       wholeBoard: draft.wholeBoard,
       boardW: n(draft.boardW),
       boardH: n(draft.boardH),
+
+      /* --- v3.1 --- */
+      engine,
+      /* בחירת מנוע בטופס = תצורה ממוגרת; שמירה תכתוב את שדה המנוע */
+      legacy: isEngineKind(draft.engine) ? false : saved.legacy,
+      minOrderValue: n(draft.minOrderValue),
     };
 
 
 
-  }, [draft, sheetUnits, tiersOn, tiers]);
+  }, [draft, sheetUnits, tiersOn, tiers, saved]);
 
+  /* מנועים מבוססי-גיליון — קובעים אילו שדות/עמודות גיליון מוצגים */
+  const sheetish = cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield";
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
-
-  /** מקדם כמות fitted from the family anchors (null when the anchors can't support a fit) */
-  const fittedQtyExp = useMemo(() => fitQtyCurve(anchors)?.e ?? null, [anchors]);
 
   /** every approved (non-deleted / relevant) item of the family — the anchor table body */
   const rows = useMemo(() => {
@@ -346,7 +380,8 @@ function Calculator() {
           outsource_height_cm: cfg.thresholdH || null,
           cost_per_m2: cfg.cost,
           outsource_cost_per_m2: cfg.outsourceCost || null,
-          pricing_config: writeFamilyPricing(cfg),
+          /* prev משמר מפתחות ישנים בתצורה (למשל customer) במקום לדרוס אותם */
+          pricing_config: writeFamilyPricing(cfg, fam?.pricing_config),
         })
         .eq("family", family);
       if (error) throw error;
@@ -357,6 +392,16 @@ function Calculator() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  /* שמירה חסומה כשהתצורה שגויה (למשל לפי מ״ר עם עוגני כמות מעל 500) */
+  const save = () => {
+    const errors = validateFamilyPricing(cfg, anchors);
+    if (errors.length) {
+      toast.error(errors[0]!);
+      return;
+    }
+    saveCfg.mutate();
+  };
 
   const upsertAnchor = useMutation({
     mutationFn: async (a: {
@@ -427,9 +472,12 @@ function Calculator() {
   const [w, setW] = useState("");
   const [h, setH] = useState("");
   const [qty, setQty] = useState("1");
+  /* חד-צדדי / דו-צדדי — מתאפס בהחלפת משפחה */
+  const [sides, setSides] = useState<1 | 2>(1);
   useEffect(() => {
     if (cfg.packages.length) setQty(String(cfg.packages[0]));
     else setQty("1");
+    setSides(1);
   }, [family, cfg.packages.length]);
 
   const nw = Number(w) || 0;
@@ -437,8 +485,8 @@ function Calculator() {
   const nq = Math.max(1, Number(qty) || 1);
   const validated = useMemo(() => familyValidated(products, family), [products, family]);
   const job = useMemo(
-    () => priceJob(cfg, anchors, nw, nh, nq, validated),
-    [cfg, anchors, nw, nh, nq, validated],
+    () => priceJob(cfg, anchors, nw, nh, nq, validated, { dualSided: sides === 2 }),
+    [cfg, anchors, nw, nh, nq, validated, sides],
   );
 
   const inconsistent = job?.inconsistent ?? [];
@@ -453,8 +501,11 @@ function Calculator() {
 
   const packagePrices = useMemo(
     () =>
-      cfg.packages.map((p) => ({ qty: p, job: priceJob(cfg, anchors, nw, nh, p, validated) })),
-    [cfg, anchors, nw, nh, validated],
+      cfg.packages.map((p) => ({
+        qty: p,
+        job: priceJob(cfg, anchors, nw, nh, p, validated, { dualSided: sides === 2 }),
+      })),
+    [cfg, anchors, nw, nh, validated, sides],
   );
 
   /* the typed job's area, always shown */
@@ -552,6 +603,12 @@ function Calculator() {
 
       {/* calculator */}
       <section className="border-2 border-[var(--ink)] bg-card p-5 shadow-[4px_4px_0_var(--ink)]">
+        {family ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-base font-black text-[var(--ink)]">{family}</span>
+            <EngineBadge engine={cfg.engine} legacy={saved.legacy} />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-end gap-6">
           <Field label='רוחב (ס"מ)' value={w} onChange={setW} />
           <Field label='גובה (ס"מ)' value={h} onChange={setH} />
@@ -576,6 +633,25 @@ function Calculator() {
                 ))}
               </div>
             ) : null}
+            {/* חד-צדדי / דו-צדדי — רק כשלמשפחה יש מדרגות תוספת דו-צדדי */}
+            {cfg.engine === "anchor_curve" && cfg.dualSurcharge.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {([1, 2] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSides(s)}
+                    className={`border-2 px-2 py-0.5 text-[11px] font-bold ${
+                      sides === s
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-background"
+                        : "border-[var(--line,#c9d4de)] text-muted-foreground"
+                    }`}
+                  >
+                    {s === 1 ? "חד-צדדי" : "דו-צדדי"}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {/* area — always visible */}
@@ -596,6 +672,13 @@ function Calculator() {
               <div className="text-lg font-bold text-destructive">
                 מינימום הזמנה: {job.minOrderQty.toLocaleString()} יחידות
               </div>
+            ) : job?.noQuote ? (
+              <>
+                <div className="text-lg font-bold text-destructive">אין מחיר</div>
+                {job.configError ? (
+                  <div className="text-xs text-muted-foreground">{job.configError}</div>
+                ) : null}
+              </>
             ) : job ? (
               <>
                 <div className="text-4xl font-black text-[var(--accent-raw)]">{shekel(job.total)}</div>
@@ -639,13 +722,44 @@ function Calculator() {
         </div>
 
 
-        {(job?.belowMinOrder || job?.overMachine) && nw && nh ? (
+        {(job?.belowMinOrder || job?.overMachine || job?.noQuote) && nw && nh ? (
           <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
-            {job.detail}
+            {job.noQuote ? (job.configError ?? job.detail) : job.detail}
           </div>
         ) : job && nw && nh ? (
 
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+            {job.total > 0 ? (
+              <div className="font-bold text-[var(--ink)]">
+                כלל מחייב: {BINDING_LABEL[job.bindingRule]}
+              </div>
+            ) : null}
+            {job.above ? (
+              <div className="font-bold text-[var(--ink)]">
+                ייצור חוץ — {shekel(cfg.outsourceCost)}/מ״ר
+              </div>
+            ) : null}
+            {job.dualPct > 0 ? (
+              <div className="font-bold text-[var(--ink)]">
+                תוספת דו-צדדי: +{Math.round(job.dualPct * 100)}% ({shekel(job.dualValue)})
+              </div>
+            ) : null}
+            {job.altQuote ? (
+              <div>
+                {job.altQuote.label} → {shekel(job.altQuote.total)}
+              </div>
+            ) : null}
+            {job.monotoneViolation ? (
+              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
+                ⚠ הפרת מונוטוניות — כמות קטנה יותר מתומחרת ביוקר. בדקו את עוגני המשפחה.
+              </div>
+            ) : null}
+            {job.configError ? (
+              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
+                {job.configError}
+              </div>
+            ) : null}
+            <TodoChips todos={job.todos} />
             {job.belowCost ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
                 מתחת לעלות — המחיר נמוך מ־{shekel(job.costFloorValue)}
@@ -795,6 +909,9 @@ function Calculator() {
           <summary className="cursor-pointer list-none px-5 py-3 text-sm font-black text-muted-foreground hover:text-[var(--ink)]">
             <span className="ml-2 inline-block transition group-open:rotate-90">›</span>
             הגדרות מתקדמות — תמחור ועוגנים
+            <span className="mr-2">
+              <EngineBadge size="xs" engine={cfg.engine} legacy={saved.legacy} />
+            </span>
           </summary>
           <div className="border-t-2 border-[var(--line,#c9d4de)] p-5">
             <fieldset disabled={!isAdmin} className="min-w-0 border-0 p-0">
@@ -802,7 +919,7 @@ function Calculator() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
             <button
-              onClick={() => saveCfg.mutate()}
+                  onClick={save}
               disabled={saveCfg.isPending}
               className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
             >
@@ -810,76 +927,102 @@ function Calculator() {
             </button>
           </div>
 
-
+              {(job?.todos ?? cfg.todos).length ? (
+                <div className="mb-3">
+                  <TodoChips todos={job?.todos ?? cfg.todos} />
+                </div>
+              ) : null}
 
           <div className="flex flex-wrap items-end gap-6">
             <Field
-              label="שיטת תמחור"
-              value={draft.method}
-              onChange={(v) => setDraft((p) => ({ ...p, method: v }))}
+                  label="מנוע תמחור"
+                  value={draft.engine}
+                  onChange={(v) => setDraft((p) => ({ ...p, engine: v }))}
               width="w-48"
               as="select"
             >
-              <option value="area">לפי מ״ר</option>
-              <option value="sheet">לפי גיליון</option>
+                  {(Object.keys(ENGINE_LABEL) as EngineKind[]).map((k) => (
+                    <option key={k} value={k}>
+                      {ENGINE_LABEL[k]}
+                    </option>
+                  ))}
             </Field>
 
           </div>
 
-          <div className="mt-4 flex flex-wrap items-end gap-6">
-            {cfg.method === "area" ? (
-              <>
+              {draft.engine === "per_m2" && anchors.some((a) => a.qty > 500) ? (
+                <div className="mt-2 inline-block border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
+                  לפי מ״ר אסור: קיימים עוגני כמות מעל 500
+                </div>
+              ) : null}
+
+              {/* סיכום קריאה-בלבד של טבלאות התצורה (נטענות מהמיגרציה; עריכה בגרסה הבאה) */}
+              {cfg.engine === "anchor_curve" &&
+              (cfg.sizeBuckets.length || cfg.curveAnchors.length) ? (
+                <div className="mt-2 text-[11px] font-bold text-muted-foreground">
+                  עקומה מוגדרת: {cfg.sizeBuckets.length} דליים · {cfg.curveAnchors.length} נקודות
+                  {cfg.qtyMultipliers.length ? ` · ${cfg.qtyMultipliers.length} מקדמי כמות` : ""}
+                  {cfg.dualSurcharge.length ? ` · ${cfg.dualSurcharge.length} מדרגות דו-צדדי` : ""}
+                </div>
+              ) : null}
+              {cfg.engine === "size_ladder" && cfg.sizeLadder.length ? (
+                <div className="mt-2 text-[11px] font-bold text-muted-foreground">
+                  סולם: {cfg.sizeLadder.length} מידות
+                </div>
+              ) : null}
+              {cfg.engine === "per_m2" && cfg.perM2Tiers.length ? (
+                <div className="mt-2 text-[11px] font-bold text-muted-foreground">
+                  מדרגות מ״ר:{" "}
+                  {cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ")}
+                </div>
+              ) : null}
+              {cfg.engine === "sheet_yield" ? (
+                cfg.yieldTable.length ? (
+                  <div className="mt-2 text-[11px] font-bold text-muted-foreground">
+                    טבלת תפוקה: {cfg.yieldTable.length} שורות
+                  </div>
+            ) : (
+                  <div className="mt-2 border-2 border-dashed border-[var(--line,#c9d4de)] p-3 text-xs font-bold text-muted-foreground opacity-60">
+                    טבלת תפוקה — TODO (עריכה בגרסה הבאה; המחיר מחושב מעלות חומר × מקדם)
+                  </div>
+                )
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap items-end gap-6">
                 <Field
-                  label="עלות ייצור ₪/מ״ר (מתחת לסף)"
+                  label={
+                    cfg.engine === "sheet_yield"
+                      ? "עלות גיליון ₪"
+                      : cfg.engine === "anchor_curve"
+                        ? "עלות ייצור ₪ לגיליון"
+                        : "עלות ייצור ₪/מ״ר"
+                  }
                   value={draft.cost}
                   onChange={(v) => setDraft((p) => ({ ...p, cost: v }))}
                   width="w-44"
                 />
                 <Field
-                  label="עלות מיקור חוץ ₪/מ״ר (מעל הסף)"
+                  label="תעריף מיקור חוץ ₪/מ״ר"
                   value={draft.out}
                   onChange={(v) => setDraft((p) => ({ ...p, out: v }))}
                   width="w-48"
                 />
-              </>
-            ) : (
-              <>
-                <Field
-                  label="עלות ייצור ₪ לגיליון"
-                  value={draft.cost}
-                  onChange={(v) => setDraft((p) => ({ ...p, cost: v }))}
-                  width="w-40"
-                />
-                <Field
-                  label="עלות חוץ ₪ למ״ר (מעל הסף)"
-                  value={draft.out}
-                  onChange={(v) => setDraft((p) => ({ ...p, out: v }))}
-                  width="w-48"
-                />
-              </>
-            )}
             <Field
               label="מקדם רווח (×)"
               value={draft.margin}
               onChange={(v) => setDraft((p) => ({ ...p, margin: v }))}
             />
-            {cfg.method === "area" ? (
-              <Field
-                label="עיגול ₪"
-                value={draft.rounding}
-                onChange={(v) => setDraft((p) => ({ ...p, rounding: v }))}
-              />
-            ) : (
+                {cfg.engine === "anchor_curve" ? (
               <Field
                 label="חבילות"
                 value={draft.packages}
                 onChange={(v) => setDraft((p) => ({ ...p, packages: v }))}
                 width="w-56"
               />
-            )}
-            {draft.method === "sheet" && (
+                ) : null}
+                {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
               <Field
-                label="ריצה קצרה — % ממחיר החבילה הקטנה"
+                    label="ריצה קצרה — % ממחיר כמות הייחוס"
                 value={draft.shortRunPct}
                 onChange={(v) => setDraft((p) => ({ ...p, shortRunPct: v }))}
                 width="w-56"
@@ -893,10 +1036,20 @@ function Calculator() {
               width="w-44"
               placeholder="ללא"
             />
+                <Field
+                  label="מינימום הזמנה ₪ (כולל מע״מ)"
+                  value={draft.minOrderValue}
+                  onChange={(v) => setDraft((p) => ({ ...p, minOrderValue: v }))}
+                  width="w-48"
+                  placeholder="ללא"
+                />
+                <div className="mb-[6px] text-[11px] font-bold text-muted-foreground">
+                  עיגול אוטומטי: עד ₪20 → 0.5 · עד ₪100 → ₪1 · מעל ₪100 → ₪5
+                </div>
 
 
 
-            {draft.method === "sheet" && (
+            {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
               <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
                 <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
                   גיליון הדפסה
@@ -946,28 +1099,6 @@ function Calculator() {
               onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
               width="w-44"
             />
-            <div className="flex items-end gap-2">
-              <Field
-                label="מקדם כמות (%)"
-                value={draft.qtyExponent ? String(Math.round(Number(draft.qtyExponent) * 100)) : ""}
-                onChange={(v) =>
-                  setDraft((p) => ({ ...p, qtyExponent: v ? String(Number(v) / 100) : "" }))
-                }
-                width="w-40"
-                placeholder={fittedQtyExp ? String(Math.round(fittedQtyExp * 100)) : "100"}
-              />
-              {fittedQtyExp !== null && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDraft((p) => ({ ...p, qtyExponent: fittedQtyExp.toFixed(2) }))
-                  }
-                  className="mb-[2px] rounded-none border-2 border-primary-foreground/30 px-2 py-1 text-[11px] font-black text-primary-foreground/80 transition hover:border-primary-foreground hover:text-primary-foreground"
-                >
-                  התאם מהנתונים
-                </button>
-              )}
-            </div>
 
             <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
               <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
@@ -1049,14 +1180,6 @@ function Calculator() {
               </div>
 
             </div>
-          </div>
-
-          <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-            {draft.qtyExponent.trim()
-              ? `מקדם כמות מקובע: ${Math.round(Number(draft.qtyExponent) * 100)}% — משפיע על כל מחיר מחושב. מחיר מאומת או עוגן במידה ובכמות המדויקות נשאר כפי שהוא. טווח 20%–100%.`
-              : fittedQtyExp !== null
-                ? `מקדם כמות מותאם מהעוגנים: ${Math.round(fittedQtyExp * 100)}% — הכפלת הכמות מייקרת בכ-${Math.round((Math.pow(2, fittedQtyExp) - 1) * 100)}%. הזינו ערך (20%–100%) כדי לקבע.`
-                : "מקדם כמות 100% = ליניארי, קטן מ-100% = הנחת כמות. השאירו ריק כדי להתאים אוטומטית מהעוגנים."}
           </div>
 
 
@@ -1142,7 +1265,7 @@ function Calculator() {
 
           <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
             <button
-              onClick={() => saveCfg.mutate()}
+                  onClick={save}
               disabled={saveCfg.isPending}
               className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
             >
@@ -1156,8 +1279,8 @@ function Calculator() {
           {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
             <div className="text-xs font-bold text-muted-foreground">
-              {cfg.method === "area"
-                ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי מ״ר · מעל הסף: עלות חוץ × מ״ר × מקדם"
+                  {!sheetish
+                    ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי המנוע שנבחר"
                 : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (שטח הדפסה ${printableSheet(cfg).w}×${printableSheet(cfg).h}, רווח ${printableSheet(cfg).gap}), ניתן לעריכה`}
             </div>
             <div className="w-56">
@@ -1198,7 +1321,7 @@ function Calculator() {
               <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
                 <th className="w-10 p-2 text-right font-medium">⚓</th>
                 <th className="p-2 text-right font-medium">מידה</th>
-                {cfg.method === "sheet" ? (
+                      {sheetish ? (
                   <>
                     <th className="p-2 text-right font-medium">יחידות בגיליון</th>
                     <th className="p-2 text-right font-medium">חבילה</th>
@@ -1257,7 +1380,7 @@ function Calculator() {
                       ) : null}
 
                     </td>
-                    {cfg.method === "sheet" ? (
+                          {sheetish ? (
                       <>
                         <td className="p-2">
                           <input
@@ -1310,7 +1433,7 @@ function Calculator() {
                     onChange={(e) => setNewRow((p) => ({ ...p, h: e.target.value }))}
                   />
                 </td>
-                {cfg.method === "sheet" ? (
+                      {sheetish ? (
                   <>
                     <td className="p-2 text-xs text-muted-foreground">
                       {Number(newRow.w) && Number(newRow.h)
@@ -1358,7 +1481,7 @@ function Calculator() {
               + הוסף עוגן
             </button>
             <button
-              onClick={() => saveCfg.mutate()}
+                  onClick={save}
               disabled={saveCfg.isPending}
               className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1 text-sm font-bold text-white"
             >

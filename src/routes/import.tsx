@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { PageTitle } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
+import { parseNumber } from "@/lib/parse";
 
 export const Route = createFileRoute("/import")({
   head: () => ({
@@ -48,10 +49,11 @@ const PRODUCT_COLS = [
 ] as const;
 
 // Never overwritten on existing rows — manual work is protected.
-const PROTECTED = ["final_price", "senzey_status", "site_status", "notes"];
+// qty/width/height are protected too: a re-import with badly formatted numbers
+// ("10,000" → 1) must not clobber corrected values on existing rows.
+const PROTECTED = ["final_price", "senzey_status", "site_status", "notes", "qty", "width_cm", "height_cm"];
 
-const num = (v: unknown) =>
-  v === undefined || v === null || v === "" ? null : Number.isNaN(Number(v)) ? null : Number(v);
+const num = parseNumber;
 const str = (v: unknown) => (v === undefined || v === null || v === "" ? null : String(v).trim());
 const text = (v: unknown) => (v === undefined || v === null ? "" : String(v).trim());
 const bool = (v: unknown) =>
