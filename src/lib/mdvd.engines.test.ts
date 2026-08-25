@@ -284,6 +284,15 @@ describe("קאפה (sheet_yield 240×120)", () => {
     expect(a.total).toBe(b.total);
     expect(a.total).toBeGreaterThan(0);
   });
+  it("100×100 × 1 bills a whole board — same total as 120×120 × 1 (live whole_board rule)", () => {
+    const a = job(fix, 100, 100, 1);
+    const b = job(fix, 120, 120, 1);
+    expect(a.unitsPerSheet).toBe(2);
+    expect(a.total).toBe(b.total);
+    expect(fix.cfg.wholeBoard).toBe(true);
+    expect(fix.cfg.boardW).toBe(240);
+    expect(fix.cfg.boardH).toBe(120);
+  });
   it("50×70 (within direct-print 60/90) → not mounted", () => {
     expect(job(fix, 50, 70, 1).mounted).toBe(false);
   });

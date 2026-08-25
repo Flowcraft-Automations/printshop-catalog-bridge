@@ -325,8 +325,12 @@ const KAPA = baseFamilyPricing({
   maxPrintL: 90,
   overLimit: "mount",
   mountCostUnit: 25,
-  capW: 150,
+  /* הלוח 240×120 — אין חתיכה רחבה מ-120; החומר מחויב בלוח שלם (הכלל החי) */
+  capW: 120,
   capL: 240,
+  wholeBoard: true,
+  boardW: 240,
+  boardH: 120,
   /* טבלת התפוקה תתווסף לאחר אימות מול המפעל */
   yieldTable: [],
   todos: ["קאפה: מחירי מדרגות תפוקה (יח׳ בגיליון) טרם אומתו מול הלקוח (TODO)"],

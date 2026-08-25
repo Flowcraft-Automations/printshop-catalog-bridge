@@ -50,6 +50,9 @@ const LIVE_WINS_KEYS = [
   "over_limit",
   "mount_cost_m2",
   "mount_cost_unit",
+  "whole_board",
+  "board_w",
+  "board_h",
 ];
 
 /** Scalar `families` columns a seed sets alongside pricing_config. */

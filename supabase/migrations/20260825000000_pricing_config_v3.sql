@@ -34,7 +34,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb));
 
 -- מדבקות
@@ -46,7 +46,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb)),
   cost_per_m2 = 6;
 
@@ -59,7 +59,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb)),
   cost_per_m2 = 20,
   outsource_cost_per_m2 = 70,
@@ -75,7 +75,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb)),
   cost_per_m2 = 6;
 
@@ -88,7 +88,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb)),
   cost_per_m2 = 6;
 
@@ -101,7 +101,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb)),
   cost_per_m2 = 15;
 
@@ -114,19 +114,19 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb));
 
 -- קאפה
 INSERT INTO public.families (family, pricing_config, cost_per_m2)
-VALUES ('קאפה', $cfg${"v3":{"engine":"sheet_yield","method":"area","margin":1.3,"rounding":1,"packages":[],"min_unit_area":1,"short_run_pct":0.7,"qty_exponent":null,"qty_tiers_enabled":false,"qty_tiers":[],"sheet_units":{},"sheet_w":240,"sheet_h":120,"sheet_margin":0,"sheet_gap":0,"min_order_qty":0,"max_print_w":60,"max_print_l":90,"over_limit":"mount","mount_cost_m2":0,"mount_cost_unit":25,"cap_w":150,"cap_l":240,"whole_board":false,"board_w":0,"board_h":0,"short_run_ref_qty":100,"min_order_value":0,"dual_surcharge":[],"outsourced_margin_factor":1.5,"outsourced_vat_incl":null,"paper_weight_pct":{},"size_buckets":[],"qty_multipliers":[],"curve_anchors":[],"tail_per_unit":null,"per_m2_tiers":[],"min_job_price":0,"size_ladder":[],"panoramic_aspect":0,"panoramic_pct":0,"yield_table":[],"vinyl_cost_sheet":6,"format_prices":[],"digital_setup":0,"digital_per_unit":0,"digital_max_qty":0,"todos":["קאפה: מחירי מדרגות תפוקה (יח׳ בגיליון) טרם אומתו מול הלקוח (TODO)"]}}$cfg$::jsonb, 40)
+VALUES ('קאפה', $cfg${"v3":{"engine":"sheet_yield","method":"area","margin":1.3,"rounding":1,"packages":[],"min_unit_area":1,"short_run_pct":0.7,"qty_exponent":null,"qty_tiers_enabled":false,"qty_tiers":[],"sheet_units":{},"sheet_w":240,"sheet_h":120,"sheet_margin":0,"sheet_gap":0,"min_order_qty":0,"max_print_w":60,"max_print_l":90,"over_limit":"mount","mount_cost_m2":0,"mount_cost_unit":25,"cap_w":120,"cap_l":240,"whole_board":true,"board_w":240,"board_h":120,"short_run_ref_qty":100,"min_order_value":0,"dual_surcharge":[],"outsourced_margin_factor":1.5,"outsourced_vat_incl":null,"paper_weight_pct":{},"size_buckets":[],"qty_multipliers":[],"curve_anchors":[],"tail_per_unit":null,"per_m2_tiers":[],"min_job_price":0,"size_ladder":[],"panoramic_aspect":0,"panoramic_pct":0,"yield_table":[],"vinyl_cost_sheet":6,"format_prices":[],"digital_setup":0,"digital_per_unit":0,"digital_max_qty":0,"todos":["קאפה: מחירי מדרגות תפוקה (יח׳ בגיליון) טרם אומתו מול הלקוח (TODO)"]}}$cfg$::jsonb, 40)
 ON CONFLICT (family) DO UPDATE SET
   pricing_config = (COALESCE(public.families.pricing_config,'{}'::jsonb) - 'v3')
     || jsonb_build_object('v3',
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb)),
   cost_per_m2 = 40;
 
@@ -139,7 +139,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb));
 
 -- פנקסים
@@ -151,7 +151,7 @@ ON CONFLICT (family) DO UPDATE SET
          (EXCLUDED.pricing_config -> 'v3')
          || COALESCE((SELECT jsonb_object_agg(key, value)
                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
-                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+                      WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
                      '{}'::jsonb));
 
 -- ----------------------------------------------------------------
@@ -205,5 +205,5 @@ WHERE row_key = 'anchor-שמשונית-200x100-1';
 --          (EXCLUDED.pricing_config -> 'v3')
 --          || COALESCE((SELECT jsonb_object_agg(key, value)
 --                       FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
---                       WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit'])),
+--                       WHERE key = ANY (ARRAY['min_order_qty','min_order_value','sheet_units','sheet_w','sheet_h','sheet_margin','sheet_gap','max_print_w','max_print_l','cap_w','cap_l','over_limit','mount_cost_m2','mount_cost_unit','whole_board','board_w','board_h'])),
 --                      '{}'::jsonb));
