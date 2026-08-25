@@ -40,8 +40,8 @@ describe("bug1_flyers_never_per_m2", () => {
 });
 
 describe("bug2_no_backward_extrapolation", () => {
-  it("stickers 5×5: qty10 never cheaper than qty1", () => {
-    const fix = famFixture("מדבקות");
+  it("stickers 5×5: qty10 never cheaper than qty1 (min-free variant of the seed)", () => {
+    const fix = famFixture("מדבקות", { minOrderQty: 0 });
     const q1 = priceJob(fix.cfg, fix.anchors, 5, 5, 1, fix.validated)!.total;
     const q10 = priceJob(fix.cfg, fix.anchors, 5, 5, 10, fix.validated)!.total;
     expect(q10).toBeGreaterThanOrEqual(q1);

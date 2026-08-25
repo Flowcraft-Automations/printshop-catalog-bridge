@@ -138,7 +138,13 @@ const STICKERS = baseFamilyPricing({
   /* bug #4: כמות הייחוס של הרמפה תמיד 100 — גם כשלמידה יש עוגן קטן של 500/1000 */
   shortRunRefQty: 100,
   packages: [100, 150, 200, 250, 500, 1000],
-  cost: 5,
+  /* כוונון חי שנקבע בסשנים קודמים מול Lovable — נשמר (סקירת 2026-08-25) */
+  cost: 6,
+  minOrderQty: 10,
+  sheetMargin: 1.5,
+  sheetUnits: { "5x5": 30 },
+  maxPrintW: 150,
+  capW: 150,
   sizeBuckets: [
     { id: "3", maxW: 3, maxH: 3, factor: null, base100: 115, quoteOnly: false, includes: [] },
     { id: "4", maxW: 4, maxH: 4, factor: null, base100: 121, quoteOnly: false, includes: [] },

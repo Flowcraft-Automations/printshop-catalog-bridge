@@ -59,9 +59,11 @@ export type FamFixture = {
  * The family exactly as the app would see it after the migration:
  * seed config → writeFamilyPricing → families row → readFamilyPricing,
  * plus the approved catalog anchors mapped to JobAnchor.
+ * `over` tweaks the seed before the round-trip — e.g. `{ minOrderQty: 0 }`
+ * to test the short-run ramp below a family's live minimum order.
  */
-export function famFixture(name: string): FamFixture {
-  const seed = specSeed(name);
+export function famFixture(name: string, over: Partial<FamilyPricing> = {}): FamFixture {
+  const seed = { ...specSeed(name), ...over };
   return {
     cfg: readFamilyPricing(familyRow(name, seed)),
     anchors: specAnchorsFor(name),

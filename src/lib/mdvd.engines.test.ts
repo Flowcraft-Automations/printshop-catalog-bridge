@@ -31,16 +31,31 @@ describe("מדבקות (anchor_curve, base100 × qty multipliers)", () => {
   it("3×3 × 100 → ₪115 (base100 of the ≤3 bucket)", () => {
     expect(job(fix, 3, 3, 100).total).toBe(115);
   });
-  it("3×3 short run: qty1 → ₪81, qty10 → ₪84, and q10 ≥ q1 (bug #2)", () => {
-    const q1 = job(fix, 3, 3, 1).total;
-    const q10 = job(fix, 3, 3, 10).total;
+  /* the LIVE config carries מינימום הזמנה 10 (kept per the 2026-08-25 review);
+     the ramp math below 10 is verified on a min-free variant of the same seed */
+  const rampFix = famFixture("מדבקות", { minOrderQty: 0 });
+
+  it("qty below the live minimum (10) → מינימום הזמנה, no quote", () => {
+    const j = job(fix, 3, 3, 5);
+    expect(j.belowMinOrder).toBe(true);
+    expect(j.total).toBe(0);
+    expect(j.minOrderQty).toBe(10);
+  });
+  it("qty10 (the minimum itself) → quoted ₪84 via the ramp", () => {
+    const j = job(fix, 3, 3, 10);
+    expect(j.belowMinOrder).toBe(false);
+    expect(j.total).toBe(84); // 115 × (0.7 + 0.3·9/99) ≈ 83.6
+  });
+  it("3×3 short run (min-free variant): qty1 → ₪81, qty10 → ₪84, and q10 ≥ q1 (bug #2)", () => {
+    const q1 = job(rampFix, 3, 3, 1).total;
+    const q10 = job(rampFix, 3, 3, 10).total;
     expect(q1).toBe(81); // 115 × 0.70 = 80.5 → ramp rounds to ₪1
     expect(q10).toBe(84); // 115 × (0.7 + 0.3·9/99) ≈ 83.6
     expect(q10).toBeGreaterThanOrEqual(q1);
   });
-  it("3×10 rectangle → catch-all ₪187 bucket: qty1 → ₪131, qty5 → ₪133 (spec band 131–134)", () => {
-    const q1 = job(fix, 3, 10, 1).total;
-    const q5 = job(fix, 3, 10, 5).total;
+  it("3×10 rectangle (min-free variant) → catch-all ₪187 bucket: qty1 → ₪131, qty5 → ₪133 (spec band 131–134)", () => {
+    const q1 = job(rampFix, 3, 10, 1).total;
+    const q5 = job(rampFix, 3, 10, 5).total;
     expect(q1).toBe(131); // 187 × 0.70 = 130.9
     expect(q5).toBe(133); // 187 × 0.7121 ≈ 133.2
     for (const t of [q1, q5]) {

@@ -28,6 +28,30 @@ const OUT_FILE = resolve(
 const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const slug = (s: string) => s.trim().replace(/\s+/g, "-");
 
+/**
+ * v3 keys where LIVE tuning wins over the seed on existing rows — the
+ * operational settings users set in the app (machine limits, sheet layout,
+ * mounts, minimum order). Engine/curve data always comes from the seed.
+ * qty_tiers is deliberately NOT preserved: the seeded שמשונית 120x80 tier
+ * supersedes the live one (approved in the 2026-08-25 review).
+ */
+const LIVE_WINS_KEYS = [
+  "min_order_qty",
+  "min_order_value",
+  "sheet_units",
+  "sheet_w",
+  "sheet_h",
+  "sheet_margin",
+  "sheet_gap",
+  "max_print_w",
+  "max_print_l",
+  "cap_w",
+  "cap_l",
+  "over_limit",
+  "mount_cost_m2",
+  "mount_cost_unit",
+];
+
 /** Scalar `families` columns a seed sets alongside pricing_config. */
 function scalarColumns(cfg: FamilyPricing): [string, number][] {
   const out: [string, number][] = [];
@@ -47,9 +71,18 @@ function familyUpsert(family: string, cfg: FamilyPricing): string {
   const scalars = scalarColumns(cfg);
   const cols = ["family", "pricing_config", ...scalars.map(([c]) => c)];
   const vals = [sqlStr(family), `$cfg$${json}$cfg$::jsonb`, ...scalars.map(([, v]) => String(v))];
+  const keyArray = LIVE_WINS_KEYS.map((k) => `'${k}'`).join(",");
   const sets = [
-    /* top-level shallow merge: preserves the legacy `customer` key; v3 replaced whole */
-    `pricing_config = COALESCE(public.families.pricing_config,'{}'::jsonb) || EXCLUDED.pricing_config`,
+    /* Existing rows: other top-level keys (legacy `customer`) kept; the v3
+       block comes from the seed, with the LIVE operational keys layered on
+       top so tuning done in the app survives re-running the migration. */
+    `pricing_config = (COALESCE(public.families.pricing_config,'{}'::jsonb) - 'v3')
+    || jsonb_build_object('v3',
+         (EXCLUDED.pricing_config -> 'v3')
+         || COALESCE((SELECT jsonb_object_agg(key, value)
+                      FROM jsonb_each(COALESCE(public.families.pricing_config->'v3','{}'::jsonb))
+                      WHERE key = ANY (ARRAY[${keyArray}])),
+                     '{}'::jsonb))`,
     ...scalars.map(([c, v]) => `${c} = ${v}`),
   ];
   return [
@@ -106,8 +139,10 @@ ALTER TABLE public.families ADD COLUMN IF NOT EXISTS outsource_height_cm numeric
 `);
 
   lines.push(`-- ----------------------------------------------------------------
--- Family configurations (v3 block replaced whole; other top-level
--- keys of pricing_config — e.g. the legacy "customer" block — kept)
+-- Family configurations. On existing rows: engine/curve data comes from
+-- the seed, LIVE operational tuning (machine limits, sheet layout,
+-- mounts, minimum order) is preserved, and other top-level keys of
+-- pricing_config — e.g. the legacy "customer" block — are kept.
 -- ----------------------------------------------------------------`);
   for (const [family, cfg] of Object.entries(SPEC_FAMILY_CONFIGS)) {
     lines.push(`\n-- ${family}`);
