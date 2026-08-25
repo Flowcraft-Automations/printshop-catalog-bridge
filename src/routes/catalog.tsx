@@ -859,6 +859,7 @@ function Catalog() {
         if (!(g !== null && Math.abs(g) > 0.009)) return false;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+      if (onlyConflict && !conflictIds.has(p.id)) return false;
 
       if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
       if (onlyOutsource && !floorByProduct[p.id]?.aboveThreshold) return false;
