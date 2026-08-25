@@ -859,6 +859,20 @@ function Calculator() {
               </>
             )}
             <Field
+              label='סף מיקור חוץ — רוחב (ס"מ)'
+              value={draft.tw}
+              onChange={(v) => setDraft((p) => ({ ...p, tw: v }))}
+              width="w-44"
+              placeholder="ללא"
+            />
+            <Field
+              label='סף מיקור חוץ — גובה (ס"מ)'
+              value={draft.th}
+              onChange={(v) => setDraft((p) => ({ ...p, th: v }))}
+              width="w-44"
+              placeholder="ללא"
+            />
+            <Field
               label="מקדם רווח (×)"
               value={draft.margin}
               onChange={(v) => setDraft((p) => ({ ...p, margin: v }))}
