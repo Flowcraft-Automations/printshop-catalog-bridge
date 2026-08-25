@@ -1927,15 +1927,32 @@ export function priceJob(
     };
   }
 
-  /* P0 — validated catalog price: exact size + exact quantity, verbatim */
-  const v = validated.find((a) => sameSize(a.w, a.h, w, h) && a.qty === units);
-  if (v && !opts.dualSided) {
+  /* P0 — validated catalog price: exact size + exact quantity, verbatim.
+     Several verified rows may describe the same job at different prices — never
+     take "the first one". Prefer the manually approved anchor, otherwise the
+     highest price, and report the disagreement. */
+  const matches = validated.filter((a) => sameSize(a.w, a.h, w, h) && a.qty === units);
+  if (matches.length > 0 && !opts.dualSided) {
+    const distinct = matches.filter(
+      (a, i) => matches.findIndex((b) => Math.abs(b.price - a.price) <= 0.01) === i,
+    );
+    const anchorHit = matches.find((a) => a.anchor);
+    const v = anchorHit ?? matches.reduce((best, a) => (a.price > best.price ? a : best), matches[0]);
+
+    /* smaller verified size at the same quantity must not cost more */
+    const bigger = validated
+      .filter((a) => a.qty === units && a.area < v.area - 1e-9 && a.price > v.price + 0.01)
+      .sort((a, b) => b.price - a.price)[0];
+
     return finish(
       v.price,
       "validated",
       BINDING_LABEL.validated,
       `${v.w}×${v.h} · ${units.toLocaleString()} יח׳ · ${v.name}`,
-      {},
+      {
+        validatedConflicts: distinct.length > 1 ? matches : [],
+        smallerViolation: bigger ? { anchor: bigger, price: v.price } : null,
+      },
       true,
     );
   }
