@@ -851,6 +851,7 @@ export function familyValidated(products: Product[], family: string): JobAnchor[
       area: (w * h) / 10000,
       qty: Math.max(1, Number(p.qty) || 1),
       price,
+      anchor: p.is_anchor === true,
     });
   }
   return out.sort((a, b) => a.area - b.area || a.qty - b.qty);
