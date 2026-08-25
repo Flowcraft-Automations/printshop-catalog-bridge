@@ -588,6 +588,7 @@ function Catalog() {
   const [view, setView] = useState(viewParam && viewParam !== "all" ? viewParam : "");
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+  const [onlyConflict, setOnlyConflict] = useState(false);
 
 
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
