@@ -21,6 +21,7 @@ import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQu
 import { useAuth } from "@/lib/auth";
 import {
   DEFAULT_OVERHEAD_FACTOR,
+  anchorPrice,
   autoStatusFromPrice,
   FIELD_LABEL,
   STATUSES,
@@ -539,6 +540,30 @@ function Catalog() {
     return out;
   }, [products, engineByFamily]);
 
+  // Verified rows describing the same job (family+size+qty) at different prices.
+  const conflictIds = useMemo(() => {
+    const groups = new Map<string, { id: string; price: number }[]>();
+    for (const p of products) {
+      if (!p.verified) continue;
+      const w = Number(p.width_cm) || 0;
+      const h = Number(p.height_cm) || 0;
+      const price = anchorPrice(p);
+      if (!w || !h || price === null) continue;
+      const key = `${(p.family ?? "").trim()}|${w}×${h}|${Math.max(1, Number(p.qty) || 1)}`;
+      const arr = groups.get(key) ?? [];
+      arr.push({ id: p.id, price });
+      groups.set(key, arr);
+    }
+    const ids = new Set<string>();
+    for (const arr of groups.values()) {
+      if (arr.length < 2) continue;
+      const min = Math.min(...arr.map((a) => a.price));
+      const max = Math.max(...arr.map((a) => a.price));
+      if (max - min > 0.01) for (const a of arr) ids.add(a.id);
+    }
+    return ids;
+  }, [products]);
+
   // Below-cost line per product: production cost × מקדם רווח.
   const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
   const floorByProduct = useMemo(() => {
@@ -587,6 +612,7 @@ function Catalog() {
   const [view, setView] = useState(viewParam && viewParam !== "all" ? viewParam : "");
   const [onlyGap, setOnlyGap] = useState(false);
   const [onlyDup, setOnlyDup] = useState(false);
+  const [onlyConflict, setOnlyConflict] = useState(false);
 
 
   const [onlyBelowCost, setOnlyBelowCost] = useState(false);
@@ -833,6 +859,7 @@ function Catalog() {
         if (!(g !== null && Math.abs(g) > 0.009)) return false;
       }
       if (onlyDup && !((p.senzey_dup_count ?? 0) > 1)) return false;
+      if (onlyConflict && !conflictIds.has(p.id)) return false;
 
       if (onlyBelowCost && !floorByProduct[p.id]?.below) return false;
       if (onlyOutsource && !floorByProduct[p.id]?.aboveThreshold) return false;
@@ -947,6 +974,8 @@ function Catalog() {
     siteStatus,
     onlyGap,
     onlyDup,
+    onlyConflict,
+    conflictIds,
 
     onlyBelowCost,
     onlyOutsource,
@@ -1221,6 +1250,22 @@ function Catalog() {
             <label className="flex items-center gap-1 text-sm font-semibold">
               <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
               רק כפילויות
+            </label>
+            <label
+              className="flex items-center gap-1 text-sm font-semibold"
+              title="שורות מאומתות עם אותה מידה וכמות אך מחיר שונה"
+            >
+              <input
+                type="checkbox"
+                checked={onlyConflict}
+                onChange={(e) => setOnlyConflict(e.target.checked)}
+              />
+              כפילויות מידה סותרות
+              {conflictIds.size > 0 ? (
+                <span className="border-2 border-destructive px-1 text-[10px] font-bold text-destructive">
+                  {conflictIds.size}
+                </span>
+              ) : null}
             </label>
             <label className="flex items-center gap-1 text-sm font-semibold">
               <input

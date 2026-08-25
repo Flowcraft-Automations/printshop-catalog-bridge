@@ -749,6 +749,20 @@ function Calculator() {
                 {job.altQuote.label} → {shekel(job.altQuote.total)}
               </div>
             ) : null}
+            {job.validatedConflicts.length > 0 ? (
+              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
+                ⚠ מחירים מאומתים סותרים לאותה מידה:{" "}
+                {job.validatedConflicts.map((c) => shekel(c.price)).join(" · ")} — נבחר{" "}
+                {shekel(job.total)}. נקו את הכפילות בקטלוג.
+              </div>
+            ) : null}
+            {job.smallerViolation ? (
+              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
+                ⚠ מידה קטנה יותר יקרה: {job.smallerViolation.anchor.w}×
+                {job.smallerViolation.anchor.h} = {shekel(job.smallerViolation.anchor.price)} מול{" "}
+                {shekel(job.smallerViolation.price)} כאן. בדקו את המחיר המאומת.
+              </div>
+            ) : null}
             {job.monotoneViolation ? (
               <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
                 ⚠ הפרת מונוטוניות — כמות קטנה יותר מתומחרת ביוקר. בדקו את עוגני המשפחה.
