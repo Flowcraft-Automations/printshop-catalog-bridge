@@ -1,33 +1,21 @@
-# Re-review of the latest merge (`be8d6ad`)
+# Review of the final merge (`90959b7`)
 
-## Verified
+## Verified in this repo
 
-- `bun test src` → 183 pass, 0 fail; build OK.
-- The migration is no longer a blind overwrite: every `ON CONFLICT` now takes engine/curve data from the seed and re-applies the family's live operational keys on top —
-  `min_order_qty, min_order_value, sheet_units, sheet_w, sheet_h, sheet_margin, sheet_gap, max_print_w, max_print_l, cap_w, cap_l, over_limit, mount_cost_m2, mount_cost_unit`.
-- מדבקות seed now carries the live tuning (cost 6, minOrderQty 10, sheetMargin 1.5, sheetUnits 5×5→30, maxPrintW/capW 150).
-- שמשונית deliberately takes the seed qty tier (`120x80`, ₪47 from 10) — correct.
+- `bun test src` → **184 pass, 0 fail**.
+- The committed migration is byte-identical to a fresh `bun run scripts/generate-config-migration.ts` (only the script's trailing console newline differs) — the generator and the SQL are in sync.
+- קאפה seed now carries `wholeBoard: true, boardW: 240, boardH: 120, capW: 120, capL: 240`, and `whole_board / board_w / board_h` are in the live-wins preserve list of every `ON CONFLICT` clause. The earlier gap is closed.
+- The 40-vs-46 answer holds: the קאפה config emits `cost_per_m2 = 40` plus `vinyl_cost_sheet: 6`, and `mdvd.ts:1680` computes `sheetCost = cost + vinylCostPerSheet` = 46 per sheet. Seeding 46 would double-count vinyl. Correct as merged.
 
-So the earlier concern is closed. One real gap remains.
+## One honest caveat (not a blocker)
 
-## Remaining gap — קאפה loses whole-board billing
+`wholeBoard / boardW / boardH` are read, written, and shown in the calculator UI, but **no pricing branch reads them** — grep finds no use in `mdvd.ts` outside `readFamilyPricing` / `writeFamilyPricing`. Whole-board billing for קאפה works only because `sheet_yield` already bills `ceil(units / unitsPerSheet)` whole sheets from a 240×120 sheet, which is the same thing. The new test (`100×100 × 1` = `120×120 × 1`) would pass with `wholeBoard: false` as well, so it documents the intent rather than guarding the flag.
 
-Live קאפה config in the database:
+Nothing to change before applying — the numbers are right — but the flag is currently descriptive metadata, not an active rule.
 
-```text
-whole_board: true, board_w: 240, board_h: 120, cap_w: 120, cap_l: 240,
-max_print_w: 60, max_print_l: 90, over_limit: "mount"
-```
+## Next steps
 
-`whole_board`, `board_w` and `board_h` are **not** in the preserve list, and the קאפה seed (`src/lib/pricing-defaults.ts`) leaves them at `false / 0 / 0`. Applying the migration as-is turns off per-whole-board billing for קאפה — the exact rule set up in the "machine limits and the kapa mounting step" session. Nothing else in the seed compensates: the kapa `yield_table` is still empty (open TODO), so the family would fall back to plain area pricing.
-
-Secondary, smaller: the migration also sets `cost_per_m2 = 40` for קאפה while the live value is 46 (the ₪46/m² raw-material figure you gave). Worth confirming which is intended — 40 is the per-sheet material figure in the seed comment, 46 is the per-m² figure.
-
-## Fix before applying
-
-1. In `src/lib/pricing-defaults.ts`, set the קאפה seed to `wholeBoard: true, boardW: 240, boardH: 120` so the approved board rule is in the ground truth rather than only in the live row, and decide קאפה `cost` (40 vs 46).
-2. Add `whole_board`, `board_w`, `board_h` to the preserved-keys array in `scripts/generate-config-migration.ts` so live board settings survive on any family regardless of the seed.
-3. Regenerate: `bun run scripts/generate-config-migration.ts --write`, then `bun test src` (the drift guard must stay green).
-4. Apply `supabase/migrations/20260825000000_pricing_config_v3.sql`.
-5. Spot-check in the calculator: מדבקות 5×5×100 → ₪126, מדבקות ×5 → "מינימום הזמנה 10 יחידות", מדבקות 22×14×10 quotes through outsourcing (not "לא ניתן לייצור"), פליירים A5×5000 → ₪600, שמשונית 120×80×10 → ₪470, קאפה 100×100×1 bills a whole board, and the amber "ללא מנוע" badge is gone on every family.
-6. Only afterwards: review `reports/dry-run-2026-08-25.csv` and decide on `supabase/cleanup/2026-08-25-app-db-worklist.sql`.
+1. Apply `supabase/migrations/20260825000000_pricing_config_v3.sql` (idempotent, live-safe).
+2. Spot-check in the calculator: מדבקות 5×5×100 → ₪126 · מדבקות ×5 → "מינימום הזמנה 10 יחידות" · מדבקות 22×14×10 quotes via outsourcing · פליירים A5×5000 → ₪600 · שמשונית 120×80×10 → ₪470 · קאפה 100×100×1 = 120×120×1 · no amber "ללא מנוע" badge on any family.
+3. Note the open TODO the app itself surfaces: קאפה `yield_table` is empty, so its price is material × margin until the factory tiers are confirmed.
+4. Only afterwards: review `reports/dry-run-2026-08-25.csv` and decide on `supabase/cleanup/2026-08-25-app-db-worklist.sql`.
