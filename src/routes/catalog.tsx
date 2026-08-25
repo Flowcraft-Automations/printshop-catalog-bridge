@@ -1251,6 +1251,22 @@ function Catalog() {
               <input type="checkbox" checked={onlyDup} onChange={(e) => setOnlyDup(e.target.checked)} />
               רק כפילויות
             </label>
+            <label
+              className="flex items-center gap-1 text-sm font-semibold"
+              title="שורות מאומתות עם אותה מידה וכמות אך מחיר שונה"
+            >
+              <input
+                type="checkbox"
+                checked={onlyConflict}
+                onChange={(e) => setOnlyConflict(e.target.checked)}
+              />
+              כפילויות מידה סותרות
+              {conflictIds.size > 0 ? (
+                <span className="border-2 border-destructive px-1 text-[10px] font-bold text-destructive">
+                  {conflictIds.size}
+                </span>
+              ) : null}
+            </label>
             <label className="flex items-center gap-1 text-sm font-semibold">
               <input
                 type="checkbox"
