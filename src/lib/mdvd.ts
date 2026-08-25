@@ -748,7 +748,10 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
   const overL = cfg.maxPrintL > 0 && long > cfg.maxPrintL + 0.01;
   const limitText = `${cfg.maxPrintW || "∞"}×${cfg.maxPrintL || "∞"} ס״מ`;
 
-  if (overW || overL) {
+  /* משפחות גיליון אינן ניתנות לריתוך — מעל גבול ההדפסה הן פשוט מיוצרות במיקור חוץ */
+  const weldable = cfg.method !== "sheet";
+
+  if ((overW || overL) && !(cfg.overLimit === "weld" && !weldable)) {
     if (cfg.overLimit === "weld") {
       if (overL) {
         blocked = true;
