@@ -1894,6 +1894,8 @@ export function priceJob(
       dualPct: 0,
       dualValue: 0,
       curveAdjustments: prepared.adjustments,
+      validatedConflicts: [],
+      smallerViolation: null,
       ...extra,
     };
   };
