@@ -540,6 +540,30 @@ function Catalog() {
     return out;
   }, [products, engineByFamily]);
 
+  // Verified rows describing the same job (family+size+qty) at different prices.
+  const conflictIds = useMemo(() => {
+    const groups = new Map<string, { id: string; price: number }[]>();
+    for (const p of products) {
+      if (!p.verified) continue;
+      const w = Number(p.width_cm) || 0;
+      const h = Number(p.height_cm) || 0;
+      const price = anchorPrice(p);
+      if (!w || !h || price === null) continue;
+      const key = `${(p.family ?? "").trim()}|${w}×${h}|${Math.max(1, Number(p.qty) || 1)}`;
+      const arr = groups.get(key) ?? [];
+      arr.push({ id: p.id, price });
+      groups.set(key, arr);
+    }
+    const ids = new Set<string>();
+    for (const arr of groups.values()) {
+      if (arr.length < 2) continue;
+      const min = Math.min(...arr.map((a) => a.price));
+      const max = Math.max(...arr.map((a) => a.price));
+      if (max - min > 0.01) for (const a of arr) ids.add(a.id);
+    }
+    return ids;
+  }, [products]);
+
   // Below-cost line per product: production cost × מקדם רווח.
   const overheadFactor = Number(bizCfg?.overhead_factor) || DEFAULT_OVERHEAD_FACTOR;
   const floorByProduct = useMemo(() => {
