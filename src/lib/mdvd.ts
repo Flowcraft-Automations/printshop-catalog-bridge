@@ -1932,12 +1932,14 @@ export function priceJob(
      take "the first one". Prefer the manually approved anchor, otherwise the
      highest price, and report the disagreement. */
   const matches = validated.filter((a) => sameSize(a.w, a.h, w, h) && a.qty === units);
-  if (matches.length > 0 && !opts.dualSided) {
+  const first = matches[0];
+  if (first && !opts.dualSided) {
     const distinct = matches.filter(
       (a, i) => matches.findIndex((b) => Math.abs(b.price - a.price) <= 0.01) === i,
     );
     const anchorHit = matches.find((a) => a.anchor);
-    const v = anchorHit ?? matches.reduce((best, a) => (a.price > best.price ? a : best), matches[0]);
+    const v =
+      anchorHit ?? matches.reduce<JobAnchor>((best, a) => (a.price > best.price ? a : best), first);
 
     /* smaller verified size at the same quantity must not cost more */
     const bigger = validated
