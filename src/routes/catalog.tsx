@@ -974,6 +974,8 @@ function Catalog() {
     siteStatus,
     onlyGap,
     onlyDup,
+    onlyConflict,
+    conflictIds,
 
     onlyBelowCost,
     onlyOutsource,
