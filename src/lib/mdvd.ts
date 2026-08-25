@@ -1792,6 +1792,10 @@ export type JobPrice = {
   dualValue: number;
   /** תיקוני מונוטוניות שבוצעו על העקומה בטעינה */
   curveAdjustments: CurveAdjustment[];
+  /** שורות מאומתות סותרות לאותה מידה+כמות (אם יש יותר ממחיר אחד) */
+  validatedConflicts: JobAnchor[];
+  /** מחיר מאומת קטן ממחיר מאומת של מידה קטנה יותר באותה כמות */
+  smallerViolation: { anchor: JobAnchor; price: number } | null;
 };
 
 const SOURCE_FOR: Partial<Record<BindingRule, JobPrice["source"]>> = {
