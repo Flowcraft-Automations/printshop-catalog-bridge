@@ -474,12 +474,14 @@ function Catalog() {
     for (const f of families) {
       const cfg = readFamilyPricing(f);
       const anchors = familyAnchors(products, f.family);
+      const validated = familyValidated(products, f.family);
       out[f.family] = {
         cfg,
         anchors,
-        validated: familyValidated(products, f.family),
-        /* מנורמל פעם אחת למשפחה — נמסר ל-priceJob כדי לחסוך לולאות קטלוג */
-        prepared: prepareFamily(cfg, anchors),
+        validated,
+        /* מנורמל פעם אחת למשפחה — נמסר ל-priceJob כדי לחסוך לולאות קטלוג.
+           validated נדרש לסולם הפורמט הגדול, שנבנה מהשורות המאומתות. */
+        prepared: prepareFamily(cfg, anchors, validated),
       };
     }
     return out;

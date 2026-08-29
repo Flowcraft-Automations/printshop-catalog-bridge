@@ -25,6 +25,7 @@ import {
   isClosedOut,
   isEngineKind,
   familyColor,
+  prepareFamily,
   priceJob,
   readFamilyPricing,
   sheetUnitsFor,
@@ -484,9 +485,14 @@ function Calculator() {
   const nh = Number(h) || 0;
   const nq = Math.max(1, Number(qty) || 1);
   const validated = useMemo(() => familyValidated(products, family), [products, family]);
+  /* מנורמל פעם אחת — גם מזין את שורת "על מה התבסס המחיר" */
+  const prepared = useMemo(
+    () => prepareFamily(cfg, anchors, validated),
+    [cfg, anchors, validated],
+  );
   const job = useMemo(
-    () => priceJob(cfg, anchors, nw, nh, nq, validated, { dualSided: sides === 2 }),
-    [cfg, anchors, nw, nh, nq, validated, sides],
+    () => priceJob(cfg, anchors, nw, nh, nq, validated, { dualSided: sides === 2, prepared }),
+    [cfg, anchors, nw, nh, nq, validated, sides, prepared],
   );
 
   const inconsistent = job?.inconsistent ?? [];
@@ -828,6 +834,87 @@ function Calculator() {
         ) : null}
 
       </section>
+
+      {/* how the price is decided — bilingual, always visible */}
+      {family ? (
+        <section className="border-2 border-[var(--ink)] bg-card p-5 shadow-[4px_4px_0_var(--ink)]">
+          <h2 className="mb-3 text-base font-black text-[var(--ink)]">
+            איך נקבע המחיר · How the price is set
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div dir="rtl" className="text-xs leading-relaxed text-muted-foreground">
+              <ol className="list-inside list-decimal space-y-1">
+                <li>
+                  <b className="text-[var(--ink)]">מחיר מאומת קודם לכול.</b> אם יש בקטלוג שורה
+                  מאומתת לאותה מידה ולאותה כמות — היא המחיר, ללא חישוב.
+                </li>
+                <li>
+                  <b className="text-[var(--ink)]">אחרת המחיר נבנה מהשורות המאומתות:</b> מחיר לפי
+                  השטח × מקדם לפי הכמות. שני הגורמים נלמדים מהמחירון שלכם, לא מוגדרים בקוד.
+                </li>
+                <li>
+                  <b className="text-[var(--ink)]">מידה שאין לה שורה</b> מתומחרת בין שתי המידות
+                  הסמוכות בקטלוג — לעולם לא מתחת לקטנה מהן.
+                </li>
+                <li>
+                  <b className="text-[var(--ink)]">יחידה שאינה נכנסת לגיליון</b> ({printableSheet(cfg).w}×
+                  {printableSheet(cfg).h} ס״מ) מתומחרת משורות הפורמט הגדול, ואינה כפופה למינימום
+                  הכמות.
+                </li>
+              </ol>
+            </div>
+            <div dir="ltr" className="text-left text-xs leading-relaxed text-muted-foreground">
+              <ol className="list-inside list-decimal space-y-1">
+                <li>
+                  <b className="text-[var(--ink)]">An approved price wins.</b> If the catalog has a
+                  verified row for this exact size and quantity, that is the price — no calculation.
+                </li>
+                <li>
+                  <b className="text-[var(--ink)]">Otherwise it is built from your approved rows:</b>{" "}
+                  price by area × a multiplier for quantity. Both are learned from your price list,
+                  not written into the code.
+                </li>
+                <li>
+                  <b className="text-[var(--ink)]">A size you have not priced</b> is placed between
+                  its two nearest catalog sizes — never below the smaller of them.
+                </li>
+                <li>
+                  <b className="text-[var(--ink)]">A unit too big for the sheet</b> (
+                  {printableSheet(cfg).w}×{printableSheet(cfg).h} cm) is priced from the
+                  large-format rows and is exempt from the quantity minimum.
+                </li>
+              </ol>
+            </div>
+          </div>
+          {/* מצב הנתונים החי — הקוד לא יכול לתשאל את מסד הנתונים, ולכן הוא
+              מציג כאן על מה בדיוק התבסס המחיר. */}
+          <div className="mt-3 space-y-1 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-2 text-[11px] font-bold text-muted-foreground">
+            <div>
+              {ENGINE_LABEL[cfg.engine]}
+              {job?.label ? ` · ${job.label}` : ""} · {validated.length.toLocaleString()} שורות
+              מסומנות אומת
+              {prepared?.sheetSurface || prepared?.largeSurface ? (
+                <>
+                  {" · משטח: "}
+                  {prepared?.sheetSurface ? `גיליון ${prepared.sheetSurface.rows}` : ""}
+                  {prepared?.sheetSurface && prepared?.largeSurface ? " + " : ""}
+                  {prepared?.largeSurface ? `פורמט גדול ${prepared.largeSurface.rows}` : ""}
+                </>
+              ) : (
+                " · אין די שורות מאומתות — מחיר לפי התצורה"
+              )}
+            </div>
+            <div dir="ltr" className="text-left">
+              {validated.length.toLocaleString()} rows marked approved
+              {prepared?.sheetSurface || prepared?.largeSurface
+                ? ` · surface built from ${(prepared?.sheetSurface?.rows ?? 0) + (prepared?.largeSurface?.rows ?? 0)} of them`
+                : " · not enough approved rows yet — priced from configuration"}
+              . Where the catalog has no nearby price the engine falls back to configuration rather
+              than extrapolating.
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* verified reference items */}
       {family ? (

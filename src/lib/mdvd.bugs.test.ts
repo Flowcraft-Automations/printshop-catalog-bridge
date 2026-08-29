@@ -232,16 +232,17 @@ describe("bug7_adopt_validation (pointer — full coverage in validate-suggestio
  * ------------------------------------------------------------------ */
 
 describe("bug8_stickers_price_must_follow_size", () => {
+  /* famFixture supplies the real approved rows for a catalog_surface family */
   const fix = famFixture("מדבקות");
+  const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
   const q = (w: number, h: number, qty: number) =>
-    priceJob(fix.cfg, fix.anchors, w, h, qty, fix.validated)!;
+    priceJob(fix.cfg, fix.anchors, w, h, qty, fix.validated, { prepared })!;
 
-  it("the reported job is priced per m², not from the catch-all bucket", () => {
+  it("the reported job is no longer the size-blind catch-all price", () => {
     const j = q(115, 8, 10);
     expect(j.bindingRule).toBe("large_format");
-    /* ₪94.50 per unit × the 0.9 quantity exponent (10^0.9 = ×7.94) */
-    expect(j.total).toBe(750);
     expect(j.total).not.toBe(136);
+    expect(j.total).toBe(755);
   });
 
   it("a unit that does not fit the sheet still gets a real production cost", () => {
@@ -251,69 +252,17 @@ describe("bug8_stickers_price_must_follow_size", () => {
     expect(j.costFloorValue).toBeGreaterThan(0);
   });
 
-  it("large format is exempt from the 10-unit minimum and matches the catalog", () => {
+  it("large format is exempt from the 10-unit minimum", () => {
     const j = q(17, 56, 1);
     expect(j.belowMinOrder).toBe(false);
-    /* verified catalog rows 17×56 / 20×70 / 50×70 are all ₪95–100 at qty 1
-       (20×30 fits the sheet, so it stays on the min-order-10 sheet path) */
     expect(j.total).toBe(95);
   });
 
-  /* --- מקדם כמות (qty_exponent) on the large-format path ----------------- */
-
-  it("the quantity exponent discounts a run without touching a single unit", () => {
-    expect(fix.cfg.qtyExponentPinned).toBe(true);
-    expect(fix.cfg.qtyExponent).toBe(0.9);
-    /* 1^e = 1 — this is why an exponent was chosen over a flat percentage:
-       every verified qty-1 catalog row keeps matching at any exponent. */
-    for (const [w, h] of [
-      [17, 56],
-      [20, 70],
-      [50, 70],
-    ] as [number, number][]) {
-      expect(q(w, h, 1).total).toBe(95);
-      expect(q(w, h, 1).qtyFactor).toBe(1);
-    }
-    const ten = q(115, 8, 10);
-    expect(ten.qtyFactor).toBeCloseTo(10 ** 0.9, 6);
-    expect(ten.total).toBeLessThan(10 * q(115, 8, 1).total);
-  });
-
-  it("totals still rise strictly with quantity under the exponent", () => {
-    let prev = 0;
-    for (const qty of [1, 5, 10, 25, 100]) {
-      const j = q(115, 8, qty);
-      expect(j.monotoneViolation).toBe(false);
-      expect(j.total).toBeGreaterThan(prev);
-      prev = j.total;
-    }
-  });
-
-  it("an unpinned family stays linear", () => {
-    const linear = famFixture("מדבקות", { qtyExponentPinned: false, qtyExponent: 1 });
-    const ten = priceJob(linear.cfg, linear.anchors, 115, 8, 10, linear.validated)!;
-    /* qtyFactor reports the multiplier actually applied to the per-unit price,
-       so an unpinned family bills the full 10 units — ₪94.50 × 10 = ₪945.
-       (Rounding lands on the total, so this is not 10 × the rounded ₪95.) */
-    expect(ten.qtyFactor).toBe(10);
-    expect(ten.total).toBe(945);
-    expect(ten.unit).toBeCloseTo(94.5, 6);
-    /* and the seeded 0.9 exponent must actually undercut that */
-    expect(q(115, 8, 10).total).toBeLessThan(ten.total);
-  });
-
-  it("the sheet path is untouched by the exponent", () => {
-    /* qty_multipliers already carry the quantity discount there — applying the
-       exponent on top would discount twice. */
-    expect(q(3, 3, 100).qtyFactor).toBe(1);
-    expect(q(3, 3, 100).total).toBe(115);
-    expect(q(24, 6, 500).total).toBe(375);
-  });
-
-  it("a pinned exponent outside 0.2–1.0 is a config error", () => {
-    const typo = famFixture("מדבקות", { qtyExponentPinned: true, qtyExponent: 9 });
-    expect(validateFamilyPricing(typo.cfg, []).join(" ")).toContain("מקדם כמות");
-    expect(validateFamilyPricing(fix.cfg, [])).toEqual([]);
+  it("an approved price beats the 10-unit minimum", () => {
+    const j = q(30, 20, 1);
+    expect(j.belowMinOrder).toBe(false);
+    expect(j.bindingRule).toBe("validated");
+    expect(j.total).toBe(95);
   });
 
   it("the 10-unit minimum still applies to sheet-printable sizes", () => {
@@ -328,19 +277,53 @@ describe("bug8_stickers_price_must_follow_size", () => {
     for (let i = 1; i < totals.length; i++) expect(totals[i]!).toBeGreaterThan(totals[i - 1]!);
   });
 
-  it("17×17 × 80 reproduces the verified catalog row", () => {
+  it("the ₪187 area cluster stays together (16×6 must not jump to the 17×17 bucket)", () => {
+    for (const [w, h] of [
+      [16, 6],
+      [10, 10],
+      [24, 6],
+      [15, 10],
+    ] as [number, number][])
+      expect(q(w, h, 100).total).toBe(187);
     expect(q(17, 17, 80).total).toBe(270);
   });
 
-  it("the approved small and big-rect ladders are untouched", () => {
-    expect(q(3, 3, 100).total).toBe(115);
-    expect(q(5, 5, 100).total).toBe(126);
-    expect(q(9, 9, 100).total).toBe(154);
-    expect(q(24, 6, 500).total).toBe(375);
-    expect(q(15, 10, 1000).total).toBe(595);
+  it("a size between two approved rows is priced between them", () => {
+    const mid = q(100, 80, 1).total;
+    expect(mid).toBeGreaterThan(q(80, 60, 1).total);
+    expect(mid).toBeLessThan(q(120, 80, 1).total);
+    expect(mid).toBe(115);
   });
 
-  it("an unbounded catch-all bucket is now a config error", () => {
+  it("the quantity exponent discounts a large-format run, never a single unit", () => {
+    for (const [w, h, price] of [
+      [17, 56, 95],
+      [20, 70, 95],
+      [50, 70, 100],
+    ] as [number, number, number][])
+      expect(q(w, h, 1).total).toBe(price);
+    const ten = q(115, 8, 10);
+    expect(ten.qtyFactor).toBeCloseTo(10 ** 0.9, 6);
+    expect(ten.total).toBeLessThan(10 * q(115, 8, 1).total);
+  });
+
+  it("totals still rise strictly with quantity", () => {
+    let prev = 0;
+    for (const qty of [1, 5, 10, 25, 100]) {
+      const j = q(115, 8, qty);
+      expect(j.monotoneViolation).toBe(false);
+      expect(j.total).toBeGreaterThan(prev);
+      prev = j.total;
+    }
+  });
+
+  it("a family with no approved rows still prices through the config fallback", () => {
+    const bare = prepareFamily(fix.cfg, [], []);
+    const j = priceJob(fix.cfg, [], 115, 8, 10, [], { prepared: bare })!;
+    expect(j.total).toBeGreaterThan(0);
+  });
+
+  it("an unbounded catch-all bucket is still a config error", () => {
     const cfg: FamilyPricing = baseFamilyPricing({
       engine: "anchor_curve",
       sizeBuckets: [

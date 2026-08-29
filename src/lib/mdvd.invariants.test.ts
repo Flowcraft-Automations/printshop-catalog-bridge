@@ -10,7 +10,7 @@ import {
   type FamilyPricing,
 } from "./mdvd";
 import { baseFamilyPricing, SPEC_FAMILY_CONFIGS, VAT_FACTOR } from "./pricing-defaults";
-import { famFixture, mkAnchor } from "./pricing-fixtures";
+import { catalogRows, famFixture, mkAnchor } from "./pricing-fixtures";
 
 /* ------------------------------------------------------------------ *
  *  Engine invariants over every seeded family (Appendix A):
@@ -253,5 +253,57 @@ describe("VAT", () => {
   });
   it("ex-VAT competitor price × 1.18 (365 → ≈430.7)", () => {
     expect(365 * VAT_FACTOR).toBeCloseTo(430.7, 1);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ *  Accuracy guard for the catalog_surface engine.
+ *
+ *  The engine derives base(area) × mult(qty) from the family's approved
+ *  rows, so its quality is measurable: hide one approved price, ask the
+ *  engine to predict it, and score the error. This is what stops the
+ *  next round of hand-tuned numbers from silently degrading accuracy —
+ *  a fixture test would keep passing, this one would not.
+ * ------------------------------------------------------------------ */
+
+describe("catalog_surface accuracy (leave-one-out over the approved rows)", () => {
+  const NAME = "מדבקות";
+  const fix = famFixture(NAME);
+  const rows = catalogRows(NAME);
+
+  it("the family is configured for the surface engine and has enough rows", () => {
+    expect(fix.cfg.engine).toBe("catalog_surface");
+    expect(rows.length).toBeGreaterThan(20);
+  });
+
+  it("predicts a held-out approved price within 5% mean / 3% median", () => {
+    const errors: number[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const target = rows[i]!;
+      const train = rows.filter((_, j) => j !== i);
+      const prepared = prepareFamily(fix.cfg, fix.anchors, train);
+      const job = priceJob(fix.cfg, fix.anchors, target.w, target.h, target.qty, train, {
+        prepared,
+      });
+      if (!job || job.noQuote || job.belowMinOrder || !job.total) continue;
+      errors.push(Math.abs(job.total - target.price) / target.price);
+    }
+    /* every approved row must be scoreable — none silently refused */
+    expect(errors.length).toBe(rows.length);
+    const mean = errors.reduce((t, e) => t + e, 0) / errors.length;
+    const median = [...errors].sort((a, b) => a - b)[Math.floor(errors.length / 2)]!;
+    expect({ mean: mean < 0.05, median: median < 0.03 }).toEqual({ mean: true, median: true });
+  });
+
+  it("reproduces every approved price exactly when the catalog is loaded", () => {
+    const prepared = prepareFamily(fix.cfg, fix.anchors, rows);
+    for (const r of rows) {
+      const job = priceJob(fix.cfg, fix.anchors, r.w, r.h, r.qty, rows, { prepared })!;
+      expect({ size: `${r.w}×${r.h}`, qty: r.qty, total: job.total }).toEqual({
+        size: `${r.w}×${r.h}`,
+        qty: r.qty,
+        total: r.price,
+      });
+    }
   });
 });

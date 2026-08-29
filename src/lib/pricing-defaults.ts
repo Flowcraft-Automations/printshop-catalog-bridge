@@ -133,9 +133,12 @@ const FLYERS = baseFamilyPricing({
 });
 
 const STICKERS = baseFamilyPricing({
-  engine: "anchor_curve",
+  /* משטח מחירים מהקטלוג: base(שטח) × mult(כמות), שניהם נקראים מהשורות
+     המאומתות. נבחר במדידה — leave-one-out על 88 שורות: 3.2% שגיאה ממוצעת,
+     מול 5.2% לאינטרפולציה דו-ממדית ו-12.6% לנוסחה החלקה הטובה ביותר.
+     המחירים נקבעים בקטלוג, לא כאן. */
+  engine: "catalog_surface",
   shortRunPct: 0.7,
-  /* bug #4: כמות הייחוס של הרמפה תמיד 100 — גם כשלמידה יש עוגן קטן של 500/1000 */
   shortRunRefQty: 100,
   packages: [100, 150, 200, 250, 500, 1000],
   /* כוונון חי שנקבע בסשנים קודמים מול Lovable — נשמר (סקירת 2026-08-25) */
@@ -145,86 +148,38 @@ const STICKERS = baseFamilyPricing({
   sheetUnits: { "5x5": 30 },
   maxPrintW: 150,
   capW: 150,
+  /* הנחת כמות לפורמט גדול — לשורות הקטלוג שם יש רק כמות 1 */
+  qtyExponent: 0.9,
+  qtyExponentPinned: true,
+  /* ---- נפילה לאחור: תצורה, לכשאין מספיק שורות מאומתות ----
+     המנוע קורא את המחירים מהקטלוג; אלה הערכים שמחזיקים את המשפחה כשעדיין
+     לא סומנו שורות כ"אומת". הם נגזרו מהקטלוג עצמו (מחירי 100 יח׳), ולכן
+     הנפילה לאחור ומצב מלא מסכימים ביניהם ולא סותרים זה את זה. */
   sizeBuckets: [
     { id: "3", maxW: 3, maxH: 3, factor: null, base100: 115, quoteOnly: false, includes: [] },
     { id: "4", maxW: 4, maxH: 4, factor: null, base100: 121, quoteOnly: false, includes: [] },
+    /* 8×5 = ₪126 בקטלוג, ולכן חריג מפורש לדלי הזה ולא לדלי 9 */
     { id: "5", maxW: 5, maxH: 5, factor: null, base100: 126, quoteOnly: false, includes: ["8x5"] },
     { id: "6", maxW: 6, maxH: 6, factor: null, base100: 137, quoteOnly: false, includes: [] },
     { id: "8", maxW: 8, maxH: 8, factor: null, base100: 148, quoteOnly: false, includes: [] },
     { id: "9", maxW: 9, maxH: 9, factor: null, base100: 154, quoteOnly: false, includes: [] },
-    /* סולם 5×9 מאושר בנפרד (מבוסס דלי 126) — לא בר-השוואה לעיגולים */
-    {
-      id: "5x9",
-      maxW: 0,
-      maxH: 0,
-      factor: null,
-      base100: 126,
-      quoteOnly: false,
-      includes: ["9x5"],
-    },
-    /* מלבנים גדולים 24×6 / 10×15 — סולם נפרד */
-    {
-      id: "big-rect",
-      maxW: 0,
-      maxH: 0,
-      factor: null,
-      base100: 187,
-      quoteOnly: false,
-      includes: ["24x6", "15x10"],
-    },
-    /* מעל 9 ס״מ ועד שטח ההדפסה 42×29. מעל זה היחידה אינה נכנסת לגיליון
-       והתמחור עובר לענף "פורמט גדול" (לפי מ״ר) — לכן אין כאן דלי סל.
-       הכיול: base100 ליניארי במספר הגיליונות ל-100 יח׳, דרך שתי נקודות
-       קיימות — דלי 12 (6 יח׳/גיליון ‎→ 16.7 גיליונות) = ₪187 הקיים, ודלי 20
-       (2 יח׳/גיליון ‎→ 50 גיליונות) = ₪287 הנגזר מהשורה המאומתת
-       17×17 ‎× 80 יח׳ = ₪270. שיפוע ₪3 לגיליון. */
-    { id: "12", maxW: 12, maxH: 12, factor: null, base100: 187, quoteOnly: false, includes: [] },
-    /* 4 יח׳/גיליון → 25 גיליונות */
-    { id: "14", maxW: 14, maxH: 14, factor: null, base100: 212, quoteOnly: false, includes: [] },
-    /* 2 יח׳/גיליון → 50 גיליונות — מעוגן על 17×17 ‎× 80 = ₪270 */
-    { id: "20", maxW: 20, maxH: 20, factor: null, base100: 287, quoteOnly: false, includes: [] },
-    /* 1 יח׳/גיליון → 100 גיליונות. TODO: אין שורה מאומתת בטווח הזה */
-    { id: "42", maxW: 42, maxH: 29, factor: null, base100: 437, quoteOnly: false, includes: [] },
+    /* אשכול ה-₪187 בקטלוג (16×6 · 10×10 · 24×6 · 15×10) — קיבוץ לפי שטח */
+    { id: "24x12", maxW: 24, maxH: 12, factor: null, base100: 187, quoteOnly: false, includes: [] },
+    /* 17×17 ‎× 80 = ₪270 בקטלוג → ₪287 ל-100 יח׳ */
+    { id: "42x20", maxW: 42, maxH: 20, factor: null, base100: 287, quoteOnly: false, includes: [] },
   ],
-  todos: ["מדבקות: מחירי הדליים 12–42 ס״מ נגזרו מיחס הגיליונות ולא אומתו מול הלקוח (TODO)"],
-  /* פורמט גדול: ‎₪70/מ״ר × 1.35 = ₪94.5 ליחידה עם רצפת 1 מ״ר — משחזר את
-     השורות המאומתות 20×30 / 17×56 / 20×70 = ₪95 (50×70 = ₪100, פער ₪5) */
-  outsourceCost: 70,
-  outsourcedMarginFactor: 1.35,
-  /* הנחת כמות לפורמט גדול (החלטה עסקית, לא נגזרת מהנתונים): ‎units^0.9 —
-     ‎×10 = ₪750 במקום ₪945. יחידה בודדת נשארת ₪95 (1^e = 1) ולכן השורות
-     המאומתות בקטלוג ממשיכות להתאים במדויק. */
-  qtyExponent: 0.9,
-  qtyExponentPinned: true,
+  /* מקדמי הכמות המשותפים, כפי שנמדדו מהקטלוג (ממוצע גאומטרי על כל המידות) */
   qtyMultipliers: [
     { qty: 100, mult: 1.0 },
     { qty: 150, mult: 1.06 },
-    { qty: 200, mult: 1.16 },
-    { qty: 250, mult: 1.29 },
-    { qty: 500, mult: 1.82 },
-    { qty: 1000, mult: 2.75 },
+    { qty: 200, mult: 1.163 },
+    { qty: 250, mult: 1.295 },
+    { qty: 500, mult: 1.832 },
+    { qty: 1000, mult: 3.049 },
   ],
-  curveAnchors: [
-    /* מדרגות 1000 מאושרות (עוגן רצפה: Grafline ‎₪275 ל-≤4 ס״מ) */
-    { size: "3", qty: 1000, price: 299 },
-    { size: "4", qty: 1000, price: 310 },
-    { size: "5", qty: 1000, price: 345 },
-    { size: "6", qty: 1000, price: 370 },
-    { size: "8", qty: 1000, price: 395 },
-    { size: "12", qty: 1000, price: 480 },
-    /* אופציונלי: 3 ס״מ 2000/5000 */
-    { size: "3", qty: 2000, price: 385 },
-    { size: "3", qty: 5000, price: 620 },
-    /* סולם 5×9 מאושר במפורש */
-    { size: "5x9", qty: 150, price: 134 },
-    { size: "5x9", qty: 200, price: 143 },
-    { size: "5x9", qty: 250, price: 157 },
-    { size: "5x9", qty: 500, price: 174 },
-    { size: "5x9", qty: 1000, price: 245 },
-    /* מלבנים גדולים */
-    { size: "big-rect", qty: 500, price: 375 },
-    { size: "big-rect", qty: 1000, price: 595 },
-  ],
+  /* פורמט גדול ללא שורות מאומתות — תעריף מ״ר */
+  outsourceCost: 70,
+  outsourcedMarginFactor: 1.35,
 });
 
 const SHIMSHONIT = baseFamilyPricing({

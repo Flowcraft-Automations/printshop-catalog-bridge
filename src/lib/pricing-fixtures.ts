@@ -9,6 +9,8 @@ import {
   type FamilyPricing,
   type JobAnchor,
 } from "./mdvd";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { OPTIONAL_FAMILY_CONFIGS, SPEC_ANCHORS, SPEC_FAMILY_CONFIGS } from "./pricing-defaults";
 
 /** The approved seed config for a family (spec or optional). */
@@ -67,6 +69,53 @@ export function famFixture(name: string, over: Partial<FamilyPricing> = {}): Fam
   return {
     cfg: readFamilyPricing(familyRow(name, seed)),
     anchors: specAnchorsFor(name),
-    validated: [],
+    /* only the catalog_surface engine reads its prices from the catalog;
+       the config-driven engines are scored against their approved seed */
+    validated: seed.engine === "catalog_surface" ? catalogRows(name) : [],
   };
+}
+
+/* ------------------------------------------------------------------ *
+ *  The real approved price list, read from the committed dry-run
+ *  export. The `catalog_surface` engine derives its price surface from
+ *  these rows, so tests must be scored against them rather than against
+ *  numbers hand-written into the seed.
+ * ------------------------------------------------------------------ */
+
+let CATALOG: Map<string, JobAnchor[]> | null = null;
+
+/** Approved catalog rows for a family, from reports/dry-run-2026-08-25.csv. */
+export function catalogRows(family: string): JobAnchor[] {
+  if (!CATALOG) {
+    CATALOG = new Map();
+    /* tests run from the repo root (`bun test src`) */
+    const csv = readFileSync(
+      join(process.cwd(), "reports", "dry-run-2026-08-25.csv"),
+      "utf8",
+    ).replace(/^\uFEFF/, "");
+    const [header, ...lines] = csv.trim().split("\n");
+    const cols = (header ?? "").split(",");
+    const at = (c: string[], name: string) => c[cols.indexOf(name)] ?? "";
+    for (const line of lines) {
+      const c = line.split(",");
+      const fam = at(c, "family").trim();
+      const w = Number(at(c, "width_cm"));
+      const h = Number(at(c, "height_cm"));
+      const qty = Math.max(1, Number(at(c, "qty")) || 1);
+      const price = Number(at(c, "current_price"));
+      if (!fam || !w || !h || !(price > 0)) continue;
+      const rows = CATALOG.get(fam) ?? [];
+      rows.push({
+        id: `${w}x${h}@${qty}`,
+        name: `${w}/${h}`,
+        w,
+        h,
+        area: (w * h) / 10000,
+        qty,
+        price,
+      });
+      CATALOG.set(fam, rows);
+    }
+  }
+  return CATALOG.get(family) ?? [];
 }

@@ -634,7 +634,7 @@ export function writeFamilyPricing(cfg: FamilyPricing, prev?: unknown) {
     v3: {
       engine: cfg.engine,
       /* legacy hint so a pre-v3.1 build reading this config degrades sanely */
-      method: cfg.engine === "anchor_curve" ? "sheet" : "area",
+      method: cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface" ? "sheet" : "area",
       margin: cfg.margin,
       rounding: cfg.rounding,
       packages: cfg.packages,
@@ -932,7 +932,8 @@ export function mergeCloseAnchors(anchors: JobAnchor[]): {
  *  assertion.
  * ================================================================== */
 
-export type EngineKind = "anchor_curve" | "per_m2" | "size_ladder" | "sheet_yield" | "unit_floor";
+export type EngineKind =
+  "anchor_curve" | "per_m2" | "size_ladder" | "sheet_yield" | "unit_floor" | "catalog_surface";
 
 export const ENGINE_LABEL: Record<EngineKind, string> = {
   anchor_curve: "עקומת עוגנים",
@@ -940,10 +941,12 @@ export const ENGINE_LABEL: Record<EngineKind, string> = {
   size_ladder: "סולם מידות",
   sheet_yield: "תפוקת גיליון",
   unit_floor: "מחיר רצפה",
+  catalog_surface: "משטח מחירים מהקטלוג",
 };
 
 export function isEngineKind(v: unknown): v is EngineKind {
   return (
+    v === "catalog_surface" ||
     v === "anchor_curve" ||
     v === "per_m2" ||
     v === "size_ladder" ||
@@ -1028,11 +1031,32 @@ export type CurveAdjustment = {
   reason: "qty_cummax" | "size_floor" | "catalog_override";
 };
 
+/**
+ * משטח מחירים שנקרא מהקטלוג: base(שטח) × mult(כמות).
+ * המודל נבחר לפי מדידה — leave-one-out על 88 שורות מדבקות נתן 3.2% שגיאה
+ * ממוצעת, מול 5.2% לאינטרפולציה דו-ממדית ו-12.6% לנוסחה החלקה הטובה ביותר.
+ * הסיבה: מקדמי הכמות כמעט זהים בכל המידות (1.00 · 1.06 · 1.16 · 1.29 · 1.82
+ * מ-100 ל-500), ולכן איגומם על פני כל המידות יעיל בהרבה מהתאמה לכל מידה בנפרד.
+ */
+export type PriceSurface = {
+  /** שטח (מ״ר) → מחיר בכמות הייחוס */
+  base: LadderPoint[];
+  /** כמות → מכפיל משותף ביחס לכמות הייחוס */
+  mult: QtyMult[];
+  refQty: number;
+  /** מספר השורות המאושרות שמהן נבנה המשטח */
+  rows: number;
+};
+
 export type PreparedFamily = {
   engine: EngineKind;
   buckets: SizeBucket[];
   byBucket: Map<string, CurvePoint[]>;
   ladder: LadderPoint[];
+  /** משטח לעבודת גיליון (2+ יחידות בגיליון) */
+  sheetSurface: PriceSurface | null;
+  /** משטח לפורמט גדול (עד יחידה אחת בגיליון) */
+  largeSurface: PriceSurface | null;
   hasCurve: boolean;
   adjustments: CurveAdjustment[];
   configErrors: string[];
@@ -1160,12 +1184,166 @@ export function validateFamilyPricing(cfg: FamilyPricing, anchors: JobAnchor[]):
   return errors;
 }
 
+/* ------------------------------------------------------------------ *
+ *  משטח מחירים מהקטלוג — base(שטח) × mult(כמות)
+ * ------------------------------------------------------------------ */
+
+/** אינטרפולציה ליניארית: שטוח מתחת לנקודה הראשונה, המשך שיפוע מעל האחרונה. */
+function interpAt(pts: readonly (readonly [number, number])[], x: number): number | null {
+  if (!pts.length) return null;
+  const a = [...pts].sort((p, q) => p[0] - q[0]);
+  const first = a[0]!;
+  const last = a[a.length - 1]!;
+  if (a.length === 1 || x <= first[0]) return first[1];
+  if (x >= last[0]) {
+    const prev = a[a.length - 2]!;
+    const span = last[0] - prev[0];
+    const slope = span > 0 ? Math.max(0, (last[1] - prev[1]) / span) : 0;
+    return last[1] + slope * (x - last[0]);
+  }
+  for (let i = 0; i < a.length - 1; i++) {
+    const lo = a[i]!;
+    const hi = a[i + 1]!;
+    if (x >= lo[0] && x <= hi[0]) {
+      const t = hi[0] > lo[0] ? (x - lo[0]) / (hi[0] - lo[0]) : 0;
+      return lo[1] + (hi[1] - lo[1]) * t;
+    }
+  }
+  return last[1];
+}
+
+/**
+ * בונה משטח מחירים משורות הקטלוג המאושרות.
+ * mult(q) = ממוצע גאומטרי של P(q)/P(refQty) על כל המידות שיש להן שתי הכמויות;
+ * base(A) = ממוצע המחירים המנורמלים (P / mult) לכל שטח.
+ */
+/** מינימום ראיות לפני שסומכים על משטח במקום על התצורה. */
+export const SURFACE_MIN_ROWS = 6;
+export const SURFACE_MIN_SIZES = 3;
+
+export function buildSurface(rows: JobAnchor[], refQty: number): PriceSurface | null {
+  const usable = rows.filter((r) => r.area > 0 && r.price > 0 && r.qty > 0);
+  /* משטח משתי נקודות היה מייצר מחירים גרועים יותר מהתצורה — עדיף ליפול
+     לאחור עד שיש די שורות מאומתות. */
+  if (usable.length < SURFACE_MIN_ROWS) return null;
+  if (new Set(usable.map((r) => r.area.toFixed(6))).size < SURFACE_MIN_SIZES) return null;
+
+  const bySize = new Map<string, Map<number, number>>();
+  for (const r of usable) {
+    const k = r.area.toFixed(6);
+    const m = bySize.get(k) ?? new Map<number, number>();
+    /* שורות כפולות לאותה מידה+כמות: המחיר הגבוה, כמו ב-P0 */
+    m.set(r.qty, Math.max(m.get(r.qty) ?? 0, r.price));
+    bySize.set(k, m);
+  }
+
+  /* כמות הייחוס: זו שמופיעה אצל הכי הרבה מידות — עליה מתבסס המכפיל */
+  const count = new Map<number, number>();
+  for (const m of bySize.values()) for (const q of m.keys()) count.set(q, (count.get(q) ?? 0) + 1);
+  let ref = refQty;
+  if (!count.has(ref)) {
+    let best = -1;
+    for (const [q, c] of count) if (c > best || (c === best && q < ref)) [ref, best] = [q, c];
+  }
+
+  const mult: QtyMult[] = [];
+  for (const q of [...count.keys()].sort((a, b) => a - b)) {
+    const ratios: number[] = [];
+    for (const m of bySize.values()) {
+      const at = m.get(q);
+      const atRef = m.get(ref);
+      if (at && atRef && at > 0 && atRef > 0) ratios.push(at / atRef);
+    }
+    if (ratios.length)
+      mult.push({
+        qty: q,
+        mult: Math.exp(ratios.reduce((t, r) => t + Math.log(r), 0) / ratios.length),
+      });
+  }
+  if (!mult.some((m) => m.qty === ref)) mult.push({ qty: ref, mult: 1 });
+  mult.sort((a, b) => a.qty - b.qty);
+
+  const multPairs = mult.map((m) => [Math.log(m.qty), m.mult] as const);
+  const byArea = new Map<number, number[]>();
+  for (const r of usable) {
+    const m = interpAt(multPairs, Math.log(r.qty));
+    if (!m || !(m > 0)) continue;
+    const norm = r.price / m;
+    byArea.set(r.area, [...(byArea.get(r.area) ?? []), norm]);
+  }
+  const base: LadderPoint[] = [];
+  for (const [area, vals] of byArea) {
+    const w = Math.sqrt(area) * 100;
+    base.push({ w, h: w, area, price: vals.reduce((t, v) => t + v, 0) / vals.length });
+  }
+  base.sort((a, b) => a.area - b.area);
+  /* רצפת גודל: שטח גדול יותר לעולם אינו זול יותר */
+  let run = 0;
+  for (const p of base) {
+    if (p.price < run) p.price = run;
+    run = Math.max(run, p.price);
+  }
+  if (!base.length) return null;
+  return { base, mult, refQty: ref, rows: usable.length };
+}
+
+/**
+ * מחיר מהמשטח — רק כשיש ראיה אמיתית *ליד* המידה המבוקשת.
+ *
+ * זו הגנה על מצב שאי אפשר לאמת מכאן: מספר השורות המסומנות "אומת" נמצא
+ * במסד הנתונים, ואין אליו גישה מהקוד. משטח בכיסוי חלקי מסוגל להחזיר מחיר
+ * גרוע בהרבה מהתצורה (נמדד: ₪143 במקום ₪270 ל-17×17 בכיסוי חלקי), ולכן
+ * אקסטרפולציה מחוץ לתחום המכוסה מוחזרת כ-null והמחיר נופל לתצורה —
+ * שאותה כן אפשר לאמת, כי היא נשלחת במיגרציה.
+ */
+export function surfacePrice(
+  s: PriceSurface,
+  area: number,
+  qty: number,
+): { price: number; detail: string } | null {
+  const lo = s.base[0];
+  const hi = s.base[s.base.length - 1];
+  if (!lo || !hi) return null;
+  const TOL = 1e-9;
+  if (area < lo.area - TOL || area > hi.area + TOL) return null;
+  /* גם בתוך התחום — נדרשת נקודה קרובה משני הצדדים (פי 3 בשטח לכל היותר),
+     אחרת מדובר בגישור על פער שאין בו נתונים */
+  const below = s.base.filter((p) => p.area <= area + TOL).pop();
+  const above = s.base.find((p) => p.area >= area - TOL);
+  if (!below || !above) return null;
+  if (below.area > 0 && above.area / below.area > 3) return null;
+
+  const b = interpAt(
+    s.base.map((p) => [p.area, p.price] as const),
+    area,
+  );
+  if (b === null || !(b > 0)) return null;
+  const m =
+    s.mult.length > 1
+      ? (interpAt(
+          s.mult.map((x) => [Math.log(x.qty), x.mult] as const),
+          Math.log(Math.max(1, qty)),
+        ) ?? 1)
+      : 1;
+  const exact = s.base.find((p) => Math.abs(p.area - area) < 1e-9);
+  return {
+    price: b * m,
+    detail:
+      `${exact ? "שטח בקטלוג" : "בין מידות הקטלוג"} ${area.toFixed(3)} מ״ר → ${shekel(b)} ל-${s.refQty.toLocaleString()} יח׳` +
+      (Math.abs(m - 1) > 1e-9 ? ` × מקדם כמות ${m.toFixed(2)}` : ""),
+  };
+}
+
 /**
  * Load-time normalizer: materializes the config curves, overlays verified
  * catalog anchors, then enforces monotonicity ON THE DATA —
  * size-floor first (nested buckets), quantity-cummax last.
  */
-export function prepareFamily(cfg: FamilyPricing, anchors: JobAnchor[]): PreparedFamily {
+export function prepareFamily(
+  cfg: FamilyPricing,
+  anchors: JobAnchor[],
+  validated: JobAnchor[] = [],
+): PreparedFamily {
   const adjustments: CurveAdjustment[] = [];
   const configErrors = validateFamilyPricing(cfg, anchors);
   const todos = [...cfg.todos];
@@ -1177,7 +1355,7 @@ export function prepareFamily(cfg: FamilyPricing, anchors: JobAnchor[]): Prepare
     configErrors.push("תצורת משפחה ישנה — נדרשת מיגרציית תצורה v3 (המחיר מחושב מעלות בלבד)");
   }
 
-  if (cfg.engine === "anchor_curve" && buckets.length) {
+  if ((cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface") && buckets.length) {
     const master = buckets.find((b) => b.factor !== null && Math.abs((b.factor ?? 0) - 1) < 1e-9);
     const masterPts = master
       ? cfg.curveAnchors
@@ -1283,6 +1461,30 @@ export function prepareFamily(cfg: FamilyPricing, anchors: JobAnchor[]): Prepare
     }
   }
 
+  /* פורמט גדול במשפחת גיליון: הסולם נבנה מהשורות המאומתות עצמן — כל שורה
+     מאושרת בכמות 1 שהיחידה שלה אינה נכנסת לגיליון (עד יחידה אחת בגיליון).
+     כך המחירים המאושרים הם הבסיס, והאינטרפולציה רק ממלאת את הרווחים ביניהם
+     במקום לרוץ בנוסחה נפרדת לצידם. */
+  if (cfg.engine === "anchor_curve") {
+    const seen = new Set<string>();
+    for (const a of [...validated].sort((x, y) => x.area - y.area)) {
+      if (a.qty !== 1 || !(a.price > 0)) continue;
+      if (sheetUnitsFor(cfg, a.w, a.h).units > 1) continue;
+      const key = sizeKey(a.w, a.h);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ladder.push({ w: a.w, h: a.h, area: a.area, price: a.price });
+    }
+    /* תצורה מפורשת (אם קיימת) משלימה מידות שאין להן שורה מאומתת */
+    for (const pt of cfg.sizeLadder) {
+      const key = sizeKey(pt.w, pt.h);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ladder.push({ w: pt.w, h: pt.h, area: (pt.w * pt.h) / 10000, price: pt.price });
+    }
+    ladder.sort((x, y) => x.area - y.area);
+  }
+
   if (cfg.engine === "size_ladder") {
     ladder = cfg.sizeLadder.map((p) => ({
       w: p.w,
@@ -1321,7 +1523,19 @@ export function prepareFamily(cfg: FamilyPricing, anchors: JobAnchor[]): Prepare
     todos.push("תעריף מיקור חוץ — לא הוגדר אם כולל מע״מ (TODO)");
   }
 
+  /* משטחי מחירים מהשורות המאושרות — פיצול לפי משטר הייצור: עבודת גיליון
+     (2+ יחידות בגיליון) מול פורמט גדול (עד יחידה אחת). */
+  const sheetRows = validated.filter((a) => sheetUnitsFor(cfg, a.w, a.h).units >= 2);
+  const largeRows = validated.filter((a) => sheetUnitsFor(cfg, a.w, a.h).units <= 1);
+  const refQty = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
+  const sheetSurface = buildSurface(sheetRows, refQty);
+  const largeSurface = buildSurface(largeRows, 1);
+  if (cfg.engine === "catalog_surface" && !sheetSurface && !largeSurface)
+    todos.push("אין מספיק שורות מאומתות לבניית משטח מחירים — המחיר מחושב מהתצורה (TODO)");
+
   const hasCurve =
+    sheetSurface !== null ||
+    largeSurface !== null ||
     [...byBucket.values()].some((p) => p.length > 0) ||
     ladder.length > 0 ||
     cfg.perM2Tiers.length > 0 ||
@@ -1333,6 +1547,8 @@ export function prepareFamily(cfg: FamilyPricing, anchors: JobAnchor[]): Prepare
     buckets,
     byBucket,
     ladder,
+    sheetSurface,
+    largeSurface,
     hasCurve,
     adjustments,
     configErrors,
@@ -1853,7 +2069,7 @@ export function priceJob(
   const area = (w * h) / 10000;
   const margin = cfg.margin > 0 ? cfg.margin : DEFAULT_MARGIN;
   const machine = machineCheck(cfg, w, h);
-  const prepared = opts.prepared ?? prepareFamily(cfg, anchors);
+  const prepared = opts.prepared ?? prepareFamily(cfg, anchors, validated);
 
   const outsourcedJob =
     cfg.engine === "per_m2" &&
@@ -1862,7 +2078,10 @@ export function priceJob(
     !opts.withSeam;
 
   const per =
-    cfg.engine === "sheet_yield" || cfg.engine === "anchor_curve" || cfg.method === "sheet"
+    cfg.engine === "sheet_yield" ||
+    cfg.engine === "anchor_curve" ||
+    cfg.engine === "catalog_surface" ||
+    cfg.method === "sheet"
       ? sheetUnitsFor(cfg, w, h)
       : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
@@ -1871,7 +2090,10 @@ export function priceJob(
   /* פורמט גדול: היחידה אינה נכנסת כלל לגיליון ההדפסה. עקומת הדליים מכוילת
      לעבודות גיליון, ולכן היא אינה תקפה כאן — התמחור עובר לתעריף המ״ר. */
   const largeFormat =
-    cfg.engine === "anchor_curve" && per !== null && per.units === 0 && cfg.outsourceCost > 0;
+    (cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface") &&
+    per !== null &&
+    per.units <= 1 &&
+    (cfg.outsourceCost > 0 || prepared.ladder.length > 0 || prepared.largeSurface !== null);
 
   /* rough production cost — feeds the "מתחת לעלות" banner only.
      בעבודת גיליון שאינה נכנסת לגיליון אין "מספר גיליונות", ולכן העלות
@@ -1951,24 +2173,9 @@ export function priceJob(
     };
   }
 
-  /* minimum order quantity — no price below it. מינימום הכמות שייך לעבודת
-     גיליון (מדפיסים גיליון שלם ממילא); לפורמט גדול הוא אינו חל. */
-  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty && !largeFormat) {
-    return {
-      ...finish(
-        0,
-        "min_order_qty",
-        `מינימום הזמנה ${cfg.minOrderQty.toLocaleString()} יחידות`,
-        `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
-      ),
-      total: 0,
-      unit: 0,
-      belowCost: false,
-      belowMinOrder: true,
-    };
-  }
-
   /* P0 — validated catalog price: exact size + exact quantity, verbatim.
+     רץ לפני מינימום הכמות: אם יש שורה מאושרת למידה ולכמות הזו, זה מחיר
+     שנגבה בפועל — המינימום לא אמור לחסום אותו (למשל 30×20 ‎× 1 = ₪95).
      Several verified rows may describe the same job at different prices — never
      take "the first one". Prefer the manually approved anchor, otherwise the
      highest price, and report the disagreement. */
@@ -1998,6 +2205,23 @@ export function priceJob(
       },
       true,
     );
+  }
+
+  /* minimum order quantity — no price below it. מינימום הכמות שייך לעבודת
+     גיליון (מדפיסים גיליון שלם ממילא); לפורמט גדול הוא אינו חל. */
+  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty && !largeFormat) {
+    return {
+      ...finish(
+        0,
+        "min_order_qty",
+        `מינימום הזמנה ${cfg.minOrderQty.toLocaleString()} יחידות`,
+        `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
+      ),
+      total: 0,
+      unit: 0,
+      belowCost: false,
+      belowMinOrder: true,
+    };
   }
 
   /* מדרגת כמות — מחיר קבוע ליחידה, גובר על העקומה */
@@ -2043,9 +2267,69 @@ export function priceJob(
     };
   }
 
+  /* משטח מחירים מהקטלוג — base(שטח) × mult(כמות), שניהם נקראים מהשורות
+     המאושרות. נופל בחזרה לעקומת העוגנים כשאין מספיק נתונים. */
+  if (cfg.engine === "catalog_surface") {
+    const surface = largeFormat ? prepared.largeSurface : prepared.sheetSurface;
+    if (surface) {
+      const hit = surfacePrice(surface, area, largeFormat ? 1 : units);
+      if (hit) {
+        if (largeFormat) {
+          /* לפורמט גדול יש רק שורות בכמות 1 — הכמות מטופלת במקדם המאושר */
+          const e = cfg.qtyExponentPinned ? clampQtyExponent(cfg.qtyExponent) : 1;
+          const qf = units ** e;
+          return finish(
+            hit.price * qf,
+            "large_format",
+            BINDING_LABEL.large_format,
+            `${hit.detail} · ${units.toLocaleString()} יח׳${e < 1 ? ` ^${e} (×${qf.toFixed(2)})` : ""}`,
+            { qtyFactor: qf },
+          );
+        }
+        /* מתחת לכמות הייחוס — רמפת הריצה הקצרה הקיימת */
+        if (units < surface.refQty && cfg.shortRunPct > 0 && cfg.shortRunPct < 1) {
+          const atRef = surfacePrice(surface, area, surface.refQty);
+          if (atRef) {
+            const ratio =
+              cfg.shortRunPct + (1 - cfg.shortRunPct) * ((units - 1) / (surface.refQty - 1));
+            return finish(
+              atRef.price * ratio,
+              "short_run",
+              BINDING_LABEL.short_run,
+              `${atRef.detail} × ${Math.round(ratio * 100)}%`,
+            );
+          }
+        }
+        return finish(hit.price, "curve", BINDING_LABEL.curve, hit.detail);
+      }
+    }
+  }
+
   /* פורמט גדול — לפי מ״ר, עם רצפת מ״ר ליחידה. רץ אחרי P0 כדי שמחיר מאומת
      מהקטלוג לאותה מידה+כמות ימשיך לגבור על הנוסחה. */
   if (largeFormat) {
+    const e = cfg.qtyExponentPinned ? clampQtyExponent(cfg.qtyExponent) : 1;
+    const qf = units ** e;
+    const qtyNote =
+      e < 1
+        ? ` · ${units.toLocaleString()} יח׳ ^${e} (מקדם כמות ×${qf.toFixed(2)})`
+        : ` × ${units.toLocaleString()} יח׳`;
+
+    /* המחירים המאושרים הם הבסיס: התאמה מדויקת מוחזרת כמות שהיא, ובין שתי
+       שורות מאושרות מבוצעת אינטרפולציה — לעולם לא נוסחה שמתעלמת מהן. */
+    if (prepared.ladder.length) {
+      const lad = priceSizeLadder(prepared, cfg, w, h, 1);
+      if (!lad.noQuote)
+        return finish(
+          lad.raw * qf,
+          "large_format",
+          BINDING_LABEL.large_format,
+          `${lad.detail}${qtyNote}`,
+          { qtyFactor: qf },
+        );
+    }
+
+    /* אין שורות מאושרות למשפחה — נפילה לתעריף מ״ר */
     const factor = cfg.outsourcedMarginFactor > 0 ? cfg.outsourcedMarginFactor : 1.5;
     const floorM2 = cfg.minUnitArea > 0 ? cfg.minUnitArea : 0;
     const billable = Math.max(area, floorM2);
@@ -2055,18 +2339,14 @@ export function priceJob(
        עם הריצה. 1^e = 1 תמיד, ולכן יחידה בודדת שומרת על המחיר המאומת
        מהקטלוג בכל ערך של המקדם. הענף היחיד שמשתמש בו — במסלול הגיליון
        qtyMultipliers כבר מגלם את הנחת הכמות. */
-    const e = cfg.qtyExponentPinned ? clampQtyExponent(cfg.qtyExponent) : 1;
-    const qtyFactor = units ** e;
     return finish(
-      cfg.outsourceCost * billable * factor * qtyFactor,
+      cfg.outsourceCost * billable * factor * qf,
       "large_format",
       BINDING_LABEL.large_format,
-      `היחידה אינה נכנסת לגיליון ההדפסה ${sheet.w}×${sheet.h} ס״מ · ${shekel(cfg.outsourceCost)} למ״ר × ${billable.toFixed(2)} מ״ר${
+      `אין שורות מאומתות לפורמט גדול · ${shekel(cfg.outsourceCost)} למ״ר × ${billable.toFixed(2)} מ״ר${
         bound ? ` (מינימום ${floorM2} מ״ר ליחידה)` : ""
-      } × ${factor} × ${units.toLocaleString()} יח׳${
-        e < 1 ? ` ^${e} (מקדם כמות ×${qtyFactor.toFixed(2)})` : ""
-      }`,
-      { qtyFactor },
+      } × ${factor}${qtyNote}`,
+      { qtyFactor: qf },
     );
   }
 
@@ -2074,6 +2354,7 @@ export function priceJob(
   let er: EngineResult;
   switch (cfg.engine) {
     case "anchor_curve":
+    case "catalog_surface":
       er = priceAnchorCurve(prepared, cfg, w, h, units);
       break;
     case "per_m2":

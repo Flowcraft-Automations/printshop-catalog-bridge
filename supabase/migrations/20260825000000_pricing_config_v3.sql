@@ -41,7 +41,7 @@ ON CONFLICT (family) DO UPDATE SET
 
 -- מדבקות
 INSERT INTO public.families (family, pricing_config, cost_per_m2, outsource_cost_per_m2, outsource_width_cm, outsource_height_cm)
-VALUES ('מדבקות', $cfg${"v3":{"engine":"anchor_curve","method":"sheet","margin":1.3,"rounding":1,"packages":[100,150,200,250,500,1000],"min_unit_area":1,"short_run_pct":0.7,"qty_exponent":0.9,"qty_tiers_enabled":false,"qty_tiers":[],"sheet_units":{"5x5":30},"sheet_w":45,"sheet_h":32,"sheet_margin":1.5,"sheet_gap":0.5,"min_order_qty":10,"max_print_w":150,"max_print_l":0,"over_limit":"weld","mount_cost_m2":0,"mount_cost_unit":0,"cap_w":150,"cap_l":0,"whole_board":false,"board_w":0,"board_h":0,"short_run_ref_qty":100,"min_order_value":0,"dual_surcharge":[],"outsourced_margin_factor":1.35,"outsourced_vat_incl":null,"paper_weight_pct":{},"size_buckets":[{"id":"3","max_w":3,"max_h":3,"factor":null,"base100":115,"quote_only":false,"includes":[]},{"id":"4","max_w":4,"max_h":4,"factor":null,"base100":121,"quote_only":false,"includes":[]},{"id":"5","max_w":5,"max_h":5,"factor":null,"base100":126,"quote_only":false,"includes":["8x5"]},{"id":"6","max_w":6,"max_h":6,"factor":null,"base100":137,"quote_only":false,"includes":[]},{"id":"8","max_w":8,"max_h":8,"factor":null,"base100":148,"quote_only":false,"includes":[]},{"id":"9","max_w":9,"max_h":9,"factor":null,"base100":154,"quote_only":false,"includes":[]},{"id":"5x9","max_w":0,"max_h":0,"factor":null,"base100":126,"quote_only":false,"includes":["9x5"]},{"id":"big-rect","max_w":0,"max_h":0,"factor":null,"base100":187,"quote_only":false,"includes":["24x6","15x10"]},{"id":"12","max_w":12,"max_h":12,"factor":null,"base100":187,"quote_only":false,"includes":[]},{"id":"14","max_w":14,"max_h":14,"factor":null,"base100":212,"quote_only":false,"includes":[]},{"id":"20","max_w":20,"max_h":20,"factor":null,"base100":287,"quote_only":false,"includes":[]},{"id":"42","max_w":42,"max_h":29,"factor":null,"base100":437,"quote_only":false,"includes":[]}],"qty_multipliers":[{"qty":100,"mult":1},{"qty":150,"mult":1.06},{"qty":200,"mult":1.16},{"qty":250,"mult":1.29},{"qty":500,"mult":1.82},{"qty":1000,"mult":2.75}],"curve_anchors":[{"size":"3","qty":1000,"price":299},{"size":"4","qty":1000,"price":310},{"size":"5","qty":1000,"price":345},{"size":"6","qty":1000,"price":370},{"size":"8","qty":1000,"price":395},{"size":"12","qty":1000,"price":480},{"size":"3","qty":2000,"price":385},{"size":"3","qty":5000,"price":620},{"size":"5x9","qty":150,"price":134},{"size":"5x9","qty":200,"price":143},{"size":"5x9","qty":250,"price":157},{"size":"5x9","qty":500,"price":174},{"size":"5x9","qty":1000,"price":245},{"size":"big-rect","qty":500,"price":375},{"size":"big-rect","qty":1000,"price":595}],"tail_per_unit":null,"per_m2_tiers":[],"min_job_price":0,"size_ladder":[],"panoramic_aspect":0,"panoramic_pct":0,"yield_table":[],"vinyl_cost_sheet":0,"format_prices":[],"digital_setup":0,"digital_per_unit":0,"digital_max_qty":0,"todos":["מדבקות: מחירי הדליים 12–42 ס״מ נגזרו מיחס הגיליונות ולא אומתו מול הלקוח (TODO)"]}}$cfg$::jsonb, 6, 70, null, null)
+VALUES ('מדבקות', $cfg${"v3":{"engine":"catalog_surface","method":"sheet","margin":1.3,"rounding":1,"packages":[100,150,200,250,500,1000],"min_unit_area":1,"short_run_pct":0.7,"qty_exponent":0.9,"qty_tiers_enabled":false,"qty_tiers":[],"sheet_units":{"5x5":30},"sheet_w":45,"sheet_h":32,"sheet_margin":1.5,"sheet_gap":0.5,"min_order_qty":10,"max_print_w":150,"max_print_l":0,"over_limit":"weld","mount_cost_m2":0,"mount_cost_unit":0,"cap_w":150,"cap_l":0,"whole_board":false,"board_w":0,"board_h":0,"short_run_ref_qty":100,"min_order_value":0,"dual_surcharge":[],"outsourced_margin_factor":1.35,"outsourced_vat_incl":null,"paper_weight_pct":{},"size_buckets":[{"id":"3","max_w":3,"max_h":3,"factor":null,"base100":115,"quote_only":false,"includes":[]},{"id":"4","max_w":4,"max_h":4,"factor":null,"base100":121,"quote_only":false,"includes":[]},{"id":"5","max_w":5,"max_h":5,"factor":null,"base100":126,"quote_only":false,"includes":["8x5"]},{"id":"6","max_w":6,"max_h":6,"factor":null,"base100":137,"quote_only":false,"includes":[]},{"id":"8","max_w":8,"max_h":8,"factor":null,"base100":148,"quote_only":false,"includes":[]},{"id":"9","max_w":9,"max_h":9,"factor":null,"base100":154,"quote_only":false,"includes":[]},{"id":"24x12","max_w":24,"max_h":12,"factor":null,"base100":187,"quote_only":false,"includes":[]},{"id":"42x20","max_w":42,"max_h":20,"factor":null,"base100":287,"quote_only":false,"includes":[]}],"qty_multipliers":[{"qty":100,"mult":1},{"qty":150,"mult":1.06},{"qty":200,"mult":1.163},{"qty":250,"mult":1.295},{"qty":500,"mult":1.832},{"qty":1000,"mult":3.049}],"curve_anchors":[],"tail_per_unit":null,"per_m2_tiers":[],"min_job_price":0,"size_ladder":[],"panoramic_aspect":0,"panoramic_pct":0,"yield_table":[],"vinyl_cost_sheet":0,"format_prices":[],"digital_setup":0,"digital_per_unit":0,"digital_max_qty":0,"todos":[]}}$cfg$::jsonb, 6, 70, null, null)
 ON CONFLICT (family) DO UPDATE SET
   pricing_config = (COALESCE(public.families.pricing_config,'{}'::jsonb) - 'v3')
     || jsonb_build_object('v3',
@@ -174,41 +174,11 @@ ON CONFLICT (family) DO UPDATE SET
   outsource_height_cm = null;
 
 -- ----------------------------------------------------------------
--- Approved catalog anchors (SPEC_ANCHORS) — verified anchor products
--- for points the engine formula alone cannot reproduce. The cleanup
--- worklist marks the real catalog rows as anchors too; these seeded
--- rows are a fallback so the curve holds even before cleanup runs.
+-- NOTE: this migration touches CONFIGURATION ONLY (public.families).
+-- Catalog prices in public.products are edited by hand and are never
+-- written from here. Approved prices reach the engine by being marked
+-- אומת in the app; SPEC_ANCHORS is kept for tests and dry-run targets.
 -- ----------------------------------------------------------------
-
--- שמשונית 120×80 × 1 = ₪90
-INSERT INTO public.products
-  (row_key, name, family, width_cm, height_cm, qty, final_price, is_anchor, verified, source, senzey_status, site_status)
-SELECT 'anchor-שמשונית-120x80-1', 'שמשונית 120/80 — עוגן מאושר', 'שמשונית', 120, 80, 1, 90, true, true, 'migration', 'not_relevant', 'not_relevant'
-WHERE NOT EXISTS (SELECT 1 FROM public.products WHERE row_key = 'anchor-שמשונית-120x80-1');
-
-UPDATE public.products
-SET is_anchor = true, verified = true, final_price = 90
-WHERE row_key = 'anchor-שמשונית-120x80-1';
-
--- שמשונית 120×100 × 1 = ₪105
-INSERT INTO public.products
-  (row_key, name, family, width_cm, height_cm, qty, final_price, is_anchor, verified, source, senzey_status, site_status)
-SELECT 'anchor-שמשונית-120x100-1', 'שמשונית 120/100 — עוגן מאושר', 'שמשונית', 120, 100, 1, 105, true, true, 'migration', 'not_relevant', 'not_relevant'
-WHERE NOT EXISTS (SELECT 1 FROM public.products WHERE row_key = 'anchor-שמשונית-120x100-1');
-
-UPDATE public.products
-SET is_anchor = true, verified = true, final_price = 105
-WHERE row_key = 'anchor-שמשונית-120x100-1';
-
--- שמשונית 200×100 × 1 = ₪150
-INSERT INTO public.products
-  (row_key, name, family, width_cm, height_cm, qty, final_price, is_anchor, verified, source, senzey_status, site_status)
-SELECT 'anchor-שמשונית-200x100-1', 'שמשונית 200/100 — עוגן מאושר', 'שמשונית', 200, 100, 1, 150, true, true, 'migration', 'not_relevant', 'not_relevant'
-WHERE NOT EXISTS (SELECT 1 FROM public.products WHERE row_key = 'anchor-שמשונית-200x100-1');
-
-UPDATE public.products
-SET is_anchor = true, verified = true, final_price = 150
-WHERE row_key = 'anchor-שמשונית-200x100-1';
 
 -- ----------------------------------------------------------------
 -- אופציונלי: מדבקה בטחונית — הסירו הערה רק באישור הלקוח

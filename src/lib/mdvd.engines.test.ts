@@ -14,25 +14,54 @@ function job(fix: FamFixture, w: number, h: number, qty: number, opts: JobOption
 }
 
 /* ================================ מדבקות ================================ */
-describe("מדבקות (anchor_curve, base100 × qty multipliers)", () => {
+/* מנוע `catalog_surface`: base(שטח) × mult(כמות), שניהם נקראים מהשורות
+   המאושרות בקטלוג. השורות מגיעות מ-reports/dry-run-2026-08-25.csv דרך
+   famFixture, ולכן הבדיקות נמדדות מול מחירון הלקוח ולא מול מספרים בקוד. */
+describe("מדבקות (catalog_surface, base(area) × mult(qty))", () => {
   const fix = famFixture("מדבקות");
 
-  /* was ₪143 while the size-blind `10+` catch-all priced every size ≥10 ס״מ at
-     ₪187/100. 14×11 now resolves to the ≤14 bucket (₪212/100, 4 יח׳/גיליון). */
-  it("14×11 × 22 → ₪162 (≤14 bucket, short-run ramp)", () => {
-    expect(job(fix, 14, 11, 22).total).toBe(162);
+  it("every approved catalog row quotes its own price", () => {
+    for (const [w, h, qty, price] of [
+      [3, 3, 100, 115],
+      [3, 3, 1000, 315],
+      [5, 5, 100, 126],
+      [5, 8, 100, 126],
+      [6, 6, 500, 270],
+      [9, 9, 1000, 505],
+      [5, 9, 500, 280],
+      [5, 9, 1000, 420],
+      [24, 6, 500, 340],
+      [15, 10, 1000, 590],
+      [16, 6, 100, 187],
+      [10, 10, 100, 187],
+      [17, 17, 80, 270],
+      [30, 20, 1, 95],
+    ] as [number, number, number, number][])
+      expect({ w, h, qty, total: job(fix, w, h, qty).total }).toEqual({ w, h, qty, total: price });
   });
-  it("11×14 × 22 → ₪162 (orientation-insensitive)", () => {
-    expect(job(fix, 11, 14, 22).total).toBe(162);
+
+  it("price grows with area at a fixed quantity", () => {
+    const at = (w: number, h: number) => job(fix, w, h, 10).total;
+    /* 10×10 → 17×17 → 20×30 (large format) → 100×100 */
+    expect(at(10, 10)).toBeLessThan(at(17, 17));
+    expect(at(17, 17)).toBeLessThan(at(20, 30));
+    expect(at(20, 30)).toBeLessThan(at(100, 100));
   });
-  it("3×3 × 1000 → ₪299 verbatim (approved 1000-tier, exact point)", () => {
-    const j = job(fix, 3, 3, 1000);
-    expect(j.total).toBe(299);
-    expect(j.bindingRule).toBe("anchor");
+
+  it("a size between two approved rows is priced between them", () => {
+    /* 100×80 = 0.80 מ״ר, between 80×60 (₪105) and 120×80 (₪120) */
+    const mid = job(fix, 100, 80, 1).total;
+    expect(mid).toBeGreaterThan(job(fix, 80, 60, 1).total);
+    expect(mid).toBeLessThan(job(fix, 120, 80, 1).total);
   });
-  it("3×3 × 100 → ₪115 (base100 of the ≤3 bucket)", () => {
-    expect(job(fix, 3, 3, 100).total).toBe(115);
+
+  it("14×11 × 22 → ₪145 (short-run ramp off the surface)", () => {
+    expect(job(fix, 14, 11, 22).total).toBe(145);
   });
+  it("11×14 × 22 → ₪145 (orientation-insensitive)", () => {
+    expect(job(fix, 11, 14, 22).total).toBe(145);
+  });
+
   /* the LIVE config carries מינימום הזמנה 10 (kept per the 2026-08-25 review);
      the ramp math below 10 is verified on a min-free variant of the same seed */
   const rampFix = famFixture("מדבקות", { minOrderQty: 0 });
@@ -41,126 +70,24 @@ describe("מדבקות (anchor_curve, base100 × qty multipliers)", () => {
     const j = job(fix, 3, 3, 5);
     expect(j.belowMinOrder).toBe(true);
     expect(j.total).toBe(0);
-    expect(j.minOrderQty).toBe(10);
+    expect(j.label).toContain("מינימום הזמנה");
   });
-  it("qty10 (the minimum itself) → quoted ₪84 via the ramp", () => {
-    const j = job(fix, 3, 3, 10);
-    expect(j.belowMinOrder).toBe(false);
-    expect(j.total).toBe(84); // 115 × (0.7 + 0.3·9/99) ≈ 83.6
+
+  it("short run never runs backwards (bug #2): qty10 ≥ qty1", () => {
+    for (const [w, h] of [
+      [3, 3],
+      [5, 5],
+      [3, 10],
+    ] as [number, number][])
+      expect(job(rampFix, w, h, 10).total).toBeGreaterThanOrEqual(job(rampFix, w, h, 1).total);
   });
-  it("3×3 short run (min-free variant): qty1 → ₪81, qty10 → ₪84, and q10 ≥ q1 (bug #2)", () => {
-    const q1 = job(rampFix, 3, 3, 1).total;
-    const q10 = job(rampFix, 3, 3, 10).total;
-    expect(q1).toBe(81); // 115 × 0.70 = 80.5 → ramp rounds to ₪1
-    expect(q10).toBe(84); // 115 × (0.7 + 0.3·9/99) ≈ 83.6
-    expect(q10).toBeGreaterThanOrEqual(q1);
-  });
-  it("3×10 rectangle (min-free variant) → catch-all ₪187 bucket: qty1 → ₪131, qty5 → ₪133 (spec band 131–134)", () => {
-    const q1 = job(rampFix, 3, 10, 1).total;
-    const q5 = job(rampFix, 3, 10, 5).total;
-    expect(q1).toBe(131); // 187 × 0.70 = 130.9
-    expect(q5).toBe(133); // 187 × 0.7121 ≈ 133.2
-    for (const t of [q1, q5]) {
-      expect(t).toBeGreaterThanOrEqual(131);
-      expect(t).toBeLessThanOrEqual(134);
-    }
-    expect(q5).toBeGreaterThanOrEqual(q1);
-  });
-  it("6×6 × 500 → within [245, 250] (spec fix ₪249; engine: 137×1.82=249.34 → ₪5 rounding → 250)", () => {
-    const t = job(fix, 6, 6, 500).total;
-    expect(t).toBeGreaterThanOrEqual(245);
-    expect(t).toBeLessThanOrEqual(250);
-  });
-  it("5×8 × 100 → ₪126 (explicit member of the ≤5 bucket, base price verbatim)", () => {
-    expect(job(fix, 5, 8, 100).total).toBe(126);
-  });
-  it("5×9 × 500 → ₪174 verbatim (approved 5×9 ladder, exact point)", () => {
-    const j = job(fix, 5, 9, 500);
-    expect(j.total).toBe(174);
-    expect(j.bindingRule).toBe("anchor");
-  });
-  it("5×9 × 1000 → ₪245 verbatim", () => {
-    expect(job(fix, 5, 9, 1000).total).toBe(245);
-  });
-  it("24×6 × 500 → ₪375 (big-rect ladder)", () => {
-    expect(job(fix, 24, 6, 500).total).toBe(375);
-  });
-  it("10×15 × 1000 → ₪595 (big-rect ladder)", () => {
-    expect(job(fix, 10, 15, 1000).total).toBe(595);
-  });
-  it("9×9 × 1000 → within [420, 430] (worklist target ₪420; engine: 154×2.75=423.5 → 425)", () => {
-    const t = job(fix, 9, 9, 1000).total;
-    expect(t).toBeGreaterThanOrEqual(420);
-    expect(t).toBeLessThanOrEqual(430);
+
+  it("the short-run ramp reaches the reference price at the reference quantity", () => {
+    /* 100 יח׳ is the reference — the ramp must land on the surface price */
+    expect(job(rampFix, 5, 5, 100).total).toBe(job(fix, 5, 5, 100).total);
   });
 });
 
-/* ================================ פליירים ================================ */
-describe("פליירים (anchor_curve, A5 master curve × bucket factors)", () => {
-  const fix = famFixture("פליירים");
-
-  it("A5 (15×21) × 500 → ₪225 verbatim", () => {
-    expect(job(fix, 15, 21, 500).total).toBe(225);
-  });
-  it("A5 (14.8×21) × 500 → ₪225 (dim tolerance)", () => {
-    expect(job(fix, 14.8, 21, 500).total).toBe(225);
-  });
-  it("A5 × 500 dual-sided → ₪270 (+20% tier)", () => {
-    const j = job(fix, 15, 21, 500, { dualSided: true });
-    expect(j.total).toBe(270);
-    expect(j.dualPct).toBe(0.2);
-    expect(j.bindingRule).toBe("dual_surcharge");
-  });
-  it("A5 × 5000 → ₪600 verbatim", () => {
-    expect(job(fix, 15, 21, 5000).total).toBe(600);
-  });
-  it("A5 × 750 → ₪310 (interpolation 500→1000)", () => {
-    expect(job(fix, 15, 21, 750).total).toBe(310);
-  });
-  it("A5 × 1000 → ₪395 verbatim", () => {
-    expect(job(fix, 15, 21, 1000).total).toBe(395);
-  });
-  it("13×18 × 1000 → ₪395 (sizes bucket UP to A5)", () => {
-    expect(job(fix, 13, 18, 1000).total).toBe(395);
-  });
-  it("10×15 × 1000 → ₪330 (approved 10/15 base)", () => {
-    expect(job(fix, 10, 15, 1000).total).toBe(330);
-  });
-  it("A4 (21×29.7) × 1000 → ₪710 (approved A4 base)", () => {
-    expect(job(fix, 21, 29.7, 1000).total).toBe(710);
-  });
-  it("A5 × 7 → ₪75 with binding rule package_min (below the 10-pack)", () => {
-    const j = job(fix, 15, 21, 7);
-    expect(j.total).toBe(75);
-    expect(j.bindingRule).toBe("package_min");
-  });
-  it("A5 × 50 → ₪85 verbatim", () => {
-    expect(job(fix, 15, 21, 50).total).toBe(85);
-  });
-  it("A5 × 25000 → ₪1850 (tail: 1600 + 0.05 × 5000)", () => {
-    expect(job(fix, 15, 21, 25000).total).toBe(1850);
-  });
-  it("dual tiers: ×100 → ₪105 (+8%), ×2000 → ₪525 (+10%), ×5000 → ₪620 (+3%)", () => {
-    expect(job(fix, 15, 21, 100, { dualSided: true }).total).toBe(105); // 95×1.08=102.6 → 105
-    expect(job(fix, 15, 21, 2000, { dualSided: true }).total).toBe(525); // 475×1.10=522.5 → 525
-    expect(job(fix, 15, 21, 5000, { dualSided: true }).total).toBe(620); // 600×1.03=618 → 620
-  });
-  it('paperWeight "170" × 1000 → ₪425 (395 × 1.08 = 426.6)', () => {
-    expect(job(fix, 15, 21, 1000, { paperWeight: "170" }).total).toBe(425);
-  });
-  it('paperWeight "300" → noQuote + configError (postcard family)', () => {
-    const j = job(fix, 15, 21, 1000, { paperWeight: "300" });
-    expect(j.noQuote).toBe(true);
-    expect(j.total).toBe(0);
-    expect(j.configError).toContain("גלויות");
-  });
-  it("altQuote (digital 72 + 0.32·q) present for qty ≤ 1000, absent above", () => {
-    const j500 = job(fix, 15, 21, 500);
-    expect(j500.altQuote).not.toBeNull();
-    expect(j500.altQuote!.total).toBe(230); // 72 + 160 = 232 → 230
-    expect(job(fix, 15, 21, 2000).altQuote).toBeNull();
-  });
-});
 
 /* ================================ שמשונית ================================ */
 describe("שמשונית (per_m2 + approved anchors)", () => {

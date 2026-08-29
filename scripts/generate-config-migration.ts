@@ -14,11 +14,7 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { writeFamilyPricing, type FamilyPricing } from "../src/lib/mdvd";
-import {
-  SPEC_FAMILY_CONFIGS,
-  OPTIONAL_FAMILY_CONFIGS,
-  SPEC_ANCHORS,
-} from "../src/lib/pricing-defaults";
+import { SPEC_FAMILY_CONFIGS, OPTIONAL_FAMILY_CONFIGS } from "../src/lib/pricing-defaults";
 
 const OUT_FILE = resolve(
   import.meta.dir,
@@ -101,28 +97,6 @@ function familyUpsert(family: string, cfg: FamilyPricing): string {
   ].join("\n");
 }
 
-function anchorStatements(): string {
-  const parts: string[] = [];
-  for (const a of SPEC_ANCHORS) {
-    const rowKey = `anchor-${slug(a.family)}-${a.w}x${a.h}-${a.qty}`;
-    const name = `${a.family} ${a.w}/${a.h} — עוגן מאושר`;
-    parts.push(
-      [
-        `-- ${a.family} ${a.w}×${a.h} × ${a.qty} = ₪${a.price}`,
-        `INSERT INTO public.products`,
-        `  (row_key, name, family, width_cm, height_cm, qty, final_price, is_anchor, verified, source, senzey_status, site_status)`,
-        `SELECT ${sqlStr(rowKey)}, ${sqlStr(name)}, ${sqlStr(a.family)}, ${a.w}, ${a.h}, ${a.qty}, ${a.price}, true, true, 'migration', 'not_relevant', 'not_relevant'`,
-        `WHERE NOT EXISTS (SELECT 1 FROM public.products WHERE row_key = ${sqlStr(rowKey)});`,
-        ``,
-        `UPDATE public.products`,
-        `SET is_anchor = true, verified = true, final_price = ${a.price}`,
-        `WHERE row_key = ${sqlStr(rowKey)};`,
-      ].join("\n"),
-    );
-  }
-  return parts.join("\n\n");
-}
-
 function generate(): string {
   const lines: string[] = [];
   lines.push(`-- ================================================================
@@ -158,13 +132,11 @@ ALTER TABLE public.families ADD COLUMN IF NOT EXISTS outsource_height_cm numeric
   }
 
   lines.push(`\n-- ----------------------------------------------------------------
--- Approved catalog anchors (SPEC_ANCHORS) — verified anchor products
--- for points the engine formula alone cannot reproduce. The cleanup
--- worklist marks the real catalog rows as anchors too; these seeded
--- rows are a fallback so the curve holds even before cleanup runs.
--- ----------------------------------------------------------------
-`);
-  lines.push(anchorStatements());
+-- NOTE: this migration touches CONFIGURATION ONLY (public.families).
+-- Catalog prices in public.products are edited by hand and are never
+-- written from here. Approved prices reach the engine by being marked
+-- אומת in the app; SPEC_ANCHORS is kept for tests and dry-run targets.
+-- ----------------------------------------------------------------`);
 
   lines.push(`\n-- ----------------------------------------------------------------
 -- אופציונלי: מדבקה בטחונית — הסירו הערה רק באישור הלקוח

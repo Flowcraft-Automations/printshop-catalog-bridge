@@ -69,9 +69,9 @@ describe("SPEC_FAMILY_CONFIGS round-trip (writeFamilyPricing → readFamilyPrici
  * ------------------------------------------------------------------ */
 
 describe("label maps", () => {
-  it("ENGINE_LABEL covers all 5 engines with non-empty Hebrew labels", () => {
+  it("ENGINE_LABEL covers all 6 engines with non-empty Hebrew labels", () => {
     expect(Object.keys(ENGINE_LABEL).sort()).toEqual(
-      ["anchor_curve", "per_m2", "size_ladder", "sheet_yield", "unit_floor"].sort(),
+      ["anchor_curve", "per_m2", "size_ladder", "sheet_yield", "unit_floor", "catalog_surface"].sort(),
     );
     for (const label of Object.values(ENGINE_LABEL)) {
       expect(label.length).toBeGreaterThan(0);
