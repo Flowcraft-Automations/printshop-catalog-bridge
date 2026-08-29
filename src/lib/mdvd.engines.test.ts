@@ -17,11 +17,13 @@ function job(fix: FamFixture, w: number, h: number, qty: number, opts: JobOption
 describe("מדבקות (anchor_curve, base100 × qty multipliers)", () => {
   const fix = famFixture("מדבקות");
 
-  it("14×11 × 22 → ₪143 (catch-all 187 bucket, short-run ramp)", () => {
-    expect(job(fix, 14, 11, 22).total).toBe(143);
+  /* was ₪143 while the size-blind `10+` catch-all priced every size ≥10 ס״מ at
+     ₪187/100. 14×11 now resolves to the ≤14 bucket (₪212/100, 4 יח׳/גיליון). */
+  it("14×11 × 22 → ₪162 (≤14 bucket, short-run ramp)", () => {
+    expect(job(fix, 14, 11, 22).total).toBe(162);
   });
-  it("11×14 × 22 → ₪143 (orientation-insensitive)", () => {
-    expect(job(fix, 11, 14, 22).total).toBe(143);
+  it("11×14 × 22 → ₪162 (orientation-insensitive)", () => {
+    expect(job(fix, 11, 14, 22).total).toBe(162);
   });
   it("3×3 × 1000 → ₪299 verbatim (approved 1000-tier, exact point)", () => {
     const j = job(fix, 3, 3, 1000);

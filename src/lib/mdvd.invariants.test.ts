@@ -3,9 +3,11 @@ import {
   BINDING_LABEL,
   prepareFamily,
   priceJob,
+  resolveBucket,
   roundPrice,
   validateFamilyPricing,
   type BindingRule,
+  type FamilyPricing,
 } from "./mdvd";
 import { baseFamilyPricing, SPEC_FAMILY_CONFIGS, VAT_FACTOR } from "./pricing-defaults";
 import { famFixture, mkAnchor } from "./pricing-fixtures";
@@ -34,6 +36,10 @@ const SWEEP_SIZES: Record<string, [number, number][]> = {
     [3, 3],
     [5, 9],
     [14, 11],
+    [17, 17],
+    [20, 30],
+    [115, 8],
+    [100, 100],
   ],
   /* 120×80 carries the approved 10-pack qty tier */
   שמשונית: [
@@ -75,6 +81,12 @@ const SWEEP_SIZES: Record<string, [number, number][]> = {
   פנקסים: [[14.8, 21]],
 };
 
+/** the size resolves to an includes-only bucket — a separately approved ladder */
+function isException(cfg: FamilyPricing, w: number, h: number): boolean {
+  const b = resolveBucket(cfg.sizeBuckets, w, h);
+  return !!b && b.maxW <= 0 && b.maxH <= 0 && b.includes.length > 0;
+}
+
 for (const name of Object.keys(SPEC_FAMILY_CONFIGS)) {
   describe(`invariants · ${name}`, () => {
     const { cfg, anchors, validated } = famFixture(name);
@@ -85,6 +97,46 @@ for (const name of Object.keys(SPEC_FAMILY_CONFIGS)) {
         for (let i = 1; i < pts.length; i++) {
           expect(pts[i]!.qty).toBeGreaterThan(pts[i - 1]!.qty);
           expect(pts[i]!.price).toBeGreaterThanOrEqual(pts[i - 1]!.price);
+        }
+      }
+    });
+
+    /* Size monotonicity: if BOTH dimensions of size B are ≥ size A, B may never
+       quote below A at the same quantity. Sizes are only partially ordered
+       (100×70 is not "bigger" than 90×90), so only dominated pairs are
+       compared. This is the invariant the מדבקות `10+` catch-all broke —
+       every size from 10 ס״מ to the production cap quoted the same number. */
+    it("size sweep: a dominated size never costs more than the size containing it", () => {
+      const sizes = SWEEP_SIZES[name] ?? [];
+      for (const qty of [10, 100, 1000]) {
+        for (const [aw, ah] of sizes) {
+          for (const [bw, bh] of sizes) {
+            const dominated =
+              Math.max(aw, ah) <= Math.max(bw, bh) && Math.min(aw, ah) <= Math.min(bw, bh);
+            if (!dominated || (aw === bw && ah === bh)) continue;
+            const a = priceJob(cfg, anchors, aw, ah, qty, validated, { prepared });
+            const b = priceJob(cfg, anchors, bw, bh, qty, validated, { prepared });
+            if (!a || !b) continue;
+            if (a.noQuote || a.belowMinOrder || a.overMachine || a.total === 0) continue;
+            if (b.noQuote || b.belowMinOrder || b.overMachine || b.total === 0) continue;
+            /* an approved qty-tier pack is priced per size, not per area */
+            if (a.bindingRule === "tier" || b.bindingRule === "tier") continue;
+            /* includes-only buckets are separately approved ladders for a
+               different product (מדבקות 5×9 is not comparable to the circles);
+               prepareFamily's size floor exempts them for the same reason. */
+            if (
+              [
+                [aw, ah],
+                [bw, bh],
+              ].some(([pw, ph]) => isException(cfg, pw, ph))
+            )
+              continue;
+            expect({ size: `${bw}×${bh}`, qty, total: b.total }).toEqual({
+              size: `${bw}×${bh}`,
+              qty,
+              total: Math.max(a.total, b.total),
+            });
+          }
         }
       }
     });

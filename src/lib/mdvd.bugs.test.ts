@@ -221,3 +221,134 @@ describe("bug7_adopt_validation (pointer — full coverage in validate-suggestio
     expect(check.reason).toContain("מונוטוניות כמות");
   });
 });
+
+/* ------------------------------------------------------------------ *
+ *  bug8 — מדבקות priced size-blind above 9 ס״מ.
+ *  Reported from the calculator: 115×8 ס״מ × 10 יח׳ quoted ₪136
+ *  (₪13.60/unit) because every size ≥10 ס״מ fell into the `10+` catch-all
+ *  bucket at ₪187/100 יח׳, while the verified catalog sells a single
+ *  17×56 for ₪95. The unit does not fit the 42×29 printable sheet at all,
+ *  so the cost estimate was ₪0 and the below-cost guard could never fire.
+ * ------------------------------------------------------------------ */
+
+describe("bug8_stickers_price_must_follow_size", () => {
+  const fix = famFixture("מדבקות");
+  const q = (w: number, h: number, qty: number) =>
+    priceJob(fix.cfg, fix.anchors, w, h, qty, fix.validated)!;
+
+  it("the reported job is priced per m², not from the catch-all bucket", () => {
+    const j = q(115, 8, 10);
+    expect(j.bindingRule).toBe("large_format");
+    /* ₪94.50 per unit × the 0.9 quantity exponent (10^0.9 = ×7.94) */
+    expect(j.total).toBe(750);
+    expect(j.total).not.toBe(136);
+  });
+
+  it("a unit that does not fit the sheet still gets a real production cost", () => {
+    const j = q(115, 8, 10);
+    expect(j.unitsPerSheet).toBe(0);
+    expect(j.cost).toBeGreaterThan(0);
+    expect(j.costFloorValue).toBeGreaterThan(0);
+  });
+
+  it("large format is exempt from the 10-unit minimum and matches the catalog", () => {
+    const j = q(17, 56, 1);
+    expect(j.belowMinOrder).toBe(false);
+    /* verified catalog rows 17×56 / 20×70 / 50×70 are all ₪95–100 at qty 1
+       (20×30 fits the sheet, so it stays on the min-order-10 sheet path) */
+    expect(j.total).toBe(95);
+  });
+
+  /* --- מקדם כמות (qty_exponent) on the large-format path ----------------- */
+
+  it("the quantity exponent discounts a run without touching a single unit", () => {
+    expect(fix.cfg.qtyExponentPinned).toBe(true);
+    expect(fix.cfg.qtyExponent).toBe(0.9);
+    /* 1^e = 1 — this is why an exponent was chosen over a flat percentage:
+       every verified qty-1 catalog row keeps matching at any exponent. */
+    for (const [w, h] of [
+      [17, 56],
+      [20, 70],
+      [50, 70],
+    ] as [number, number][]) {
+      expect(q(w, h, 1).total).toBe(95);
+      expect(q(w, h, 1).qtyFactor).toBe(1);
+    }
+    const ten = q(115, 8, 10);
+    expect(ten.qtyFactor).toBeCloseTo(10 ** 0.9, 6);
+    expect(ten.total).toBeLessThan(10 * q(115, 8, 1).total);
+  });
+
+  it("totals still rise strictly with quantity under the exponent", () => {
+    let prev = 0;
+    for (const qty of [1, 5, 10, 25, 100]) {
+      const j = q(115, 8, qty);
+      expect(j.monotoneViolation).toBe(false);
+      expect(j.total).toBeGreaterThan(prev);
+      prev = j.total;
+    }
+  });
+
+  it("an unpinned family stays linear", () => {
+    const linear = famFixture("מדבקות", { qtyExponentPinned: false, qtyExponent: 1 });
+    const ten = priceJob(linear.cfg, linear.anchors, 115, 8, 10, linear.validated)!;
+    /* qtyFactor reports the multiplier actually applied to the per-unit price,
+       so an unpinned family bills the full 10 units — ₪94.50 × 10 = ₪945.
+       (Rounding lands on the total, so this is not 10 × the rounded ₪95.) */
+    expect(ten.qtyFactor).toBe(10);
+    expect(ten.total).toBe(945);
+    expect(ten.unit).toBeCloseTo(94.5, 6);
+    /* and the seeded 0.9 exponent must actually undercut that */
+    expect(q(115, 8, 10).total).toBeLessThan(ten.total);
+  });
+
+  it("the sheet path is untouched by the exponent", () => {
+    /* qty_multipliers already carry the quantity discount there — applying the
+       exponent on top would discount twice. */
+    expect(q(3, 3, 100).qtyFactor).toBe(1);
+    expect(q(3, 3, 100).total).toBe(115);
+    expect(q(24, 6, 500).total).toBe(375);
+  });
+
+  it("a pinned exponent outside 0.2–1.0 is a config error", () => {
+    const typo = famFixture("מדבקות", { qtyExponentPinned: true, qtyExponent: 9 });
+    expect(validateFamilyPricing(typo.cfg, []).join(" ")).toContain("מקדם כמות");
+    expect(validateFamilyPricing(fix.cfg, [])).toEqual([]);
+  });
+
+  it("the 10-unit minimum still applies to sheet-printable sizes", () => {
+    expect(q(5, 5, 5).belowMinOrder).toBe(true);
+  });
+
+  it("sizes above 9 ס״מ no longer collide on one price", () => {
+    const totals = [q(10, 10, 10), q(17, 17, 10), q(20, 30, 10), q(100, 100, 10)].map(
+      (j) => j.total,
+    );
+    expect(new Set(totals).size).toBe(totals.length);
+    for (let i = 1; i < totals.length; i++) expect(totals[i]!).toBeGreaterThan(totals[i - 1]!);
+  });
+
+  it("17×17 × 80 reproduces the verified catalog row", () => {
+    expect(q(17, 17, 80).total).toBe(270);
+  });
+
+  it("the approved small and big-rect ladders are untouched", () => {
+    expect(q(3, 3, 100).total).toBe(115);
+    expect(q(5, 5, 100).total).toBe(126);
+    expect(q(9, 9, 100).total).toBe(154);
+    expect(q(24, 6, 500).total).toBe(375);
+    expect(q(15, 10, 1000).total).toBe(595);
+  });
+
+  it("an unbounded catch-all bucket is now a config error", () => {
+    const cfg: FamilyPricing = baseFamilyPricing({
+      engine: "anchor_curve",
+      sizeBuckets: [
+        { id: "9", maxW: 9, maxH: 9, factor: null, base100: 154, quoteOnly: false, includes: [] },
+        { id: "10+", maxW: 0, maxH: 0, factor: null, base100: 187, quoteOnly: false, includes: [] },
+      ],
+    });
+    expect(validateFamilyPricing(cfg, []).join(" ")).toContain("דלי הסל");
+    expect(validateFamilyPricing(fix.cfg, [])).toEqual([]);
+  });
+});

@@ -56,14 +56,19 @@ const LIVE_WINS_KEYS = [
 ];
 
 /** Scalar `families` columns a seed sets alongside pricing_config. */
-function scalarColumns(cfg: FamilyPricing): [string, number][] {
-  const out: [string, number][] = [];
+function scalarColumns(cfg: FamilyPricing): [string, number | null][] {
+  const out: [string, number | null][] = [];
   if (cfg.cost > 0) out.push(["cost_per_m2", cfg.cost]);
   if (cfg.outsourceCost > 0) out.push(["outsource_cost_per_m2", cfg.outsourceCost]);
   if (cfg.engine === "per_m2" && cfg.maxPrintW > 0) {
     /* per_m2 outsourcing keys on the narrow side only — height unbounded */
     out.push(["outsource_width_cm", cfg.maxPrintW]);
     out.push(["outsource_height_cm", 99999]);
+  } else {
+    /* every other engine ignores the threshold pair — clear it so the config
+       screen cannot show a rule that no pricing path reads */
+    out.push(["outsource_width_cm", null]);
+    out.push(["outsource_height_cm", null]);
   }
   return out;
 }

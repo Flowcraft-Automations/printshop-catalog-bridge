@@ -960,6 +960,7 @@ export type BindingRule =
   | "package_min"
   | "short_run"
   | "outsourced"
+  | "large_format"
   | "dual_surcharge"
   | "min_order_value"
   | "min_order_qty"
@@ -974,6 +975,7 @@ export const BINDING_LABEL: Record<BindingRule, string> = {
   package_min: "מינימום חבילה",
   short_run: "ריצה קצרה",
   outsourced: "ייצור חוץ",
+  large_format: "פורמט גדול — לפי מ״ר",
   dual_surcharge: "תוספת דו-צדדי",
   min_order_value: "מינימום הזמנה",
   min_order_qty: "מינימום הזמנה",
@@ -1116,6 +1118,15 @@ function bucketDominatedBy(a: SizeBucket, b: SizeBucket): boolean {
   );
 }
 
+export const QTY_EXPONENT_MIN = 0.2;
+export const QTY_EXPONENT_MAX = 1;
+
+/** מקדם כמות מקובע — נחסם לטווח שפוי כדי ששגיאת הקלדה לא תנפח הצעת מחיר. */
+export function clampQtyExponent(e: number): number {
+  if (!Number.isFinite(e) || !(e > 0)) return 1;
+  return Math.min(QTY_EXPONENT_MAX, Math.max(QTY_EXPONENT_MIN, e));
+}
+
 /** תצורת המשפחה חוקית? כרגע: אסור per_m2 כשקיימים עוגני כמות מעל 500. */
 export function validateFamilyPricing(cfg: FamilyPricing, anchors: JobAnchor[]): string[] {
   const errors: string[] = [];
@@ -1127,6 +1138,25 @@ export function validateFamilyPricing(cfg: FamilyPricing, anchors: JobAnchor[]):
     if (highQty)
       errors.push("תצורה שגויה: מנוע לפי מ״ר עם עוגני כמות מעל 500 — נדרש מנוע עקומת עוגנים");
   }
+  /* דלי סל חסום-גודל לצד דליים ממודדים = מחיר שמפסיק להגיב לגודל. זו בדיוק
+     התקלה של מדבקות ‎10+‎ (₪187 לכל מידה מ-10 ס״מ ועד גבול הייצור). */
+  if (cfg.engine === "anchor_curve") {
+    const sized = cfg.sizeBuckets.filter((b) => b.maxW > 0 || b.maxH > 0);
+    const catchAll = cfg.sizeBuckets.find((b) => b.maxW <= 0 && b.maxH <= 0 && !b.includes.length);
+    if (catchAll && sized.length)
+      errors.push(
+        `תצורה שגויה: דלי הסל "${catchAll.id}" חל על כל מידה שמעל הדליים הממודדים — המחיר מפסיק להגיב לגודל. הגדירו דלי עם מידה מרבית.`,
+      );
+  }
+  /* מקדם כמות מחוץ לטווח = טעות הקלדה (9 במקום 0.9). המנוע חוסם, אבל בלי
+     ההודעה הזו החסימה הייתה מסתירה את השגיאה במקום להציג אותה. */
+  if (
+    cfg.qtyExponentPinned &&
+    (cfg.qtyExponent < QTY_EXPONENT_MIN || cfg.qtyExponent > QTY_EXPONENT_MAX)
+  )
+    errors.push(
+      `תצורה שגויה: מקדם כמות ${cfg.qtyExponent} מחוץ לטווח ${QTY_EXPONENT_MIN}–${QTY_EXPONENT_MAX}`,
+    );
   return errors;
 }
 
@@ -1803,6 +1833,7 @@ const SOURCE_FOR: Partial<Record<BindingRule, JobPrice["source"]>> = {
   tier: "tier",
   cost: "cost",
   outsourced: "cost",
+  large_format: "cost",
   machine_blocked: "cost",
   min_order_qty: "cost",
 };
@@ -1831,17 +1862,26 @@ export function priceJob(
     !opts.withSeam;
 
   const per =
-    cfg.engine === "sheet_yield" || cfg.method === "sheet" ? sheetUnitsFor(cfg, w, h) : null;
+    cfg.engine === "sheet_yield" || cfg.engine === "anchor_curve" || cfg.method === "sheet"
+      ? sheetUnitsFor(cfg, w, h)
+      : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
   const mountCost = machine.mounted ? (cfg.mountCostM2 * area + cfg.mountCostUnit) * units : 0;
 
-  /* rough production cost — feeds the "מתחת לעלות" banner only */
+  /* פורמט גדול: היחידה אינה נכנסת כלל לגיליון ההדפסה. עקומת הדליים מכוילת
+     לעבודות גיליון, ולכן היא אינה תקפה כאן — התמחור עובר לתעריף המ״ר. */
+  const largeFormat =
+    cfg.engine === "anchor_curve" && per !== null && per.units === 0 && cfg.outsourceCost > 0;
+
+  /* rough production cost — feeds the "מתחת לעלות" banner only.
+     בעבודת גיליון שאינה נכנסת לגיליון אין "מספר גיליונות", ולכן העלות
+     מחושבת לפי שטח — אחרת היא 0 והרצפה לעולם אינה נבדקת. */
   const cost =
     (cfg.engine === "sheet_yield"
       ? Math.ceil(sheets || 0) * (cfg.cost + cfg.vinylCostPerSheet)
-      : outsourcedJob
+      : outsourcedJob || largeFormat
         ? cfg.outsourceCost * area * units
-        : per
+        : per && per.units > 0
           ? Math.ceil(sheets) * cfg.cost
           : cfg.cost * area * units) + mountCost;
 
@@ -1911,8 +1951,9 @@ export function priceJob(
     };
   }
 
-  /* minimum order quantity — no price below it */
-  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty) {
+  /* minimum order quantity — no price below it. מינימום הכמות שייך לעבודת
+     גיליון (מדפיסים גיליון שלם ממילא); לפורמט גדול הוא אינו חל. */
+  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty && !largeFormat) {
     return {
       ...finish(
         0,
@@ -2000,6 +2041,33 @@ export function priceJob(
       noQuote: true,
       configError: "נייר 300 גרם מתומחר במשפחת גלויות",
     };
+  }
+
+  /* פורמט גדול — לפי מ״ר, עם רצפת מ״ר ליחידה. רץ אחרי P0 כדי שמחיר מאומת
+     מהקטלוג לאותה מידה+כמות ימשיך לגבור על הנוסחה. */
+  if (largeFormat) {
+    const factor = cfg.outsourcedMarginFactor > 0 ? cfg.outsourcedMarginFactor : 1.5;
+    const floorM2 = cfg.minUnitArea > 0 ? cfg.minUnitArea : 0;
+    const billable = Math.max(area, floorM2);
+    const sheet = printableSheet(cfg);
+    const bound = billable > area + 1e-9;
+    /* מקדם כמות: units^e. e=1 (לא מקובע) = ליניארי, e<1 = הנחת כמות שמעמיקה
+       עם הריצה. 1^e = 1 תמיד, ולכן יחידה בודדת שומרת על המחיר המאומת
+       מהקטלוג בכל ערך של המקדם. הענף היחיד שמשתמש בו — במסלול הגיליון
+       qtyMultipliers כבר מגלם את הנחת הכמות. */
+    const e = cfg.qtyExponentPinned ? clampQtyExponent(cfg.qtyExponent) : 1;
+    const qtyFactor = units ** e;
+    return finish(
+      cfg.outsourceCost * billable * factor * qtyFactor,
+      "large_format",
+      BINDING_LABEL.large_format,
+      `היחידה אינה נכנסת לגיליון ההדפסה ${sheet.w}×${sheet.h} ס״מ · ${shekel(cfg.outsourceCost)} למ״ר × ${billable.toFixed(2)} מ״ר${
+        bound ? ` (מינימום ${floorM2} מ״ר ליחידה)` : ""
+      } × ${factor} × ${units.toLocaleString()} יח׳${
+        e < 1 ? ` ^${e} (מקדם כמות ×${qtyFactor.toFixed(2)})` : ""
+      }`,
+      { qtyFactor },
+    );
   }
 
   /* engine dispatch */

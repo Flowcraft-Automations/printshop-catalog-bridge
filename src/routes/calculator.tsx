@@ -799,6 +799,21 @@ function Calculator() {
                 {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)} גיליונות · שטח הדפסה{" "}
                 {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
               </div>
+            ) : job.unitsPerSheet === 0 ? (
+              /* 0 היה נופל כערך falsy והשורה נעלמה — בדיוק המקרה שבו חשוב
+                 להראות שהיחידה אינה נכנסת לגיליון ולכן אינה מתומחרת ממנו */
+              <div className="font-bold text-[var(--ink)]">
+                היחידה אינה נכנסת לשטח ההדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ —
+                תמחור פורמט גדול לפי מ״ר
+              </div>
+            ) : null}
+            {/* הנחת הכמות של הפורמט הגדול — מראה מה המקדם עושה בפועל לכמות
+                שהוזנה, במקום להשאיר אותו מספר בהגדרות בלבד */}
+            {job.bindingRule === "large_format" && job.qtyFactor < nq ? (
+              <div>
+                מקדם כמות {cfg.qtyExponent}: {nq.toLocaleString()} יח׳ מחויבות כ-
+                {job.qtyFactor.toFixed(2)} · חיסכון {shekel((nq / job.qtyFactor - 1) * job.total)}
+              </div>
             ) : null}
             {isAdmin ? (
               <>
@@ -1021,20 +1036,34 @@ function Calculator() {
                   onChange={(v) => setDraft((p) => ({ ...p, out: v }))}
                   width="w-48"
                 />
-            <Field
-              label='סף מיקור חוץ — רוחב (ס"מ)'
-              value={draft.tw}
-              onChange={(v) => setDraft((p) => ({ ...p, tw: v }))}
-              width="w-44"
-              placeholder="ללא"
-            />
-            <Field
-              label='סף מיקור חוץ — גובה (ס"מ)'
-              value={draft.th}
-              onChange={(v) => setDraft((p) => ({ ...p, th: v }))}
-              width="w-44"
-              placeholder="ללא"
-            />
+                {cfg.engine === "per_m2" ? (
+                  <>
+                    <Field
+                      label='סף מיקור חוץ — רוחב (ס"מ)'
+                      value={draft.tw}
+                      onChange={(v) => setDraft((p) => ({ ...p, tw: v }))}
+                      width="w-44"
+                      placeholder="ללא"
+                    />
+                    <Field
+                      label='סף מיקור חוץ — גובה (ס"מ)'
+                      value={draft.th}
+                      onChange={(v) => setDraft((p) => ({ ...p, th: v }))}
+                      width="w-44"
+                      placeholder="ללא"
+                    />
+                  </>
+                ) : cfg.engine === "anchor_curve" ? (
+                  /* לא שדות: הסף כאן נגזר מהגיליון עצמו, ואין ערך שאפשר להזין
+                     שישנה אותו. שדות הסף הישנים לא נקראו באף מסלול תמחור. */
+                  <div className="w-72 self-end text-[11px] font-bold text-muted-foreground">
+                    <div className={labelCls}>סף פורמט גדול</div>
+                    <div className="border-b-2 border-dashed border-[var(--line,#c9d4de)] px-1 py-1">
+                      נגזר משטח ההדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ — יחידה
+                      שאינה נכנסת לגיליון מתומחרת לפי מ״ר, ללא מינימום הכמות
+                    </div>
+                  </div>
+                ) : null}
             <Field
               label="מקדם רווח (×)"
               value={draft.margin}
@@ -1049,14 +1078,26 @@ function Calculator() {
               />
                 ) : null}
                 {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
-              <Field
+                  <Field
                     label="ריצה קצרה — % ממחיר כמות הייחוס"
-                value={draft.shortRunPct}
-                onChange={(v) => setDraft((p) => ({ ...p, shortRunPct: v }))}
-                width="w-56"
-                placeholder="70"
-              />
-            )}
+                    value={draft.shortRunPct}
+                    onChange={(v) => setDraft((p) => ({ ...p, shortRunPct: v }))}
+                    width="w-56"
+                    placeholder="70"
+                  />
+                )}
+                {/* מקדם כמות חל אך ורק על ענף הפורמט הגדול — במסלול הגיליון
+                    qtyMultipliers כבר מגלם את הנחת הכמות, והחלה כפולה תוזיל
+                    פעמיים. מוצג רק למשפחות שיש להן ענף כזה בפועל. */}
+                {cfg.engine === "anchor_curve" && cfg.outsourceCost > 0 ? (
+                  <Field
+                    label="מקדם כמות — פורמט גדול (1 = ליניארי)"
+                    value={draft.qtyExponent}
+                    onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+                    width="w-64"
+                    placeholder="1"
+                  />
+                ) : null}
             <Field
               label="מינימום הזמנה (יחידות)"
               value={draft.minOrderQty}

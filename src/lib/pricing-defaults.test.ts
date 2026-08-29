@@ -79,7 +79,7 @@ describe("label maps", () => {
     }
   });
 
-  it("BINDING_LABEL covers all 12 binding rules with non-empty Hebrew labels", () => {
+  it("BINDING_LABEL covers all 13 binding rules with non-empty Hebrew labels", () => {
     expect(Object.keys(BINDING_LABEL).sort()).toEqual(
       [
         "validated",
@@ -88,6 +88,7 @@ describe("label maps", () => {
         "package_min",
         "short_run",
         "outsourced",
+        "large_format",
         "dual_surcharge",
         "min_order_value",
         "min_order_qty",
