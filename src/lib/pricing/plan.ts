@@ -48,6 +48,10 @@ export type ModifierSpec =
   | { kind: "dual_sided"; tiers: DualTier[] }
   /** oversize handled in-house by splitting into panels at the same ₪/m² */
   | { kind: "panel_split"; maxWidthCm: number }
+  /** never quote below an approved row that both dimensions dominate */
+  | { kind: "size_floor" }
+  /** never quote below production cost × margin — requires a CONFIRMED cost */
+  | { kind: "cost_floor" }
   | { kind: "min_order_value"; value: number };
 
 export type PricingPlan = {
@@ -101,6 +105,10 @@ export function planFromLegacyConfig(cfg: FamilyPricing): PricingPlan {
     modifiers.push({ kind: "paper_weight", pct: cfg.paperWeightPct });
   if (cfg.dualSurcharge.length) modifiers.push({ kind: "dual_sided", tiers: cfg.dualSurcharge });
   if (cfg.minOrderValue > 0) modifiers.push({ kind: "min_order_value", value: cfg.minOrderValue });
+  /* the size floor is data-driven from approved rows and always sane, so it is
+     on for every family; the cost floor is only as good as the cost figure,
+     so a family opts in through its plan override */
+  modifiers.push({ kind: "size_floor" });
 
   return { gates, source: { kind: cfg.engine as Exclude<EngineKind, never> }, modifiers };
 }

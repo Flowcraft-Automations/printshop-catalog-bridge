@@ -146,6 +146,16 @@ export function explainFamily(
           .map(([k, v]) => `${k}g +${Math.round(v * 100)}%`)
           .join(" · ")}`,
       });
+    if (m.kind === "size_floor")
+      steps.push({
+        he: "המחיר לעולם אינו נמוך ממידה מאושרת קטנה יותר (בשני הממדים) באותה כמות — הרצפה הופכת למחיר",
+        en: "The price never drops below an approved size that is smaller in both dimensions at the same quantity — that floor becomes the price",
+      });
+    if (m.kind === "cost_floor")
+      steps.push({
+        he: `המחיר לעולם אינו נמוך מעלות הייצור × מקדם הרווח (${cfg.margin}) — הרצפה הופכת למחיר`,
+        en: `The price never drops below production cost × the profit factor (${cfg.margin}) — that floor becomes the price`,
+      });
     if (m.kind === "min_order_value")
       steps.push({
         he: `מינימום הזמנה ${shekel(m.value)} — עבודה קטנה יותר מתומחרת בסכום הזה`,

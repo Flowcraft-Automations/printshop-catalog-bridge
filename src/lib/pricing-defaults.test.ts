@@ -71,7 +71,14 @@ describe("SPEC_FAMILY_CONFIGS round-trip (writeFamilyPricing → readFamilyPrici
 describe("label maps", () => {
   it("ENGINE_LABEL covers all 6 engines with non-empty Hebrew labels", () => {
     expect(Object.keys(ENGINE_LABEL).sort()).toEqual(
-      ["anchor_curve", "per_m2", "size_ladder", "sheet_yield", "unit_floor", "catalog_surface"].sort(),
+      [
+        "anchor_curve",
+        "per_m2",
+        "size_ladder",
+        "sheet_yield",
+        "unit_floor",
+        "catalog_surface",
+      ].sort(),
     );
     for (const label of Object.values(ENGINE_LABEL)) {
       expect(label.length).toBeGreaterThan(0);
@@ -79,7 +86,7 @@ describe("label maps", () => {
     }
   });
 
-  it("BINDING_LABEL covers all 13 binding rules with non-empty Hebrew labels", () => {
+  it("BINDING_LABEL covers all 15 binding rules with non-empty Hebrew labels", () => {
     expect(Object.keys(BINDING_LABEL).sort()).toEqual(
       [
         "validated",
@@ -89,6 +96,8 @@ describe("label maps", () => {
         "short_run",
         "outsourced",
         "large_format",
+        "size_floor",
+        "cost_floor",
         "dual_surcharge",
         "min_order_value",
         "min_order_qty",

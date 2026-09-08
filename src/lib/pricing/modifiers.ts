@@ -85,10 +85,18 @@ const minOrderValue: ModifierFn = (spec, price) => {
   };
 };
 
+/* Floors are resolved inside priceJob's finish(), because they must bind on
+   EVERY path — including the approved-price and large-format paths that
+   return before the modifier stage. Declared here so a family opts in. */
+const sizeFloor: ModifierFn = () => null;
+const costFloor: ModifierFn = () => null;
+
 const REGISTRY: Record<ModifierSpec["kind"], ModifierFn> = {
   paper_weight: paperWeight,
   dual_sided: dualSided,
   panel_split: panelSplit,
+  size_floor: sizeFloor,
+  cost_floor: costFloor,
   min_order_value: minOrderValue,
 };
 

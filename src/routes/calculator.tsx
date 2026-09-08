@@ -22,7 +22,6 @@ import {
   SHEET_GAP_CM,
   familyAnchors,
   mergeCloseAnchors,
-
   familyValidated,
   isClosedOut,
   isEngineKind,
@@ -32,7 +31,6 @@ import {
   readFamilyPricing,
   sheetUnitsFor,
   printableSheet,
-
   sizeKey,
   shekel,
   slugify,
@@ -41,7 +39,6 @@ import {
   type EngineKind,
   type FamilyPricing,
   type OverLimit,
-
 } from "@/lib/mdvd";
 
 export const Route = createFileRoute("/calculator")({
@@ -106,7 +103,6 @@ function Field({
   );
 }
 
-
 /** שבבי TODO מהתצורה — אותה פלטת ענבר של תג "ללא מנוע". */
 function TodoChips({ todos }: { todos: string[] }) {
   if (!todos.length) return null;
@@ -154,11 +150,6 @@ type Draft = {
   boardH: string;
 };
 
-
-
-
-
-
 function Calculator() {
   const qc = useQueryClient();
   const { isAdmin, allowedFamilies } = useAuth();
@@ -179,7 +170,6 @@ function Calculator() {
   useEffect(() => {
     if (!family && families.length) setFamily(families[0]!.family);
   }, [families, family]);
-
 
   const fam = families.find((f) => f.family === family);
   const saved = useMemo(() => readFamilyPricing(fam), [fam]);
@@ -215,8 +205,6 @@ function Calculator() {
     boardH: "",
   });
 
-
-
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
   const [tiersOn, setTiersOn] = useState(false);
   const [tiers, setTiers] = useState<{ minQty: string; unitPrice: string; size: string }[]>([]);
@@ -251,8 +239,6 @@ function Calculator() {
       wholeBoard: saved.wholeBoard,
       boardW: saved.boardW ? String(saved.boardW) : "",
       boardH: saved.boardH ? String(saved.boardH) : "",
-
-
     });
 
     setSheetUnits(saved.sheetUnits);
@@ -334,9 +320,6 @@ function Calculator() {
       legacy: isEngineKind(draft.engine) ? false : saved.legacy,
       minOrderValue: n(draft.minOrderValue),
     };
-
-
-
   }, [draft, sheetUnits, tiersOn, tiers, saved]);
 
   /* מנועים מבוססי-גיליון — קובעים אילו שדות/עמודות גיליון מוצגים */
@@ -370,7 +353,6 @@ function Calculator() {
       .filter((r) => r.w > 0 && r.h > 0)
       .sort((a, b) => a.area - b.area || a.qty - b.qty);
   }, [products, family, search]);
-
 
   /* ---------------- mutations ---------------- */
 
@@ -488,10 +470,7 @@ function Calculator() {
   const nq = Math.max(1, Number(qty) || 1);
   const validated = useMemo(() => familyValidated(products, family), [products, family]);
   /* מנורמל פעם אחת — גם מזין את שורת "על מה התבסס המחיר" */
-  const prepared = useMemo(
-    () => prepareFamily(cfg, anchors, validated),
-    [cfg, anchors, validated],
-  );
+  const prepared = useMemo(() => prepareFamily(cfg, anchors, validated), [cfg, anchors, validated]);
   /* the family's own pricing narrative, generated from its plan */
   const explanation = useMemo(
     () => (family ? explainFamily(cfg, resolvePlan(cfg, cfg.plan), prepared) : null),
@@ -510,7 +489,6 @@ function Calculator() {
     () => new Set(conflicts.flatMap((c) => c.members.map((m) => m.id))),
     [conflicts],
   );
-
 
   const packagePrices = useMemo(
     () =>
@@ -537,8 +515,7 @@ function Calculator() {
       .map((v) => ({
         ...v,
         gap:
-          Math.abs(Math.log((v.area || 0.0001) / jobArea)) +
-          Math.abs(Math.log(v.qty / nq)) * 0.5,
+          Math.abs(Math.log((v.area || 0.0001) / jobArea)) + Math.abs(Math.log(v.qty / nq)) * 0.5,
       }))
       .sort((a, b) => a.gap - b.gap)
       .slice(0, 5);
@@ -548,8 +525,6 @@ function Calculator() {
     const q = famSearch.trim().toLowerCase();
     return q ? families.filter((f) => f.family.toLowerCase().includes(q)) : families;
   }, [families, famSearch]);
-
-
 
   /* ---------------- new anchor row ---------------- */
   const [newRow, setNewRow] = useState({ w: "", h: "", qty: "", price: "" });
@@ -694,7 +669,9 @@ function Calculator() {
               </>
             ) : job ? (
               <>
-                <div className="text-4xl font-black text-[var(--accent-raw)]">{shekel(job.total)}</div>
+                <div className="text-4xl font-black text-[var(--accent-raw)]">
+                  {shekel(job.total)}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {shekel(job.unit)} ליחידה · {job.label}
                 </div>
@@ -734,13 +711,11 @@ function Calculator() {
           ) : null}
         </div>
 
-
         {(job?.belowMinOrder || job?.overMachine || job?.noQuote) && nw && nh ? (
           <div className="mt-3 border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
             {job.noQuote ? (job.configError ?? job.detail) : job.detail}
           </div>
         ) : job && nw && nh ? (
-
           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
             {job.total > 0 ? (
               <div className="font-bold text-[var(--ink)]">
@@ -762,44 +737,69 @@ function Calculator() {
                 {job.altQuote.label} → {shekel(job.altQuote.total)}
               </div>
             ) : null}
-            {job.validatedConflicts.length > 0 ? (
-              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
-                ⚠ מחירים מאומתים סותרים לאותה מידה:{" "}
-                {job.validatedConflicts.map((c) => shekel(c.price)).join(" · ")} — נבחר{" "}
-                {shekel(job.total)}. נקו את הכפילות בקטלוג.
-              </div>
-            ) : null}
-            {job.smallerViolation ? (
-              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
-                ⚠ מידה קטנה יותר יקרה: {job.smallerViolation.anchor.w}×
-                {job.smallerViolation.anchor.h} = {shekel(job.smallerViolation.anchor.price)} מול{" "}
-                {shekel(job.smallerViolation.price)} כאן. בדקו את המחיר המאומת.
-              </div>
-            ) : null}
-            {job.monotoneViolation ? (
-              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
-                ⚠ הפרת מונוטוניות — כמות קטנה יותר מתומחרת ביוקר. בדקו את עוגני המשפחה.
-              </div>
-            ) : null}
-            {job.configError ? (
-              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
-                {job.configError}
-              </div>
+            {/* ---- internal QA checks ----
+                These are signals about the CATALOG and the cost model, not
+                corrections to the price. Shown under the price in red they
+                read as "the real price is X", which is exactly backwards:
+                an approved catalog price IS the price. Admin-only, visually
+                demoted, and never leading with a bare ₪ figure. */}
+            {isAdmin &&
+            (job.validatedConflicts.length > 0 ||
+              job.smallerViolation ||
+              job.monotoneViolation ||
+              job.configError ||
+              job.belowCost ||
+              job.noOutsourceCost ||
+              (!job.hasAnchors && job.source !== "validated")) ? (
+              <details className="mt-2 border-r-4 border-[var(--line,#c9d4de)] pr-2">
+                <summary className="cursor-pointer text-[11px] font-bold text-muted-foreground">
+                  בדיקות פנימיות (
+                  {
+                    [
+                      job.validatedConflicts.length > 0,
+                      !!job.smallerViolation,
+                      job.monotoneViolation,
+                      !!job.configError,
+                      job.belowCost,
+                      job.noOutsourceCost,
+                      !job.hasAnchors && job.source !== "validated",
+                    ].filter(Boolean).length
+                  }
+                  ) — אינן משנות את המחיר
+                </summary>
+                <div className="mt-1 space-y-1 text-[11px] font-normal text-muted-foreground">
+                  {job.validatedConflicts.length > 0 ? (
+                    <div>
+                      בקטלוג יש יותר משורה מאומתת אחת לאותה מידה וכמות (
+                      {job.validatedConflicts.map((c) => shekel(c.price)).join(" · ")}). נבחרה
+                      הגבוהה. כדאי לנקות את הכפילות.
+                    </div>
+                  ) : null}
+                  {job.smallerViolation ? (
+                    <div>
+                      בקטלוג יש מידה קטנה יותר ({job.smallerViolation.anchor.w}×
+                      {job.smallerViolation.anchor.h}) שמחירה גבוה מהמחיר כאן. המחיר שמוצג נכון לפי
+                      הקטלוג — שתי השורות ראויות לבדיקה.
+                    </div>
+                  ) : null}
+                  {job.monotoneViolation ? (
+                    <div>כמות קטנה יותר יוצאת יקרה יותר — כדאי לבדוק את עוגני המשפחה.</div>
+                  ) : null}
+                  {job.configError ? <div>{job.configError}</div> : null}
+                  {job.belowCost ? (
+                    <div>
+                      המחיר נמוך ממודל העלות של המשפחה ({shekel(job.costFloorValue)}). לרוב זה סימן
+                      שמודל העלות אינו מעודכן, ולא שהמחיר שגוי.
+                    </div>
+                  ) : null}
+                  {job.noOutsourceCost ? <div>לא הוגדרה עלות מיקור חוץ למשפחה.</div> : null}
+                  {!job.hasAnchors && job.source !== "validated" ? (
+                    <div>אין עוגנים למשפחה — המחיר מחושב מהעלות.</div>
+                  ) : null}
+                </div>
+              </details>
             ) : null}
             <TodoChips todos={job.todos} />
-            {job.belowCost ? (
-              <div className="border-2 border-destructive px-2 py-1 font-bold text-destructive">
-                מתחת לעלות — המחיר נמוך מ־{shekel(job.costFloorValue)}
-              </div>
-            ) : null}
-            {job.noOutsourceCost ? (
-              <div className="font-bold text-destructive">
-                מעל הסף — לא הוגדרה עלות מיקור חוץ למשפחה
-              </div>
-            ) : null}
-            {!job.hasAnchors && job.source !== "validated" ? (
-              <div className="font-bold text-destructive">אין עוגנים למשפחה — המחיר מחושב מהעלות</div>
-            ) : null}
             {job.machineNote ? (
               <div className="border-2 border-[var(--ink)] px-2 py-1 font-bold text-[var(--ink)]">
                 {job.machineNote}
@@ -839,7 +839,6 @@ function Calculator() {
             ) : null}
           </div>
         ) : null}
-
       </section>
 
       {/* how THIS family is priced — derived from its plan, so it cannot
@@ -847,9 +846,7 @@ function Calculator() {
           English added for admins. */}
       {family && explanation ? (
         <section className="border-2 border-[var(--ink)] bg-card p-5 shadow-[4px_4px_0_var(--ink)]">
-          <h2 className="mb-1 text-base font-black text-[var(--ink)]">
-            איך נקבע המחיר — {family}
-          </h2>
+          <h2 className="mb-1 text-base font-black text-[var(--ink)]">איך נקבע המחיר — {family}</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             ההסבר נוצר מהתצורה של המשפחה עצמה, ולכן הוא תמיד תואם למה שהמחשבון עושה בפועל.
           </p>
@@ -954,9 +951,7 @@ function Calculator() {
                     <div className="text-lg font-black text-[var(--accent-raw)]">
                       {shekel(v.price)}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {v.area.toFixed(3)} מ״ר
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">{v.area.toFixed(3)} מ״ר</div>
                   </button>
                 ))}
               </div>
@@ -1015,8 +1010,6 @@ function Calculator() {
         </section>
       ) : null}
 
-
-
       {/* family config — viewable by everyone, editable only by admins; collapsed by default */}
       {family ? (
         <details className="group border-2 border-[var(--ink)] bg-card shadow-[4px_4px_0_var(--ink)]">
@@ -1029,17 +1022,16 @@ function Calculator() {
           </summary>
           <div className="border-t-2 border-[var(--line,#c9d4de)] p-5">
             <fieldset disabled={!isAdmin} className="min-w-0 border-0 p-0">
-
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
-            <button
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
+                <button
                   onClick={save}
-              disabled={saveCfg.isPending}
-              className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
-            >
-              {saveCfg.isPending ? "שומר…" : "שמור הגדרות"}
-            </button>
-          </div>
+                  disabled={saveCfg.isPending}
+                  className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
+                >
+                  {saveCfg.isPending ? "שומר…" : "שמור הגדרות"}
+                </button>
+              </div>
 
               {(job?.todos ?? cfg.todos).length ? (
                 <div className="mb-3">
@@ -1047,22 +1039,21 @@ function Calculator() {
                 </div>
               ) : null}
 
-          <div className="flex flex-wrap items-end gap-6">
-            <Field
+              <div className="flex flex-wrap items-end gap-6">
+                <Field
                   label="מנוע תמחור"
                   value={draft.engine}
                   onChange={(v) => setDraft((p) => ({ ...p, engine: v }))}
-              width="w-48"
-              as="select"
-            >
+                  width="w-48"
+                  as="select"
+                >
                   {(Object.keys(ENGINE_LABEL) as EngineKind[]).map((k) => (
                     <option key={k} value={k}>
                       {ENGINE_LABEL[k]}
                     </option>
                   ))}
-            </Field>
-
-          </div>
+                </Field>
+              </div>
 
               {draft.engine === "per_m2" && anchors.some((a) => a.qty > 500) ? (
                 <div className="mt-2 inline-block border-2 border-destructive px-2 py-1 text-xs font-bold text-destructive">
@@ -1095,7 +1086,7 @@ function Calculator() {
                   <div className="mt-2 text-[11px] font-bold text-muted-foreground">
                     טבלת תפוקה: {cfg.yieldTable.length} שורות
                   </div>
-            ) : (
+                ) : (
                   <div className="mt-2 border-2 border-dashed border-[var(--line,#c9d4de)] p-3 text-xs font-bold text-muted-foreground opacity-60">
                     טבלת תפוקה — TODO (עריכה בגרסה הבאה; המחיר מחושב מעלות חומר × מקדם)
                   </div>
@@ -1149,18 +1140,18 @@ function Calculator() {
                     </div>
                   </div>
                 ) : null}
-            <Field
-              label="מקדם רווח (×)"
-              value={draft.margin}
-              onChange={(v) => setDraft((p) => ({ ...p, margin: v }))}
-            />
+                <Field
+                  label="מקדם רווח (×)"
+                  value={draft.margin}
+                  onChange={(v) => setDraft((p) => ({ ...p, margin: v }))}
+                />
                 {cfg.engine === "anchor_curve" ? (
-              <Field
-                label="חבילות"
-                value={draft.packages}
-                onChange={(v) => setDraft((p) => ({ ...p, packages: v }))}
-                width="w-56"
-              />
+                  <Field
+                    label="חבילות"
+                    value={draft.packages}
+                    onChange={(v) => setDraft((p) => ({ ...p, packages: v }))}
+                    width="w-56"
+                  />
                 ) : null}
                 {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
                   <Field
@@ -1183,13 +1174,13 @@ function Calculator() {
                     placeholder="1"
                   />
                 ) : null}
-            <Field
-              label="מינימום הזמנה (יחידות)"
-              value={draft.minOrderQty}
-              onChange={(v) => setDraft((p) => ({ ...p, minOrderQty: v }))}
-              width="w-44"
-              placeholder="ללא"
-            />
+                <Field
+                  label="מינימום הזמנה (יחידות)"
+                  value={draft.minOrderQty}
+                  onChange={(v) => setDraft((p) => ({ ...p, minOrderQty: v }))}
+                  width="w-44"
+                  placeholder="ללא"
+                />
                 <Field
                   label="מינימום הזמנה ₪ (כולל מע״מ)"
                   value={draft.minOrderValue}
@@ -1201,452 +1192,449 @@ function Calculator() {
                   עיגול אוטומטי: עד ₪20 → 0.5 · עד ₪100 → ₪1 · מעל ₪100 → ₪5
                 </div>
 
+                {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
+                  <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                    <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                      גיליון הדפסה
+                    </div>
+                    <div className="flex flex-wrap items-end gap-6">
+                      <Field
+                        label='רוחב גיליון (ס"מ)'
+                        value={draft.sheetW}
+                        onChange={(v) => setDraft((p) => ({ ...p, sheetW: v }))}
+                        width="w-36"
+                      />
+                      <Field
+                        label='גובה גיליון (ס"מ)'
+                        value={draft.sheetH}
+                        onChange={(v) => setDraft((p) => ({ ...p, sheetH: v }))}
+                        width="w-36"
+                      />
+                      <Field
+                        label='שוליים לא מודפסים (ס"מ)'
+                        value={draft.sheetMargin}
+                        onChange={(v) => setDraft((p) => ({ ...p, sheetMargin: v }))}
+                        width="w-48"
+                      />
+                      <Field
+                        label='מרווח בין יחידות (ס"מ)'
+                        value={draft.sheetGap}
+                        onChange={(v) => setDraft((p) => ({ ...p, sheetGap: v }))}
+                        width="w-44"
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        שטח הדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                        {nw && nh ? (
+                          <>
+                            {" · "}
+                            {sheetUnitsFor(cfg, nw, nh).units} יח׳ בגיליון עבור {nw}×{nh}
+                            {sheetUnitsFor(cfg, nw, nh).manual ? " (ידני)" : ""}
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
+                <Field
+                  label="מ״ר מינימלי ליחידה (מעל הסף)"
+                  value={draft.minUnitArea}
+                  onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
+                  width="w-44"
+                />
 
-            {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
-              <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
-                <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                  גיליון הדפסה
-                </div>
-                <div className="flex flex-wrap items-end gap-6">
-                  <Field
-                    label='רוחב גיליון (ס"מ)'
-                    value={draft.sheetW}
-                    onChange={(v) => setDraft((p) => ({ ...p, sheetW: v }))}
-                    width="w-36"
-                  />
-                  <Field
-                    label='גובה גיליון (ס"מ)'
-                    value={draft.sheetH}
-                    onChange={(v) => setDraft((p) => ({ ...p, sheetH: v }))}
-                    width="w-36"
-                  />
-                  <Field
-                    label='שוליים לא מודפסים (ס"מ)'
-                    value={draft.sheetMargin}
-                    onChange={(v) => setDraft((p) => ({ ...p, sheetMargin: v }))}
-                    width="w-48"
-                  />
-                  <Field
-                    label='מרווח בין יחידות (ס"מ)'
-                    value={draft.sheetGap}
-                    onChange={(v) => setDraft((p) => ({ ...p, sheetGap: v }))}
-                    width="w-44"
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    שטח הדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
-                    {nw && nh ? (
+                <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                  <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                    מגבלות מכונה
+                  </div>
+                  <div className="flex flex-wrap items-end gap-6">
+                    <Field
+                      label='גבול הדפסה — רוחב (ס"מ)'
+                      value={draft.maxPrintW}
+                      onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
+                      width="w-44"
+                      placeholder="ללא"
+                    />
+                    <Field
+                      label='גבול הדפסה — אורך (ס"מ)'
+                      value={draft.maxPrintL}
+                      onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
+                      width="w-44"
+                      placeholder="ללא"
+                    />
+                    <Field
+                      label='גבול ייצור מוחלט — רוחב (ס"מ)'
+                      value={draft.capW}
+                      onChange={(v) => setDraft((p) => ({ ...p, capW: v }))}
+                      width="w-48"
+                      placeholder="ללא"
+                    />
+                    <Field
+                      label='גבול ייצור מוחלט — אורך (ס"מ)'
+                      value={draft.capL}
+                      onChange={(v) => setDraft((p) => ({ ...p, capL: v }))}
+                      width="w-48"
+                      placeholder="ללא"
+                    />
+                    {draft.overLimit === "mount" ? (
                       <>
-                        {" · "}
-                        {sheetUnitsFor(cfg, nw, nh).units} יח׳ בגיליון עבור {nw}×{nh}
-                        {sheetUnitsFor(cfg, nw, nh).manual ? " (ידני)" : ""}
+                        <Field
+                          label="עלות הדבקה ₪ למ״ר"
+                          value={draft.mountCostM2}
+                          onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
+                          width="w-40"
+                          placeholder="0"
+                        />
+                        <Field
+                          label="עלות הדבקה ₪ ליחידה"
+                          value={draft.mountCostUnit}
+                          onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
+                          width="w-40"
+                          placeholder="0"
+                        />
+                      </>
+                    ) : null}
+                    <label className="mb-[6px] flex items-center gap-2 text-xs font-black">
+                      <input
+                        type="checkbox"
+                        checked={draft.wholeBoard}
+                        onChange={(e) => setDraft((p) => ({ ...p, wholeBoard: e.target.checked }))}
+                      />
+                      חיוב חומר לפי לוח שלם (השארית נזרקת)
+                    </label>
+                    {draft.wholeBoard ? (
+                      <>
+                        <Field
+                          label='לוח — רוחב (ס"מ)'
+                          value={draft.boardW}
+                          onChange={(v) => setDraft((p) => ({ ...p, boardW: v }))}
+                          width="w-40"
+                        />
+                        <Field
+                          label='לוח — אורך (ס"מ)'
+                          value={draft.boardH}
+                          onChange={(v) => setDraft((p) => ({ ...p, boardH: v }))}
+                          width="w-40"
+                        />
                       </>
                     ) : null}
                   </div>
                 </div>
               </div>
-            )}
 
-            <Field
-              label='מ״ר מינימלי ליחידה (מעל הסף)'
-              value={draft.minUnitArea}
-              onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
-              width="w-44"
-            />
-
-            <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
-              <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                מגבלות מכונה
-              </div>
-              <div className="flex flex-wrap items-end gap-6">
-                <Field
-                  label='גבול הדפסה — רוחב (ס"מ)'
-                  value={draft.maxPrintW}
-                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
-                  width="w-44"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='גבול הדפסה — אורך (ס"מ)'
-                  value={draft.maxPrintL}
-                  onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
-                  width="w-44"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='גבול ייצור מוחלט — רוחב (ס"מ)'
-                  value={draft.capW}
-                  onChange={(v) => setDraft((p) => ({ ...p, capW: v }))}
-                  width="w-48"
-                  placeholder="ללא"
-                />
-                <Field
-                  label='גבול ייצור מוחלט — אורך (ס"מ)'
-                  value={draft.capL}
-                  onChange={(v) => setDraft((p) => ({ ...p, capL: v }))}
-                  width="w-48"
-                  placeholder="ללא"
-                />
-                {draft.overLimit === "mount" ? (
-                  <>
-                    <Field
-                      label="עלות הדבקה ₪ למ״ר"
-                      value={draft.mountCostM2}
-                      onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
-                      width="w-40"
-                      placeholder="0"
-                    />
-                    <Field
-                      label="עלות הדבקה ₪ ליחידה"
-                      value={draft.mountCostUnit}
-                      onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
-                      width="w-40"
-                      placeholder="0"
-                    />
-                  </>
-                ) : null}
-                <label className="mb-[6px] flex items-center gap-2 text-xs font-black">
+              {/* מדרגות כמות — מחיר קבוע ליחידה, גובר על מקדם כמות */}
+              <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-black text-[var(--ink)]">
                   <input
                     type="checkbox"
-                    checked={draft.wholeBoard}
-                    onChange={(e) =>
-                      setDraft((p) => ({ ...p, wholeBoard: e.target.checked }))
-                    }
+                    checked={tiersOn}
+                    onChange={(e) => setTiersOn(e.target.checked)}
+                    className="h-4 w-4 accent-[var(--ink)]"
                   />
-                  חיוב חומר לפי לוח שלם (השארית נזרקת)
+                  מדרגות כמות — מחיר קבוע ליחידה (גובר על מקדם כמות)
                 </label>
-                {draft.wholeBoard ? (
-                  <>
-                    <Field
-                      label='לוח — רוחב (ס"מ)'
-                      value={draft.boardW}
-                      onChange={(v) => setDraft((p) => ({ ...p, boardW: v }))}
-                      width="w-40"
-                    />
-                    <Field
-                      label='לוח — אורך (ס"מ)'
-                      value={draft.boardH}
-                      onChange={(v) => setDraft((p) => ({ ...p, boardH: v }))}
-                      width="w-40"
-                    />
-                  </>
+                <div className="mt-1 text-[11px] font-bold text-muted-foreground">
+                  לדוגמה: מכמות 10 ומעלה — 47 ₪ ליחידה. מידה ריקה = כל המידות במשפחה. מחיר מאומת
+                  בקטלוג באותה מידה ובאותה כמות עדיין גובר.
+                </div>
+
+                {tiersOn ? (
+                  <div className="mt-3 space-y-2">
+                    {tiers.map((t, i) => (
+                      <div key={i} className="flex flex-wrap items-end gap-3">
+                        <div className="w-28">
+                          <label className={labelCls}>מכמות</label>
+                          <input
+                            className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                            value={t.minQty}
+                            onChange={(e) =>
+                              setTiers((p) =>
+                                p.map((x, j) => (j === i ? { ...x, minQty: e.target.value } : x)),
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="w-32">
+                          <label className={labelCls}>₪ ליחידה</label>
+                          <input
+                            className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                            value={t.unitPrice}
+                            onChange={(e) =>
+                              setTiers((p) =>
+                                p.map((x, j) =>
+                                  j === i ? { ...x, unitPrice: e.target.value } : x,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="w-36">
+                          <label className={labelCls}>מידה (אופציונלי)</label>
+                          <input
+                            placeholder="כל המידות"
+                            className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
+                            value={t.size}
+                            onChange={(e) =>
+                              setTiers((p) =>
+                                p.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)),
+                              )
+                            }
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTiers((p) => p.filter((_, j) => j !== i))}
+                          className="mb-1 border-2 border-[var(--ink)] px-3 py-1 text-xs font-black"
+                        >
+                          הסר
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTiers((p) => [...p, { minQty: "", unitPrice: "", size: "" }])
+                      }
+                      className="border-2 border-[var(--ink)] bg-background px-4 py-1 text-sm font-bold"
+                    >
+                      + הוסף מדרגה
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
-            </div>
-          </div>
-
-
-          {/* מדרגות כמות — מחיר קבוע ליחידה, גובר על מקדם כמות */}
-          <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
-            <label className="flex cursor-pointer items-center gap-2 text-sm font-black text-[var(--ink)]">
-              <input
-                type="checkbox"
-                checked={tiersOn}
-                onChange={(e) => setTiersOn(e.target.checked)}
-                className="h-4 w-4 accent-[var(--ink)]"
-              />
-              מדרגות כמות — מחיר קבוע ליחידה (גובר על מקדם כמות)
-            </label>
-            <div className="mt-1 text-[11px] font-bold text-muted-foreground">
-              לדוגמה: מכמות 10 ומעלה — 47 ₪ ליחידה. מידה ריקה = כל המידות במשפחה. מחיר מאומת
-              בקטלוג באותה מידה ובאותה כמות עדיין גובר.
-            </div>
-
-            {tiersOn ? (
-              <div className="mt-3 space-y-2">
-                {tiers.map((t, i) => (
-                  <div key={i} className="flex flex-wrap items-end gap-3">
-                    <div className="w-28">
-                      <label className={labelCls}>מכמות</label>
-                      <input
-                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
-                        value={t.minQty}
-                        onChange={(e) =>
-                          setTiers((p) =>
-                            p.map((x, j) => (j === i ? { ...x, minQty: e.target.value } : x)),
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="w-32">
-                      <label className={labelCls}>₪ ליחידה</label>
-                      <input
-                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
-                        value={t.unitPrice}
-                        onChange={(e) =>
-                          setTiers((p) =>
-                            p.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value } : x)),
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="w-36">
-                      <label className={labelCls}>מידה (אופציונלי)</label>
-                      <input
-                        placeholder="כל המידות"
-                        className="w-full border-b-2 border-[var(--ink)] bg-transparent py-1 font-bold outline-none"
-                        value={t.size}
-                        onChange={(e) =>
-                          setTiers((p) =>
-                            p.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)),
-                          )
-                        }
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setTiers((p) => p.filter((_, j) => j !== i))}
-                      className="mb-1 border-2 border-[var(--ink)] px-3 py-1 text-xs font-black"
-                    >
-                      הסר
-                    </button>
-                  </div>
-                ))}
+              <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
                 <button
-                  type="button"
-                  onClick={() =>
-                    setTiers((p) => [...p, { minQty: "", unitPrice: "", size: "" }])
-                  }
-                  className="border-2 border-[var(--ink)] bg-background px-4 py-1 text-sm font-bold"
+                  onClick={save}
+                  disabled={saveCfg.isPending}
+                  className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
                 >
-                  + הוסף מדרגה
+                  {saveCfg.isPending ? "שומר…" : "שמור הגדרות תמחור"}
                 </button>
               </div>
-            ) : null}
-          </div>
 
-
-          <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
-            <button
-                  onClick={save}
-              disabled={saveCfg.isPending}
-              className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1.5 text-sm font-black text-white shadow-[3px_3px_0_var(--line,#c9d4de)] disabled:opacity-50"
-            >
-              {saveCfg.isPending ? "שומר…" : "שמור הגדרות תמחור"}
-            </button>
-          </div>
-
-
-
-
-          {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
-          <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-            <div className="text-xs font-bold text-muted-foreground">
+              {/* catalog items of the family — ⚓ marks the ones that drive the curve */}
+              <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+                <div className="text-xs font-bold text-muted-foreground">
                   {!sheetish
                     ? "פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · בין העוגנים המחיר מחושב לפי המנוע שנבחר"
-                : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (שטח הדפסה ${printableSheet(cfg).w}×${printableSheet(cfg).h}, רווח ${printableSheet(cfg).gap}), ניתן לעריכה`}
-            </div>
-            <div className="w-56">
-              <label className={labelCls}>חיפוש לפי שם</label>
-              <input
-                className={inputCls}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="הקלידו חלק משם הפריט..."
-              />
-            </div>
-          </div>
+                    : `פריטי המשפחה — לחצו ⚓ כדי לסמן/לבטל עוגן · יחידות בגיליון: אוטומטי (שטח הדפסה ${printableSheet(cfg).w}×${printableSheet(cfg).h}, רווח ${printableSheet(cfg).gap}), ניתן לעריכה`}
+                </div>
+                <div className="w-56">
+                  <label className={labelCls}>חיפוש לפי שם</label>
+                  <input
+                    className={inputCls}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="הקלידו חלק משם הפריט..."
+                  />
+                </div>
+              </div>
 
-          {conflicts.length > 0 ? (
-            <div className="mt-3 border-r-4 border-[oklch(0.72_0.16_70)] bg-[oklch(0.96_0.05_85_/_0.55)] p-3 text-sm">
-              <div className="font-bold text-[var(--ink)]">עוגנים סותרים</div>
-              <ul className="mt-1 space-y-1">
-                {conflicts.map((c, i) => (
-                  <li key={i} className="text-[13px] leading-5">
-                    {c.members
-                      .map((m) => `${m.w}×${m.h} · ${m.qty.toLocaleString()} יח׳ = ${shekel(m.price)}`)
-                      .join("  |  ")}
-                    <span className="mr-2 text-muted-foreground">
-                      → העקומה משתמשת בממוצע {shekel(c.price)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+              {conflicts.length > 0 ? (
+                <div className="mt-3 border-r-4 border-[oklch(0.72_0.16_70)] bg-[oklch(0.96_0.05_85_/_0.55)] p-3 text-sm">
+                  <div className="font-bold text-[var(--ink)]">עוגנים סותרים</div>
+                  <ul className="mt-1 space-y-1">
+                    {conflicts.map((c, i) => (
+                      <li key={i} className="text-[13px] leading-5">
+                        {c.members
+                          .map(
+                            (m) =>
+                              `${m.w}×${m.h} · ${m.qty.toLocaleString()} יח׳ = ${shekel(m.price)}`,
+                          )
+                          .join("  |  ")}
+                        <span className="mr-2 text-muted-foreground">
+                          → העקומה משתמשת בממוצע {shekel(c.price)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
-
-
-          <div className="mt-2 max-h-[26rem] overflow-y-auto">
-          <table className="w-full">
-
-            <thead className="sticky top-0 bg-background">
-              <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
-                <th className="w-10 p-2 text-right font-medium">⚓</th>
-                <th className="p-2 text-right font-medium">מידה</th>
+              <div className="mt-2 max-h-[26rem] overflow-y-auto">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b-2 border-[var(--ink)] text-[11px] text-muted-foreground">
+                      <th className="w-10 p-2 text-right font-medium">⚓</th>
+                      <th className="p-2 text-right font-medium">מידה</th>
                       {sheetish ? (
-                  <>
-                    <th className="p-2 text-right font-medium">יחידות בגיליון</th>
-                    <th className="p-2 text-right font-medium">חבילה</th>
-                  </>
-                ) : (
-                  <th className="p-2 text-right font-medium">כמות</th>
-                )}
-                <th className="p-2 text-right font-medium">מחיר</th>
-                <th className="p-2 text-right font-medium">שם</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => {
-                const per = sheetUnitsFor(cfg, a.w, a.h);
-                const bad = inconsistent.some((x) => x.id === a.id);
-                return (
-                  <tr
-                    key={a.id}
-                    className={`border-b border-[var(--line,#c9d4de)] text-base font-bold ${a.isAnchor ? "" : "opacity-70"}`}
-                  >
-                    <td className="p-2">
-                      <button
-                        title={a.isAnchor ? "בטל עוגן" : "סמן כעוגן"}
-                        onClick={() => toggleAnchor.mutate({ id: a.id, on: !a.isAnchor })}
-                        className={a.isAnchor ? "text-[var(--ink)]" : "text-muted-foreground/50"}
-                      >
-                        <AnchorIcon
-                          className="size-4"
-                          strokeWidth={a.isAnchor ? 2.5 : 1.5}
-                          fill={a.isAnchor ? "currentColor" : "none"}
-                        />
-                      </button>
-                    </td>
-                    <td className="p-2">
-                      {a.w}×{a.h}
-                      {a.isAnchor && !a.verified ? (
-                        <span
-                          className="mr-2 text-xs font-normal text-muted-foreground"
-                          title="פריט לא מאומת — אינו משתתף בחישוב המחיר"
+                        <>
+                          <th className="p-2 text-right font-medium">יחידות בגיליון</th>
+                          <th className="p-2 text-right font-medium">חבילה</th>
+                        </>
+                      ) : (
+                        <th className="p-2 text-right font-medium">כמות</th>
+                      )}
+                      <th className="p-2 text-right font-medium">מחיר</th>
+                      <th className="p-2 text-right font-medium">שם</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((a) => {
+                      const per = sheetUnitsFor(cfg, a.w, a.h);
+                      const bad = inconsistent.some((x) => x.id === a.id);
+                      return (
+                        <tr
+                          key={a.id}
+                          className={`border-b border-[var(--line,#c9d4de)] text-base font-bold ${a.isAnchor ? "" : "opacity-70"}`}
                         >
-                          לא מאומת — לא משפיע על התמחור
-                        </span>
-                      ) : null}
-                      {bad ? (
-                        <span className="mr-2 text-xs font-normal text-destructive">
-                          עוגן לא עקבי
-                        </span>
-                      ) : null}
-                      {conflictIds.has(a.id) ? (
-                        <span
-                          className="mr-2 text-xs font-normal text-[oklch(0.6_0.15_70)]"
-                          title="עוגן נוסף באותו גודל וכמות במחיר אחר — העקומה משתמשת בממוצע"
-                        >
-                          עוגן סותר
-                        </span>
-                      ) : null}
-
-                    </td>
+                          <td className="p-2">
+                            <button
+                              title={a.isAnchor ? "בטל עוגן" : "סמן כעוגן"}
+                              onClick={() => toggleAnchor.mutate({ id: a.id, on: !a.isAnchor })}
+                              className={
+                                a.isAnchor ? "text-[var(--ink)]" : "text-muted-foreground/50"
+                              }
+                            >
+                              <AnchorIcon
+                                className="size-4"
+                                strokeWidth={a.isAnchor ? 2.5 : 1.5}
+                                fill={a.isAnchor ? "currentColor" : "none"}
+                              />
+                            </button>
+                          </td>
+                          <td className="p-2">
+                            {a.w}×{a.h}
+                            {a.isAnchor && !a.verified ? (
+                              <span
+                                className="mr-2 text-xs font-normal text-muted-foreground"
+                                title="פריט לא מאומת — אינו משתתף בחישוב המחיר"
+                              >
+                                לא מאומת — לא משפיע על התמחור
+                              </span>
+                            ) : null}
+                            {bad ? (
+                              <span className="mr-2 text-xs font-normal text-destructive">
+                                עוגן לא עקבי
+                              </span>
+                            ) : null}
+                            {conflictIds.has(a.id) ? (
+                              <span
+                                className="mr-2 text-xs font-normal text-[oklch(0.6_0.15_70)]"
+                                title="עוגן נוסף באותו גודל וכמות במחיר אחר — העקומה משתמשת בממוצע"
+                              >
+                                עוגן סותר
+                              </span>
+                            ) : null}
+                          </td>
                           {sheetish ? (
-                      <>
+                            <>
+                              <td className="p-2">
+                                <input
+                                  className="w-16 border-b-2 border-[var(--ink)] bg-transparent px-1 font-bold outline-none"
+                                  value={per.units || ""}
+                                  onChange={(e) => setUnitsForSize(a, Number(e.target.value) || 0)}
+                                />
+                                <small className="mr-2 text-[11px] font-normal text-muted-foreground">
+                                  {per.manual ? "ידני" : "אוטומטי"}
+                                </small>
+                              </td>
+                              <td className="p-2">{a.qty.toLocaleString()}</td>
+                            </>
+                          ) : (
+                            <td className="p-2">{a.qty.toLocaleString()}</td>
+                          )}
+                          <td className="p-2 text-[var(--ink)]">
+                            <input
+                              key={`${a.id}-${a.price ?? ""}`}
+                              className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 font-bold outline-none"
+                              defaultValue={a.price ?? ""}
+                              onBlur={(e) => {
+                                const v = Number(e.target.value) || 0;
+                                if (v > 0 && v !== a.price)
+                                  upsertAnchor.mutate({
+                                    id: a.id,
+                                    w: a.w,
+                                    h: a.h,
+                                    qty: a.qty,
+                                    price: v,
+                                  });
+                              }}
+                            />
+                          </td>
+                          <td className="max-w-[18rem] truncate p-2 text-xs font-normal text-muted-foreground">
+                            {a.name}
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    <tr className="text-base">
+                      <td className="p-2 text-muted-foreground">+</td>
+                      <td className="p-2">
+                        <input
+                          className="w-14 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                          placeholder="רוחב"
+                          value={newRow.w}
+                          onChange={(e) => setNewRow((p) => ({ ...p, w: e.target.value }))}
+                        />
+                        <span className="px-1">×</span>
+                        <input
+                          className="w-14 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                          placeholder="גובה"
+                          value={newRow.h}
+                          onChange={(e) => setNewRow((p) => ({ ...p, h: e.target.value }))}
+                        />
+                      </td>
+                      {sheetish ? (
+                        <>
+                          <td className="p-2 text-xs text-muted-foreground">
+                            {Number(newRow.w) && Number(newRow.h)
+                              ? `${sheetUnitsFor(cfg, Number(newRow.w), Number(newRow.h)).units} אוטומטי`
+                              : "—"}
+                          </td>
+                          <td className="p-2">
+                            <input
+                              className="w-20 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                              placeholder="חבילה"
+                              value={newRow.qty}
+                              onChange={(e) => setNewRow((p) => ({ ...p, qty: e.target.value }))}
+                            />
+                          </td>
+                        </>
+                      ) : (
                         <td className="p-2">
                           <input
-                            className="w-16 border-b-2 border-[var(--ink)] bg-transparent px-1 font-bold outline-none"
-                            value={per.units || ""}
-                            onChange={(e) => setUnitsForSize(a, Number(e.target.value) || 0)}
+                            className="w-20 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                            placeholder="כמות"
+                            value={newRow.qty}
+                            onChange={(e) => setNewRow((p) => ({ ...p, qty: e.target.value }))}
                           />
-                          <small className="mr-2 text-[11px] font-normal text-muted-foreground">
-                            {per.manual ? "ידני" : "אוטומטי"}
-                          </small>
                         </td>
-                        <td className="p-2">{a.qty.toLocaleString()}</td>
-                      </>
-                    ) : (
-                      <td className="p-2">{a.qty.toLocaleString()}</td>
-                    )}
-                    <td className="p-2 text-[var(--ink)]">
-                      <input
-                        key={`${a.id}-${a.price ?? ""}`}
-                        className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 font-bold outline-none"
-                        defaultValue={a.price ?? ""}
-                        onBlur={(e) => {
-                          const v = Number(e.target.value) || 0;
-                          if (v > 0 && v !== a.price)
-                            upsertAnchor.mutate({ id: a.id, w: a.w, h: a.h, qty: a.qty, price: v });
-                        }}
-                      />
-                    </td>
-                    <td className="max-w-[18rem] truncate p-2 text-xs font-normal text-muted-foreground">
-                      {a.name}
-                    </td>
-                  </tr>
-                );
-              })}
+                      )}
+                      <td className="p-2">
+                        <input
+                          className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
+                          placeholder="מחיר"
+                          value={newRow.price}
+                          onChange={(e) => setNewRow((p) => ({ ...p, price: e.target.value }))}
+                        />
+                      </td>
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-              <tr className="text-base">
-                <td className="p-2 text-muted-foreground">+</td>
-                <td className="p-2">
-                  <input
-                    className="w-14 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
-                    placeholder="רוחב"
-                    value={newRow.w}
-                    onChange={(e) => setNewRow((p) => ({ ...p, w: e.target.value }))}
-                  />
-                  <span className="px-1">×</span>
-                  <input
-                    className="w-14 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
-                    placeholder="גובה"
-                    value={newRow.h}
-                    onChange={(e) => setNewRow((p) => ({ ...p, h: e.target.value }))}
-                  />
-                </td>
-                      {sheetish ? (
-                  <>
-                    <td className="p-2 text-xs text-muted-foreground">
-                      {Number(newRow.w) && Number(newRow.h)
-                        ? `${sheetUnitsFor(cfg, Number(newRow.w), Number(newRow.h)).units} אוטומטי`
-                        : "—"}
-                    </td>
-                    <td className="p-2">
-                      <input
-                        className="w-20 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
-                        placeholder="חבילה"
-                        value={newRow.qty}
-                        onChange={(e) => setNewRow((p) => ({ ...p, qty: e.target.value }))}
-                      />
-                    </td>
-                  </>
-                ) : (
-                  <td className="p-2">
-                    <input
-                      className="w-20 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
-                      placeholder="כמות"
-                      value={newRow.qty}
-                      onChange={(e) => setNewRow((p) => ({ ...p, qty: e.target.value }))}
-                    />
-                  </td>
-                )}
-                <td className="p-2">
-                  <input
-                    className="w-24 border-b-2 border-[var(--ink)] bg-transparent px-1 outline-none"
-                    placeholder="מחיר"
-                    value={newRow.price}
-                    onChange={(e) => setNewRow((p) => ({ ...p, price: e.target.value }))}
-                  />
-                </td>
-                <td />
-              </tr>
-            </tbody>
-          </table>
-          </div>
-
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              onClick={addRow}
-              className="border-2 border-[var(--ink)] bg-background px-4 py-1 text-sm font-bold"
-            >
-              + הוסף עוגן
-            </button>
-            <button
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={addRow}
+                  className="border-2 border-[var(--ink)] bg-background px-4 py-1 text-sm font-bold"
+                >
+                  + הוסף עוגן
+                </button>
+                <button
                   onClick={save}
-              disabled={saveCfg.isPending}
-              className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1 text-sm font-bold text-white"
-            >
-              שמור
-            </button>
-          </div>
-          </fieldset>
+                  disabled={saveCfg.isPending}
+                  className="border-2 border-[var(--ink)] bg-[var(--ink)] px-6 py-1 text-sm font-bold text-white"
+                >
+                  שמור
+                </button>
+              </div>
+            </fieldset>
           </div>
         </details>
-
-
       ) : null}
     </div>
   );

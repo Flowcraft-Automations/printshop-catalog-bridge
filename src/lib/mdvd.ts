@@ -980,6 +980,8 @@ export type BindingRule =
   | "short_run"
   | "outsourced"
   | "large_format"
+  | "size_floor"
+  | "cost_floor"
   | "dual_surcharge"
   | "min_order_value"
   | "min_order_qty"
@@ -995,6 +997,8 @@ export const BINDING_LABEL: Record<BindingRule, string> = {
   short_run: "ריצה קצרה",
   outsourced: "ייצור חוץ",
   large_format: "פורמט גדול — לפי מ״ר",
+  size_floor: "רצפת מידה — מידה קטנה יותר מאושרת במחיר גבוה יותר",
+  cost_floor: "רצפת עלות",
   dual_surcharge: "תוספת דו-צדדי",
   min_order_value: "מינימום הזמנה",
   min_order_qty: "מינימום הזמנה",
@@ -2068,6 +2072,8 @@ const SOURCE_FOR: Partial<Record<BindingRule, JobPrice["source"]>> = {
   cost: "cost",
   outsourced: "cost",
   large_format: "cost",
+  size_floor: "validated",
+  cost_floor: "cost",
   machine_blocked: "cost",
   min_order_qty: "cost",
 };
@@ -2129,6 +2135,24 @@ export function priceJob(
     anchors.filter((a) => a.area > 0 && a.price > 0 && a.qty > 0),
   ).conflicts;
 
+  const plan: PricingPlan = opts.plan ?? resolvePlan(cfg, cfg.plan);
+  const hasFloor = (kind: "size_floor" | "cost_floor") =>
+    plan.modifiers.some((m) => m.kind === kind);
+
+  /* רצפת מידה: שורה מאושרת באותה כמות ששני ממדיה קטנים-או-שווים (שליטה, לא
+     השוואת שטח עיוורת — 160×40 אינה "קטנה" מ-90×90) לעולם אינה יקרה יותר. */
+  const dominatedApproved = (): JobAnchor | null => {
+    const qMax = Math.max(w, h) + DIM_TOL;
+    const qMin = Math.min(w, h) + DIM_TOL;
+    let best: JobAnchor | null = null;
+    for (const a of validated) {
+      if (a.qty !== units || sameSize(a.w, a.h, w, h)) continue;
+      if (Math.max(a.w, a.h) > qMax || Math.min(a.w, a.h) > qMin) continue;
+      if (!best || a.price > best.price) best = a;
+    }
+    return best;
+  };
+
   const finish = (
     raw: number,
     bindingRule: BindingRule,
@@ -2138,16 +2162,44 @@ export function priceJob(
     noRound = false,
   ): JobPrice => {
     const base = Math.max(raw, 0);
-    const total = noRound ? base : roundPrice(base, bindingRule);
+    let total = noRound ? base : roundPrice(base, bindingRule);
+    let rule = bindingRule;
+    let text = detail;
+    const rules: BindingRule[] = [bindingRule];
+
+    /* ---- floors: when the family declares them, the floor IS the price ----
+       (הרצפה מוצגת כמחיר, לא כאזהרה ליד מחיר אחר — זה מה שבלבל) */
+    if (total > 0) {
+      if (hasFloor("size_floor")) {
+        const under = dominatedApproved();
+        if (under && under.price > total + 0.01) {
+          text += ` · רצפת מידה: ${under.w}×${under.h} מאושר ב-${shekel(under.price)}`;
+          total = under.price;
+          rule = "size_floor";
+          rules.push("size_floor");
+        }
+      }
+      if (hasFloor("cost_floor") && cost > 0) {
+        const floor = roundPrice(cost * margin);
+        if (floor > total + 0.01) {
+          text += ` · רצפת עלות: ${shekel(cost)} × ${margin}`;
+          total = floor;
+          rule = "cost_floor";
+          rules.push("cost_floor");
+        }
+      }
+    }
     return {
       total,
       unit: units > 0 ? total / units : total,
       above: outsourcedJob,
       cost,
       costFloorValue: cost * margin,
-      belowCost: cost > 0 && total > 0 && total < cost * margin - 0.001,
-      label,
-      detail,
+      /* once the cost floor has bound, the price IS the floor — rounding a few
+         agorot under cost×margin must not re-raise the flag */
+      belowCost: rule !== "cost_floor" && cost > 0 && total > 0 && total < cost * margin - 0.001,
+      label: rule === bindingRule ? label : BINDING_LABEL[rule],
+      detail: text,
       sheets: per ? sheets : null,
       unitsPerSheet: per ? per.units : null,
       inconsistent: [],
@@ -2164,8 +2216,8 @@ export function priceJob(
       machineNote: [machine.note, panelNote].filter(Boolean).join(" · "),
       mountCost,
       engine: cfg.engine,
-      bindingRule,
-      appliedRules: [bindingRule],
+      bindingRule: rule,
+      appliedRules: rules,
       monotoneViolation: false,
       configError: prepared.configErrors[0] ?? null,
       altQuote: null,
@@ -2181,7 +2233,6 @@ export function priceJob(
   };
 
   /* ---- gates: the plan decides which refusals apply to this family ---- */
-  const plan: PricingPlan = opts.plan ?? resolvePlan(cfg, cfg.plan);
 
   /* פיצול לחלקים: אינו משנה מחיר (אותו שטח חומר), ולכן הוא נקבע פעם אחת
      כאן ומדווח בכל מסלול — כולל מסלולים שחוזרים מוקדם (מחיר מאומת,
@@ -2253,10 +2304,10 @@ export function priceJob(
     const v =
       anchorHit ?? matches.reduce<JobAnchor>((best, a) => (a.price > best.price ? a : best), first);
 
-    /* smaller verified size at the same quantity must not cost more */
-    const bigger = validated
-      .filter((a) => a.qty === units && a.area < v.area - 1e-9 && a.price > v.price + 0.01)
-      .sort((a, b) => b.price - a.price)[0];
+    /* a DOMINATED verified size (both dims ≤) at the same quantity must not
+       cost more — same rule as the size floor, so warning and floor agree */
+    const under = dominatedApproved();
+    const bigger = under && under.price > v.price + 0.01 ? under : undefined;
 
     return finish(
       v.price,

@@ -113,3 +113,74 @@ describe("panel_split (מדבקות — 120 ס״מ vinyl printer)", () => {
     }
   });
 });
+
+/* ------------------------------------------------------------------ *
+ *  Floors. A floor that only WARNS next to a different price reads as
+ *  "the real price is X" — so when a family declares one, it binds.
+ * ------------------------------------------------------------------ */
+
+describe("size_floor — never below an approved row that both dimensions dominate", () => {
+  const fix = famFixture("קנבס");
+  const approved = (w: number, h: number, price: number) => ({
+    id: `${w}x${h}`,
+    name: `${w}/${h}`,
+    w,
+    h,
+    area: (w * h) / 10000,
+    qty: 1,
+    price,
+  });
+
+  it("a dominated approved size sets the floor", () => {
+    /* 60×60 approved at ₪300 is smaller in BOTH dimensions than 90×90 */
+    const V = [...fix.validated, approved(60, 60, 300)];
+    const j = priceJob(fix.cfg, fix.anchors, 90, 90, 1, V, {
+      prepared: prepareFamily(fix.cfg, fix.anchors, V),
+    })!;
+    expect(j.bindingRule).toBe("size_floor");
+    expect(j.total).toBe(300);
+    expect(j.detail).toContain("60×60");
+  });
+
+  it("area alone is not dominance — a 160×40 does not floor a 90×90", () => {
+    /* less area, but 160 > 90: a different shape that legitimately costs
+       more on a 150 cm roll. The old warning compared area only. */
+    const V = [...fix.validated, approved(160, 40, 256)];
+    const j = priceJob(fix.cfg, fix.anchors, 90, 90, 1, V, {
+      prepared: prepareFamily(fix.cfg, fix.anchors, V),
+    })!;
+    expect(j.bindingRule).not.toBe("size_floor");
+    expect(j.smallerViolation).toBeNull();
+  });
+
+  it("is on for every family by default", () => {
+    for (const name of ["מדבקות", "שמשונית", "קנבס", "קאפה"])
+      expect(
+        resolvePlan(famFixture(name).cfg, famFixture(name).cfg.plan).modifiers.some(
+          (m) => m.kind === "size_floor",
+        ),
+      ).toBe(true);
+  });
+});
+
+describe("cost_floor — binds only where the cost figure is confirmed", () => {
+  it("קאפה: the floor becomes the price, labelled as such", () => {
+    const fix = famFixture("קאפה");
+    const j = priceJob(fix.cfg, fix.anchors, 70, 70, 1, fix.validated)!;
+    expect(j.bindingRule).toBe("cost_floor");
+    expect(j.total).toBeGreaterThanOrEqual(Math.floor(j.costFloorValue));
+    expect(j.belowCost).toBe(false);
+    expect(j.label).toContain("רצפת עלות");
+  });
+
+  it("מדבקות: OFF — ₪6 is stored in cost_per_m2 but multiplied by sheets, a 7× ambiguity", () => {
+    const fix = famFixture("מדבקות");
+    expect(resolvePlan(fix.cfg, fix.cfg.plan).modifiers.some((m) => m.kind === "cost_floor")).toBe(
+      false,
+    );
+    const j = priceJob(fix.cfg, fix.anchors, 16, 7, 500, fix.validated)!;
+    /* the shop's own price stands; the cost note is a diagnostic, not a price */
+    expect(j.total).toBe(345);
+    expect(j.bindingRule).not.toBe("cost_floor");
+  });
+});

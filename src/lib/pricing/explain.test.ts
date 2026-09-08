@@ -110,6 +110,8 @@ describe("explanation covers every rule kind", () => {
     { kind: "paper_weight", pct: { "170": 0.08 } },
     { kind: "dual_sided", tiers: [{ maxQty: null, pct: 0.1 }] },
     { kind: "panel_split", maxWidthCm: 100 },
+    { kind: "size_floor" },
+    { kind: "cost_floor" },
     { kind: "min_order_value", value: 250 },
   ];
 
