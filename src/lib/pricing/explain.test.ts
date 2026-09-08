@@ -3,7 +3,8 @@ import { prepareFamily } from "../mdvd";
 import { famFixture } from "../pricing-fixtures";
 import { SPEC_FAMILY_CONFIGS } from "../pricing-defaults";
 import { explainFamily } from "./explain";
-import { resolvePlan } from "./plan";
+import { resolvePlan, type GateSpec, type ModifierSpec, type SourceSpec } from "./plan";
+import { baseFamilyPricing } from "../pricing-defaults";
 
 /* ------------------------------------------------------------------ *
  *  The explanation is generated from the same plan the engine prices
@@ -82,5 +83,72 @@ describe("family explanation", () => {
       .join(" ");
     expect(s).toContain("120");
     expect(s).toContain("10 יחידות");
+  });
+});
+
+/* Every rule kind must produce a line. Without this, adding a rule and
+   forgetting to describe it would silently drop it from the explanation —
+   the calculator would then price by a rule it never mentions. */
+describe("explanation covers every rule kind", () => {
+  const cfg = baseFamilyPricing({ maxPrintW: 100, minOrderValue: 250 });
+  const prepared = prepareFamily(cfg, [], []);
+  const say = (plan: { gates: GateSpec[]; source: SourceSpec; modifiers: ModifierSpec[] }) =>
+    explainFamily(cfg, plan, prepared)
+      .steps.map((l) => l.he + " " + l.en)
+      .join(" || ");
+
+  const SOURCES: SourceSpec[] = [
+    { kind: "catalog_surface" },
+    { kind: "anchor_curve" },
+    { kind: "per_m2" },
+    { kind: "size_ladder" },
+    { kind: "sheet_yield" },
+    { kind: "unit_floor" },
+    { kind: "cost_plus", paper: {}, click: {}, markup: 2 },
+  ];
+  const MODIFIERS: ModifierSpec[] = [
+    { kind: "paper_weight", pct: { "170": 0.08 } },
+    { kind: "dual_sided", tiers: [{ maxQty: null, pct: 0.1 }] },
+    { kind: "panel_split", maxWidthCm: 100 },
+    { kind: "min_order_value", value: 250 },
+  ];
+
+  it("describes every price source", () => {
+    for (const source of SOURCES) {
+      const text = say({ gates: [], source, modifiers: [] });
+      expect({ kind: source.kind, described: text.length > 120 }).toEqual({
+        kind: source.kind,
+        described: true,
+      });
+    }
+  });
+
+  it("describes every modifier", () => {
+    for (const m of MODIFIERS) {
+      const base = say({ gates: [], source: { kind: "per_m2" }, modifiers: [] });
+      const withRule = say({ gates: [], source: { kind: "per_m2" }, modifiers: [m] });
+      expect({ kind: m.kind, added: withRule.length > base.length }).toEqual({
+        kind: m.kind,
+        added: true,
+      });
+    }
+  });
+
+  it("describes every gate", () => {
+    const gates: GateSpec[] = [
+      { kind: "machine_limit" },
+      { kind: "min_order_qty", qty: 25, exemptLargeFormat: false },
+    ];
+    for (const g of gates) {
+      const base = say({ gates: [], source: { kind: "per_m2" }, modifiers: [] });
+      const withRule = say({ gates: [g], source: { kind: "per_m2" }, modifiers: [] });
+      expect({ kind: g.kind, added: withRule.length > base.length }).toEqual({
+        kind: g.kind,
+        added: true,
+      });
+    }
+    /* quote_only replaces the whole narrative rather than adding to it */
+    const q = say({ gates: [{ kind: "quote_only" }], source: { kind: "per_m2" }, modifiers: [] });
+    expect(q).toContain("הצעת מחיר");
   });
 });
