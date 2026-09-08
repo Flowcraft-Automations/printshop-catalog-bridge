@@ -1,0 +1,1 @@
+REVOKE SELECT, INSERT, UPDATE ON public.families FROM sandbox_exec;
