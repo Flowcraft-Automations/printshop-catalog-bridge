@@ -64,16 +64,6 @@ const dualSided: ModifierFn = (spec, price, ctx) => {
   };
 };
 
-/**
- * Oversize handled in-house: the job is produced as N panels and joined.
- * The material area is unchanged, so the price is unchanged — which is why
- * priceJob resolves the panel count next to the machine check instead of
- * here: the override and large-format paths return before the modifier
- * stage, and a delivery fact has to be reported on every path.
- * Declared as a modifier so a family still opts in through its plan.
- */
-const panelSplit: ModifierFn = () => null;
-
 const minOrderValue: ModifierFn = (spec, price) => {
   if (spec.kind !== "min_order_value" || !(spec.value > 0)) return null;
   if (!(price > 0) || price >= spec.value) return null;
@@ -94,7 +84,6 @@ const costFloor: ModifierFn = () => null;
 const REGISTRY: Record<ModifierSpec["kind"], ModifierFn> = {
   paper_weight: paperWeight,
   dual_sided: dualSided,
-  panel_split: panelSplit,
   size_floor: sizeFloor,
   cost_floor: costFloor,
   min_order_value: minOrderValue,

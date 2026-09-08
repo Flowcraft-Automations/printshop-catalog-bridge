@@ -46,8 +46,6 @@ export type SourceSpec =
 export type ModifierSpec =
   | { kind: "paper_weight"; pct: Record<string, number> }
   | { kind: "dual_sided"; tiers: DualTier[] }
-  /** oversize handled in-house by splitting into panels at the same ₪/m² */
-  | { kind: "panel_split"; maxWidthCm: number }
   /** never quote below an approved row that both dimensions dominate */
   | { kind: "size_floor" }
   /** never quote below production cost × margin — requires a CONFIRMED cost */

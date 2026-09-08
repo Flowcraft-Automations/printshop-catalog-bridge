@@ -24,12 +24,13 @@ describe("pricing plan", () => {
 
   it("a family's override adds to the derived plan instead of replacing it", () => {
     const cfg = famFixture("מדבקות").cfg;
-    const plan = resolvePlan(cfg, { modifiers: [{ kind: "panel_split", maxWidthCm: 120 }] });
+    const plan = resolvePlan(cfg, { modifiers: [{ kind: "cost_floor" }] });
     /* the minimum-order gate is still derived — declaring it twice is what
        would let cfg.minOrderQty and the plan drift apart */
     expect(plan.gates.some((g) => g.kind === "min_order_qty")).toBe(true);
     expect(plan.source.kind).toBe("catalog_surface");
-    expect(plan.modifiers.some((m) => m.kind === "panel_split")).toBe(true);
+    expect(plan.modifiers.some((m) => m.kind === "cost_floor")).toBe(true);
+    expect(plan.modifiers.some((m) => m.kind === "size_floor")).toBe(true);
   });
 
   it("min order stays tied to the config field, not restated in the plan", () => {
@@ -42,10 +43,10 @@ describe("pricing plan", () => {
   });
 
   it("the plan survives the database round-trip", () => {
-    const seed = specSeed("מדבקות");
-    const read = readFamilyPricing(familyRow("מדבקות", seed));
+    const seed = specSeed("קאפה");
+    const read = readFamilyPricing(familyRow("קאפה", seed));
     expect(read.plan).toEqual(seed.plan ?? null);
-    expect(JSON.stringify(writeFamilyPricing(read))).toContain("panel_split");
+    expect(JSON.stringify(writeFamilyPricing(read))).toContain("cost_floor");
   });
 
   it("validatePlan rejects a cost_plus source with no markup", () => {
@@ -83,11 +84,20 @@ describe("quote_only gate (פרספקס — a family added as data, no engine co
   });
 });
 
-describe("panel_split (מדבקות — 120 ס״מ vinyl printer)", () => {
+describe("over-limit = פיצול לחלקים (מדבקות — 120 ס״מ vinyl printer)", () => {
   const fix = famFixture("מדבקות");
   const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
   const q = (w: number, h: number) =>
     priceJob(fix.cfg, fix.anchors, w, h, 1, fix.validated, { prepared })!;
+
+  it("is the admin's choice, not an assumption from the family type", () => {
+    expect(fix.cfg.overLimit).toBe("weld");
+    /* the same family with 'block' chosen refuses instead of splitting */
+    const blocking = famFixture("מדבקות", { overLimit: "block" });
+    const j = priceJob(blocking.cfg, blocking.anchors, 130, 130, 1, blocking.validated)!;
+    expect(j.overMachine).toBe(true);
+    expect(j.panels).toBe(1);
+  });
 
   it("splits only when the short side exceeds the printer width", () => {
     expect(q(100, 100).panels).toBe(1);

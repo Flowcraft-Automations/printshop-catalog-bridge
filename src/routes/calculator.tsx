@@ -1262,6 +1262,22 @@ function Calculator() {
                       width="w-44"
                       placeholder="ללא"
                     />
+                    {/* ההתנהגות מעל גבול ההדפסה נשמרה תמיד במסד (over_limit) אבל
+                        לא הייתה לה שום שליטה במסך — הדרישה "מעל 120 מחלקים לשני
+                        חלקים" לא הייתה ניתנת להגדרה. */}
+                    <Field
+                      label="מעל גבול ההדפסה"
+                      value={draft.overLimit}
+                      onChange={(v) =>
+                        setDraft((p) => ({ ...p, overLimit: v as typeof p.overLimit }))
+                      }
+                      width="w-48"
+                      as="select"
+                    >
+                      <option value="weld">פיצול לחלקים (ריתוך)</option>
+                      <option value="mount">הדבקה על לוח</option>
+                      <option value="block">אין ייצור</option>
+                    </Field>
                     <Field
                       label='גבול ייצור מוחלט — רוחב (ס"מ)'
                       value={draft.capW}

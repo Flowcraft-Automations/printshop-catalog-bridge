@@ -764,17 +764,17 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
   const overL = cfg.maxPrintL > 0 && long > cfg.maxPrintL + 0.01;
   const limitText = `${cfg.maxPrintW || "∞"}×${cfg.maxPrintL || "∞"} ס״מ`;
 
-  /* משפחות גיליון אינן ניתנות לריתוך — מעל גבול ההדפסה הן פשוט מיוצרות במיקור חוץ */
-  const weldable = cfg.method !== "sheet";
-
-  if ((overW || overL) && !(cfg.overLimit === "weld" && !weldable)) {
+  /* ההתנהגות מעל גבול ההדפסה היא בחירה של המנהל (over_limit), לא הנחה לפי
+     סוג המשפחה. בעבר משפחות גיליון דולגו כאן ("לא ניתנות לריתוך"), ולכן
+     מדבקות מעל 120 ס״מ לא התפצלו — הלקוח (2026-09-03): מחלקים לשני חלקים. */
+  if (overW || overL) {
     if (cfg.overLimit === "weld") {
       if (overL) {
         blocked = true;
         notes.push(`מעל האורך המרבי ${cfg.maxPrintL} ס״מ — לא ניתן לייצור`);
       } else {
         panels = Math.ceil(short / cfg.maxPrintW);
-        notes.push(`ריתוך פאנלים — ${panels} פאנלים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
+        notes.push(`מסופק ב-${panels} חלקים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
       }
     } else if (cfg.overLimit === "mount") {
       mounted = true;
@@ -2210,10 +2210,10 @@ export function priceJob(
       noOutsourceCost: outsourcedJob && !(cfg.outsourceCost > 0),
       belowMinOrder: false,
       minOrderQty: cfg.minOrderQty,
-      panels: Math.max(machine.panels, panelCount),
+      panels: machine.panels,
       overMachine: false,
       mounted: machine.mounted,
-      machineNote: [machine.note, panelNote].filter(Boolean).join(" · "),
+      machineNote: machine.note,
       mountCost,
       engine: cfg.engine,
       bindingRule: rule,
@@ -2234,16 +2234,6 @@ export function priceJob(
 
   /* ---- gates: the plan decides which refusals apply to this family ---- */
 
-  /* פיצול לחלקים: אינו משנה מחיר (אותו שטח חומר), ולכן הוא נקבע פעם אחת
-     כאן ומדווח בכל מסלול — כולל מסלולים שחוזרים מוקדם (מחיר מאומת,
-     מדרגת כמות, פורמט גדול) ואינם מגיעים לשלב המקדמים. */
-  const panelRule = plan.modifiers.find((m) => m.kind === "panel_split");
-  const panelWidth = panelRule && panelRule.kind === "panel_split" ? panelRule.maxWidthCm : 0;
-  const shortSide = Math.min(w, h);
-  const panelCount =
-    panelWidth > 0 && shortSide > panelWidth + 0.01 ? Math.ceil(shortSide / panelWidth) : 1;
-  const panelNote =
-    panelCount > 1 ? `מסופק ב-${panelCount} חלקים (רוחב הדפסה ${panelWidth} ס״מ)` : "";
   for (const gate of plan.gates) {
     if (gate.kind === "quote_only")
       return {
@@ -2504,7 +2494,6 @@ export function priceJob(
 
   if (er.quoteOnly) detailParts.push("מידה זו אינה קטלוגית — הצעת מחיר לפי בקשה");
   if (machine.note) detailParts.push(machine.note);
-  if (panelNote) detailParts.push(panelNote);
 
   /* הצעה חלופית לא מחייבת — נוסחת דיגיטל (פליירים, עד digitalMaxQty) */
   const altQuote =

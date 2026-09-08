@@ -84,6 +84,16 @@ describe("family explanation", () => {
     expect(s).toContain("120");
     expect(s).toContain("10 יחידות");
   });
+
+  it("describes the over-limit behaviour the admin chose", () => {
+    const he = (n: string) =>
+      explain(n)
+        .steps.map((l) => l.he)
+        .join(" ");
+    expect(he("מדבקות")).toContain("בכמה חלקים");
+    expect(he("קאפה")).toContain("מודבקת על לוח");
+    expect(he("קנבס")).toContain("אינה מיוצרת");
+  });
 });
 
 /* Every rule kind must produce a line. Without this, adding a rule and
@@ -109,7 +119,6 @@ describe("explanation covers every rule kind", () => {
   const MODIFIERS: ModifierSpec[] = [
     { kind: "paper_weight", pct: { "170": 0.08 } },
     { kind: "dual_sided", tiers: [{ maxQty: null, pct: 0.1 }] },
-    { kind: "panel_split", maxWidthCm: 100 },
     { kind: "size_floor" },
     { kind: "cost_floor" },
     { kind: "min_order_value", value: 250 },

@@ -119,19 +119,30 @@ export function explainFamily(
         he: `מתחת ל-${n(g.qty)} יחידות אין מחיר${g.exemptLargeFormat ? " (למעט פורמט גדול, שאינו עבודת גיליון)" : ""}`,
         en: `Below ${n(g.qty)} units there is no price${g.exemptLargeFormat ? " (except large format, which is not sheet work)" : ""}`,
       });
-    if (g.kind === "machine_limit" && cfg.maxPrintW > 0)
+    if (g.kind === "machine_limit" && cfg.maxPrintW > 0) {
+      const over =
+        cfg.overLimit === "weld"
+          ? {
+              he: `מידה רחבה מ-${cfg.maxPrintW} ס״מ מסופקת בכמה חלקים — אותו מחיר, כי שטח החומר זהה`,
+              en: `A size wider than ${cfg.maxPrintW} cm is delivered in several parts — same price, since the material area is unchanged`,
+            }
+          : cfg.overLimit === "mount"
+            ? {
+                he: `מידה רחבה מ-${cfg.maxPrintW} ס״מ מודבקת על לוח`,
+                en: `A size wider than ${cfg.maxPrintW} cm is mounted on a board`,
+              }
+            : {
+                he: `מידה רחבה מ-${cfg.maxPrintW} ס״מ אינה מיוצרת`,
+                en: `A size wider than ${cfg.maxPrintW} cm is not produced`,
+              };
       steps.push({
-        he: `רוחב הדפסה מרבי ${cfg.maxPrintW} ס״מ${cfg.capW > 0 ? ` · גבול ייצור מוחלט ${cfg.capW} ס״מ` : ""}`,
-        en: `Maximum print width ${cfg.maxPrintW} cm${cfg.capW > 0 ? ` · absolute production limit ${cfg.capW} cm` : ""}`,
+        he: `רוחב הדפסה מרבי ${cfg.maxPrintW} ס״מ · ${over.he}${cfg.capW > 0 ? ` · גבול ייצור מוחלט ${cfg.capW} ס״מ` : ""}`,
+        en: `Maximum print width ${cfg.maxPrintW} cm · ${over.en}${cfg.capW > 0 ? ` · absolute production limit ${cfg.capW} cm` : ""}`,
       });
+    }
   }
 
   for (const m of plan.modifiers) {
-    if (m.kind === "panel_split")
-      steps.push({
-        he: `מידה רחבה מ-${m.maxWidthCm} ס״מ מיוצרת בכמה חלקים — אותו מחיר, כי שטח החומר זהה`,
-        en: `A size wider than ${m.maxWidthCm} cm is produced in several parts — same price, since the material area is unchanged`,
-      });
     if (m.kind === "dual_sided")
       steps.push({
         he: `הדפסה דו-צדדית מוסיפה אחוז לפי כמות (${n(m.tiers.length)} מדרגות)`,
