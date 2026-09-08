@@ -1,4 +1,12 @@
 import { parseNumber } from "./parse";
+import { applyModifiers } from "./pricing/modifiers";
+import {
+  resolvePlan,
+  validatePlan,
+  type ModifierSpec,
+  type PlanOverride,
+  type PricingPlan,
+} from "./pricing/plan";
 
 export type Product = {
   id: string;
@@ -329,6 +337,10 @@ export type FamilyPricing = {
   boardW: number;
   boardH: number;
 
+  /** תוכנית תמחור מפורשת (v3.2). כשהיא קיימת היא גוברת על גזירה מהתצורה —
+      זה מה שמאפשר להוסיף משפחה כנתונים בלבד, בלי שדות חדשים לכל המשפחות. */
+  plan?: PlanOverride | null;
+
   /* --- v3.1: five-engine architecture --- */
   /** מנוע התמחור של המשפחה */
   engine: EngineKind;
@@ -487,6 +499,7 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
           : "per_m2";
       return { engine, legacy: !isEngineKind(rawEngine) };
     })(),
+    plan: (v?.["plan"] as PlanOverride | undefined) ?? null,
     shortRunRefQty:
       num(v?.["short_run_ref_qty"]) > 0 ? Math.floor(num(v?.["short_run_ref_qty"])) : 100,
     minOrderValue: Math.max(0, num(v?.["min_order_value"])),
@@ -663,6 +676,9 @@ export function writeFamilyPricing(cfg: FamilyPricing, prev?: unknown) {
       whole_board: cfg.wholeBoard,
       board_w: cfg.boardW,
       board_h: cfg.boardH,
+
+      /* --- v3.2 --- */
+      plan: cfg.plan ?? null,
 
       /* --- v3.1 --- */
       short_run_ref_qty: cfg.shortRunRefQty,
@@ -1074,6 +1090,8 @@ export type JobOptions = {
   prepared?: PreparedFamily;
   /** פנימי — מדלג על בדיקת המונוטוניות כדי למנוע רקורסיה */
   noAssert?: boolean;
+  /** תוכנית תמחור מפורשת; ברירת המחדל נגזרת מהתצורה של המשפחה */
+  plan?: PricingPlan;
 };
 
 /** Aspect ratio (long/short side), clamped so extreme banners don't explode. */
@@ -2140,10 +2158,10 @@ export function priceJob(
       noOutsourceCost: outsourcedJob && !(cfg.outsourceCost > 0),
       belowMinOrder: false,
       minOrderQty: cfg.minOrderQty,
-      panels: machine.panels,
+      panels: Math.max(machine.panels, panelCount),
       overMachine: false,
       mounted: machine.mounted,
-      machineNote: machine.note,
+      machineNote: [machine.note, panelNote].filter(Boolean).join(" · "),
       mountCost,
       engine: cfg.engine,
       bindingRule,
@@ -2161,6 +2179,52 @@ export function priceJob(
       ...extra,
     };
   };
+
+  /* ---- gates: the plan decides which refusals apply to this family ---- */
+  const plan: PricingPlan = opts.plan ?? resolvePlan(cfg, cfg.plan);
+
+  /* פיצול לחלקים: אינו משנה מחיר (אותו שטח חומר), ולכן הוא נקבע פעם אחת
+     כאן ומדווח בכל מסלול — כולל מסלולים שחוזרים מוקדם (מחיר מאומת,
+     מדרגת כמות, פורמט גדול) ואינם מגיעים לשלב המקדמים. */
+  const panelRule = plan.modifiers.find((m) => m.kind === "panel_split");
+  const panelWidth = panelRule && panelRule.kind === "panel_split" ? panelRule.maxWidthCm : 0;
+  const shortSide = Math.min(w, h);
+  const panelCount =
+    panelWidth > 0 && shortSide > panelWidth + 0.01 ? Math.ceil(shortSide / panelWidth) : 1;
+  const panelNote =
+    panelCount > 1 ? `מסופק ב-${panelCount} חלקים (רוחב הדפסה ${panelWidth} ס״מ)` : "";
+  for (const gate of plan.gates) {
+    if (gate.kind === "quote_only")
+      return {
+        ...finish(
+          0,
+          "cost",
+          "הצעת מחיר",
+          gate.note ?? "משפחה זו מתומחרת ידנית — הצעת מחיר לפי בקשה",
+        ),
+        total: 0,
+        unit: 0,
+        belowCost: false,
+        noQuote: true,
+      };
+    if (
+      gate.kind === "min_order_qty" &&
+      units < gate.qty &&
+      !(gate.exemptLargeFormat && largeFormat)
+    )
+      return {
+        ...finish(
+          0,
+          "min_order_qty",
+          `מינימום הזמנה ${gate.qty.toLocaleString()} יחידות`,
+          `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${gate.qty.toLocaleString()} יחידות`,
+        ),
+        total: 0,
+        unit: 0,
+        belowCost: false,
+        belowMinOrder: true,
+      };
+  }
 
   /* machine limits — impossible to produce, no price */
   if (machine.blocked) {
@@ -2205,23 +2269,6 @@ export function priceJob(
       },
       true,
     );
-  }
-
-  /* minimum order quantity — no price below it. מינימום הכמות שייך לעבודת
-     גיליון (מדפיסים גיליון שלם ממילא); לפורמט גדול הוא אינו חל. */
-  if (cfg.minOrderQty > 1 && units < cfg.minOrderQty && !largeFormat) {
-    return {
-      ...finish(
-        0,
-        "min_order_qty",
-        `מינימום הזמנה ${cfg.minOrderQty.toLocaleString()} יחידות`,
-        `הכמות שהוזנה (${units.toLocaleString()}) נמוכה מהמינימום למשפחה — ${cfg.minOrderQty.toLocaleString()} יחידות`,
-      ),
-      total: 0,
-      unit: 0,
-      belowCost: false,
-      belowMinOrder: true,
-    };
   }
 
   /* מדרגת כמות — מחיר קבוע ליחידה, גובר על העקומה */
@@ -2388,46 +2435,25 @@ export function priceJob(
   const applied: BindingRule[] = [er.bindingRule];
   const detailParts: string[] = [er.detail];
 
-  /* משקל נייר (פליירים: 170 גרם +8%) */
-  if (opts.paperWeight && cfg.engine === "anchor_curve") {
-    const pct = cfg.paperWeightPct[opts.paperWeight];
-    if (pct && pct > 0) {
-      raw *= 1 + pct;
-      noRound = false;
-      detailParts.push(`נייר ${opts.paperWeight} גר׳ +${Math.round(pct * 100)}%`);
-    }
-  }
-
-  /* תוספת דו-צדדי לפי מדרגת כמות */
-  let dualPct = 0;
-  let dualValue = 0;
-  if (opts.dualSided && cfg.dualSurcharge.length) {
-    const tiers = [...cfg.dualSurcharge].sort(
-      (a, b) => (a.maxQty ?? Infinity) - (b.maxQty ?? Infinity),
-    );
-    const t = tiers.find((x) => x.maxQty === null || units <= x.maxQty);
-    if (t && t.pct > 0) {
-      dualPct = t.pct;
-      dualValue = raw * t.pct;
-      raw *= 1 + t.pct;
-      noRound = false;
-      bindingRule = "dual_surcharge";
-      applied.push("dual_surcharge");
-      detailParts.push(`תוספת דו-צדדי +${Math.round(t.pct * 100)}% (${shekel(dualValue)})`);
-    }
-  }
-
-  /* מינימום הזמנה בשקלים */
-  if (cfg.minOrderValue > 0 && raw > 0 && raw < cfg.minOrderValue) {
-    raw = cfg.minOrderValue;
-    bindingRule = "min_order_value";
-    applied.push("min_order_value");
-    noRound = true;
-    detailParts.push(`מינימום הזמנה ${shekel(cfg.minOrderValue)}`);
-  }
+  /* ---- modifiers: applied in the order the family declares them ---- */
+  const mods = applyModifiers(plan.modifiers, raw, {
+    units,
+    widthCm: w,
+    heightCm: h,
+    paperWeight: opts.paperWeight,
+    dualSided: opts.dualSided === true,
+  });
+  raw = mods.price;
+  if (mods.noRound !== null) noRound = mods.noRound;
+  if (mods.bindingRule) bindingRule = mods.bindingRule;
+  applied.push(...mods.applied);
+  detailParts.push(...mods.details);
+  const dualPct = mods.dualPct;
+  const dualValue = mods.dualValue;
 
   if (er.quoteOnly) detailParts.push("מידה זו אינה קטלוגית — הצעת מחיר לפי בקשה");
   if (machine.note) detailParts.push(machine.note);
+  if (panelNote) detailParts.push(panelNote);
 
   /* הצעה חלופית לא מחייבת — נוסחת דיגיטל (פליירים, עד digitalMaxQty) */
   const altQuote =

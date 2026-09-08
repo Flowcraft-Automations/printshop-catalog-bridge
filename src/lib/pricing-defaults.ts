@@ -52,6 +52,7 @@ export function baseFamilyPricing(over: Partial<FamilyPricing> = {}): FamilyPric
     outsourcedMarginFactor: 1.5,
     outsourcedVatIncluded: null,
     paperWeightPct: {},
+    plan: null,
     sizeBuckets: [],
     qtyMultipliers: [],
     curveAnchors: [],
@@ -146,8 +147,15 @@ const STICKERS = baseFamilyPricing({
   minOrderQty: 10,
   sheetMargin: 1.5,
   sheetUnits: { "5x5": 30 },
-  maxPrintW: 150,
+  /* תוספת 2026-09-03: מדפסת הוויניל היא 120 ס״מ. מעל זה העבודה מיוצרת
+     בבית בכמה חלקים — אותו מחיר למ״ר, עם פירוט "מסופק ב-N חלקים". */
+  maxPrintW: 120,
+  /* הקאפ המוחלט נשאר 150: מדיניות החריגה כאן היא פיצול לחלקים, לא סירוב —
+     בקטלוג יש 130×130 ו-140×140 שנמכרים בפועל. */
   capW: 150,
+  /* רק מה שהתצורה אינה יודעת לבטא: הפיצול לחלקים. השערים והמקור נגזרים
+     מהתצורה עצמה, כדי ש-minOrderQty לא יופיע בשני מקומות. */
+  plan: { modifiers: [{ kind: "panel_split", maxWidthCm: 120 }] },
   /* הנחת כמות לפורמט גדול — לשורות הקטלוג שם יש רק כמות 1 */
   qtyExponent: 0.9,
   qtyExponentPinned: true,
@@ -269,11 +277,12 @@ const CANVAS = baseFamilyPricing({
   /* פנורמי: יחס ≥ 2.4 → ‎+10% (על מידות מחושבות, לא על נקודות סולם) */
   panoramicAspect: 2.4,
   panoramicPct: 0.1,
-  /* מקסימום 150×200 — מעבר לכך אין ייצור */
-  capW: 150,
+  /* תוספת 2026-09-03: רוחב 140 (היה 150). האורך 200 ומדיניות החריגה
+     (סירוב מול מיקור חוץ) ממתינים לאישור הלקוח. */
+  capW: 140,
   capL: 200,
   overLimit: "block",
-  maxPrintW: 150,
+  maxPrintW: 140,
   maxPrintL: 200,
 });
 
@@ -333,6 +342,14 @@ const SECURITY_STICKERS = baseFamilyPricing({
  * ההגדרות המאושרות לכל משפחה — המפתחות הם מחרוזות המשפחה המדויקות בקטלוג.
  * חשבוניות ופנקסים הן שתי משפחות נפרדות במסד — אותה תצורה לשתיהן.
  */
+/* תוספת 2026-09-03: פרספקס נכנס כמשפחת גדם עד שיגיע גיליון העלויות.
+   זו הדוגמה למה שהתוכנית קונה — משפחה חדשה היא נתונים, בלי קוד מנוע. */
+const PERSPEX = baseFamilyPricing({
+  engine: "size_ladder",
+  plan: { gates: [{ kind: "quote_only", note: "פרספקס — ממתין לגיליון עלויות מהלקוח" }] },
+  todos: ["פרספקס: אין עדיין עלויות ומחירים — כל מידה מוחזרת כהצעת מחיר (TODO לקוח)"],
+});
+
 export const SPEC_FAMILY_CONFIGS: Record<string, FamilyPricing> = {
   פליירים: FLYERS,
   מדבקות: STICKERS,
@@ -344,6 +361,7 @@ export const SPEC_FAMILY_CONFIGS: Record<string, FamilyPricing> = {
   קאפה: KAPA,
   חשבוניות: INVOICES,
   פנקסים: INVOICES,
+  פרספקס: PERSPEX,
 };
 
 /** משפחה אופציונלית — נוצרת רק באישור הלקוח (בלוק מוער במיגרציה). */
