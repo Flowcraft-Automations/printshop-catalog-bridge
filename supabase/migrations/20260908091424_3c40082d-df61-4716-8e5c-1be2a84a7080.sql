@@ -1,0 +1,1 @@
+GRANT SELECT, INSERT, UPDATE ON public.families TO sandbox_exec;
