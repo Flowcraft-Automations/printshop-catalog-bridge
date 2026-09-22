@@ -32,6 +32,8 @@ export type SourceSpec =
   | { kind: "size_ladder" }
   | { kind: "sheet_yield" }
   | { kind: "unit_floor" }
+  /** מדבקות: גיליון קטן (לפי גיליונות / חבילה) או גליל (לפי מ״ר) — לפי אם המידה נכנסת לגיליון */
+  | { kind: "two_machine_sheet" }
   /** cost tables × markup (דפים): price per page from paper + click cost */
   | {
       kind: "cost_plus";
@@ -50,7 +52,9 @@ export type ModifierSpec =
   | { kind: "size_floor" }
   /** never quote below production cost × margin — requires a CONFIRMED cost */
   | { kind: "cost_floor" }
-  | { kind: "min_order_value"; value: number };
+  | { kind: "min_order_value"; value: number }
+  /** תוספת חומר באחוזים לפי מפתח החומר שנבחר (מדבקות: ויניל / חיתוך צורני / שקוף) */
+  | { kind: "material_surcharge"; pct: Record<string, number> };
 
 export type PricingPlan = {
   gates: GateSpec[];
@@ -95,7 +99,10 @@ export function planFromLegacyConfig(cfg: FamilyPricing): PricingPlan {
       kind: "min_order_qty",
       qty: cfg.minOrderQty,
       /* large format is not sheet work — the sheet minimum does not apply */
-      exemptLargeFormat: cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface",
+      exemptLargeFormat:
+        cfg.engine === "anchor_curve" ||
+        cfg.engine === "catalog_surface" ||
+        cfg.engine === "two_machine_sheet",
     });
 
   const modifiers: ModifierSpec[] = [];

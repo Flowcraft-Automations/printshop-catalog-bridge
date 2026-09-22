@@ -69,6 +69,10 @@ export function baseFamilyPricing(over: Partial<FamilyPricing> = {}): FamilyPric
     digitalPerUnit: 0,
     digitalMaxQty: 0,
     todos: [],
+    /* --- v3.3 --- */
+    catalogBinds: "all",
+    sheetPrice: 0,
+    outsourcedRateM2: 0,
     ...over,
   };
 }
@@ -104,7 +108,8 @@ const FLYERS = baseFamilyPricing({
     { size: "A5", qty: 50, price: 85 },
     { size: "A5", qty: 100, price: 95 },
     { size: "A5", qty: 250, price: 140 },
-    { size: "A5", qty: 500, price: 225 },
+    /* 8/23: "500 A5 = ₪232 באתר — לא לשכוח את המוצר הזה" */
+    { size: "A5", qty: 500, price: 232 },
     { size: "A5", qty: 1000, price: 395 },
     { size: "A5", qty: 2000, price: 475 },
     { size: "A5", qty: 3000, price: 535 },
@@ -116,13 +121,8 @@ const FLYERS = baseFamilyPricing({
     { size: "10/15", qty: 1000, price: 330 },
     { size: "A4", qty: 1000, price: 710 },
   ],
-  /* דו-צדדי: תוספת לפי כמות */
-  dualSurcharge: [
-    { maxQty: 249, pct: 0.08 },
-    { maxQty: 999, pct: 0.2 },
-    { maxQty: 4999, pct: 0.1 },
-    { maxQty: null, pct: 0.03 },
-  ],
+  /* דו-צדדי = חד-צדדי (לקוח 8/24 10:15) — אין תוספת */
+  dualSurcharge: [],
   /* מעל 20,000: ‎+₪0.05 ליחידה (A5; מוכפל במקדם הדלי) */
   tailPerUnit: 0.05,
   /* העקומה = נייר 130 גרם; 170 גרם ‎+8%; ‏300 גרם → משפחת גלויות */
@@ -134,35 +134,53 @@ const FLYERS = baseFamilyPricing({
 });
 
 const STICKERS = baseFamilyPricing({
-  /* משטח מחירים מהקטלוג: base(שטח) × mult(כמות), שניהם נקראים מהשורות
-     המאומתות. נבחר במדידה — leave-one-out על 88 שורות: 3.2% שגיאה ממוצעת,
-     מול 5.2% לאינטרפולציה דו-ממדית ו-12.6% לנוסחה החלקה הטובה ביותר.
-     המחירים נקבעים בקטלוג, לא כאן. */
-  engine: "catalog_surface",
-  shortRunPct: 0.7,
+  /* שתי מכונות (לקוח 2026-09-08/09 + הסרטון של ג׳נה):
+     - מדפסת קטנה: גיליון 48.8×33 עם שוליים 1.5 ס״מ → שטח הדפסה 45.8×30.
+       מדבקה שנכנסת לגיליון מתומחרת לפי גיליונות — ₪20 לגיליון לפי כמה
+       נכנסות בו (1–4 מדבקות = ₪20) — ולעולם לא יותר מחבילת 100 היחידות
+       של דלי הגודל (Q1: מתחת ל-100 = min(חבילה, max(גיליונות, חלק יחסי))).
+     - חבילות האתר (100/150/200/250/500/1000) נשארות: מכמות 100 המחיר הוא
+       עקומת הדליים, ושורות הקטלוג המאומתות מכמות 100 ומעלה קובעות
+       (catalog_binds = packs). הבודדים הישנים בקטלוג (30×20 = ₪95 …) אינם
+       קובעים עוד.
+     - מדפסת גדולה (גליל): מדבקה שאינה נכנסת לגיליון — לפי מ״ר על השטח
+       בפועל, ₪125 עד 1.5 מ״ר ו-₪92 מעליו, מינימום ₪95 ליחידה (Q2; מכויל
+       לששת הבודדים בקטלוג: 70×50=100 · 80×60=105 · 100×100=120 · 120×80=120 ·
+       130×130=155 · 140×140=180 — כולם בטווח 5%). רוחב הדפסה 120 — מעל זה
+       מחלקים לשני חלקים באותו מחיר (9/3); גבול ייצור מוחלט 150.
+     - אין מינימום הזמנה (9/8, 9/9) ואין מדרגות כמות. */
+  engine: "two_machine_sheet",
+  catalogBinds: "packs",
   shortRunRefQty: 100,
   packages: [100, 150, 200, 250, 500, 1000],
-  /* כוונון חי שנקבע בסשנים קודמים מול Lovable — נשמר (סקירת 2026-08-25) */
   cost: 6,
-  minOrderQty: 10,
+  sheetW: 48.8,
+  sheetH: 33,
   sheetMargin: 1.5,
+  sheetGap: 0.5,
+  sheetPrice: 20,
+  /* כוונון ידני מהמסך (הגיליון הישן 42×29 נתן 35 אוטומטית; החדש נותן 40) —
+     אינו משפיע על אף מחיר מוסכם, כי מ-16 יח׳ החלק היחסי מהחבילה גובר */
   sheetUnits: { "5x5": 30 },
-  /* תוספת 2026-09-03: מדפסת הוויניל היא 120 ס״מ; מעל זה מחלקים לחלקים
-     (over_limit = weld) באותו מחיר למ״ר. שים לב: max_print_w / cap_w /
-     over_limit הם שדות "חי גובר" — המיגרציה שומרת את ערך המסד, ולכן את ה-120
-     מזינים במסך ההגדרות; הערך כאן הוא ברירת מחדל להתקנה חדשה ותיעוד. */
+  minOrderQty: 0,
+  perM2Tiers: [
+    { minM2: 0, rate: 125 },
+    { minM2: 1.5, rate: 92 },
+  ],
+  minJobPrice: 95,
   maxPrintW: 120,
   overLimit: "weld",
-  /* הקאפ המוחלט נשאר 150: מדיניות החריגה כאן היא פיצול לחלקים, לא סירוב —
-     בקטלוג יש 130×130 ו-140×140 שנמכרים בפועל. */
   capW: 150,
-  /* הנחת כמות לפורמט גדול — לשורות הקטלוג שם יש רק כמות 1 */
-  qtyExponent: 0.9,
-  qtyExponentPinned: true,
-  /* ---- נפילה לאחור: תצורה, לכשאין מספיק שורות מאומתות ----
-     המנוע קורא את המחירים מהקטלוג; אלה הערכים שמחזיקים את המשפחה כשעדיין
-     לא סומנו שורות כ"אומת". הם נגזרו מהקטלוג עצמו (מחירי 100 יח׳), ולכן
-     הנפילה לאחור ומצב מלא מסכימים ביניהם ולא סותרים זה את זה. */
+  /* חומרים (Q3 — אחוזים זמניים עד אישור הלקוח): ויניל / חיתוך צורני / שקוף */
+  plan: {
+    modifiers: [
+      {
+        kind: "material_surcharge",
+        pct: { vinyl: 0, diecut_vinyl: 0.25, transparent: 0.15 },
+      },
+    ],
+  },
+  /* ---- חבילות האתר: דלי גודל × מקדם כמות (מהקטלוג, מחירי 100 יח׳) ---- */
   sizeBuckets: [
     { id: "3", maxW: 3, maxH: 3, factor: null, base100: 115, quoteOnly: false, includes: [] },
     { id: "4", maxW: 4, maxH: 4, factor: null, base100: 121, quoteOnly: false, includes: [] },
@@ -185,7 +203,7 @@ const STICKERS = baseFamilyPricing({
     { qty: 500, mult: 1.832 },
     { qty: 1000, mult: 3.049 },
   ],
-  /* פורמט גדול ללא שורות מאומתות — תעריף מ״ר */
+  /* עלות הגליל (ג׳נה) — לשורת העלות בלבד */
   outsourceCost: 70,
   outsourcedMarginFactor: 1.35,
 });
@@ -193,33 +211,43 @@ const STICKERS = baseFamilyPricing({
 const SHIMSHONIT = baseFamilyPricing({
   engine: "per_m2",
   cost: 20,
-  outsourceCost: 70,
-  /* עד 1 מ״ר: מינימום ₪65 לעבודה */
+  /* עלות ייצור החוץ של ג׳נה (8/31: "35 זה העלות שלי") — לשורת העלות בלבד */
+  outsourceCost: 35,
+  /* עד 1 מ״ר: מינימום ₪70 לעבודה (8/23: "המחיר שהיה פעם זה 70 שח") */
   minUnitArea: 1,
-  minJobPrice: 65,
+  minJobPrice: 70,
   perM2Tiers: [
     { minM2: 0, rate: 85 },
     { minM2: 2, rate: 75 },
     { minM2: 4, rate: 72 },
   ],
-  /* הצד הצר מעל 150 ס״מ → ייצור חוץ (רצפה ×1.5); עם תפר = ריתוך בבית */
+  /* הצד הצר מעל 150 ס״מ → ייצור חוץ, ₪80 למ״ר שטוח ללקוח (8/31 → 9/1 "כן זה
+     מה שהוא אמר"); עם תפר = ריתוך פאנלים בבית לפי המדרגות */
   maxPrintW: 150,
   maxPrintL: 0,
-  overLimit: "weld",
+  overLimit: "outsource",
+  outsourcedRateM2: 80,
   outsourcedMarginFactor: 1.5,
   outsourcedVatIncluded: null,
-  /* חבילת 10 × 120/80 = ₪470 — מוצר דגל, נשמר */
-  qtyTiersEnabled: true,
-  qtyTiers: [{ minQty: 10, unitPrice: 47, size: "120x80" }],
+  /* שורות הקטלוג: רק עוגנים (is_anchor) קובעים מחיר — 120/80 = 90, 120/100 = 105,
+     200/100 = 150 וכו׳. המידות הישנות של ייצור החוץ (~₪104 למ״ר, למשל
+     200/200 = 416) אינן קובעות עוד. חבילת 120/80×10 = ₪470 שייכת לפוליגל
+     (מבצע מרץ) — לא לשמשונית. */
+  catalogBinds: "anchors",
 });
 
 const PVC = baseFamilyPricing({
   engine: "size_ladder",
   cost: 6,
+  /* מחירון הלקוח (8/19): 20×30 = 35 · 30×60 = 60 · 30×80 = 80 · 30×90 = 90 ·
+     40×60 = 70 — התאמה מדויקת גוברת על אינטרפולציה לפי שטח */
   sizeLadder: [
-    { w: 20, h: 30, price: 30 },
+    { w: 20, h: 30, price: 35 },
     { w: 30, h: 40, price: 40 },
+    { w: 30, h: 60, price: 60 },
+    { w: 40, h: 60, price: 70 },
     { w: 50, h: 50, price: 80 },
+    { w: 30, h: 80, price: 80 },
     { w: 30, h: 90, price: 90 },
     { w: 50, h: 70, price: 100 },
     { w: 100, h: 40, price: 115 },
@@ -231,26 +259,35 @@ const PVC = baseFamilyPricing({
     { w: 100, h: 150, price: 300 },
     { w: 80, h: 200, price: 350 },
   ],
+  /* גבול ייצור (הנחה, Q8 — הלקוח לא מסר): 150×300 */
+  capW: 150,
+  capL: 300,
+  overLimit: "block",
 });
 
 const POLYGAL = baseFamilyPricing({
-  engine: "size_ladder",
+  /* לקוח 8/18: "לבודדים נעשה 90 שח" — גם 60×40 וגם 120×80 (נטלי: החומר נזרק
+     ממילא). 10 × 120/80 = ₪470 (מבצע מרץ, כולל טבעות ומשלוח); 40/40 × 10 = ₪295.
+     ₪80 למ״ר עם מינימום ₪90 נותן 90 לכל מידה עד ~1.1 מ״ר, ומעלה בהמשכיות
+     (150×100 = 120, 200×100 = 160 — הנחה, Q5/Q6). מעל 150 רוחב → ייצור חוץ
+     ₪80 למ״ר (Q6). שורות הקטלוג (₪55–70 לבודדים) נדחו — נוסחה בלבד. */
+  engine: "per_m2",
   cost: 6,
-  sizeLadder: [
-    { w: 40, h: 40, price: 55 },
-    { w: 60, h: 60, price: 55 },
-    { w: 60, h: 80, price: 65 },
-    { w: 100, h: 80, price: 65 },
-    { w: 120, h: 80, price: 85 },
-  ],
+  outsourceCost: 60,
+  minUnitArea: 1,
+  minJobPrice: 90,
+  perM2Tiers: [{ minM2: 0, rate: 80 }],
   maxPrintW: 150,
-  overLimit: "weld",
-  /* חבילות: 120/80×10 = ₪470 (נשמר) · 40/40×10 = ₪295 */
+  overLimit: "outsource",
+  outsourcedRateM2: 80,
+  /* חבילות: כל מידה שנכנסת ב-120/80 → ₪47 ליחידה מ-10; עד 40/40 → ₪29.5.
+     בין 2 ל-9 יחידות: ליניארי מ-₪90 לבודד עד מחיר החבילה. */
   qtyTiersEnabled: true,
   qtyTiers: [
     { minQty: 10, unitPrice: 47, size: "120x80" },
     { minQty: 10, unitPrice: 29.5, size: "40x40" },
   ],
+  catalogBinds: "none",
 });
 
 const CANVAS = baseFamilyPricing({
@@ -406,7 +443,7 @@ export const TARGETS: Target[] = [
   /* פליירים — עקומת A5 */
   { family: "פליירים", w: 15, h: 21, qty: 200, price: 125, source: "ספק: 351 → ₪125" },
   { family: "פליירים", w: 15, h: 21, qty: 300, price: 170, source: "ספק: 417 → ₪170" },
-  { family: "פליירים", w: 15, h: 21, qty: 500, price: 225, source: "עקומת A5 מאושרת" },
+  { family: "פליירים", w: 15, h: 21, qty: 500, price: 232, source: "מחיר האתר (8/23)" },
   { family: "פליירים", w: 15, h: 21, qty: 1000, price: 395, source: "עקומת A5 מאושרת" },
   { family: "פליירים", w: 15, h: 21, qty: 2000, price: 475, source: "עקומת A5 מאושרת" },
   { family: "פליירים", w: 15, h: 21, qty: 3000, price: 535, source: "עקומת A5 מאושרת" },
@@ -424,38 +461,21 @@ export const TARGETS: Target[] = [
   { family: "מדבקות", w: 5, h: 9, qty: 500, price: 174, source: "סולם 5×9 מאושר" },
   { family: "מדבקות", w: 5, h: 9, qty: 1000, price: 245, source: "סולם 5×9 מאושר" },
   /* שמשונית */
-  { family: "שמשונית", w: 60, h: 40, qty: 1, price: 65, source: "מינימום עד 1 מ״ר" },
+  { family: "שמשונית", w: 60, h: 40, qty: 1, price: 70, source: "מינימום ₪70 (8/23)" },
+  { family: "שמשונית", w: 120, h: 10, qty: 1, price: 70, source: "מינימום ₪70 (8/23)" },
   { family: "שמשונית", w: 120, h: 80, qty: 1, price: 90, source: "נקודה מאושרת" },
   { family: "שמשונית", w: 120, h: 100, qty: 1, price: 105, source: "נקודה מאושרת" },
   { family: "שמשונית", w: 200, h: 100, qty: 1, price: 150, source: "נקודה מאושרת" },
-  { family: "שמשונית", w: 120, h: 80, qty: 10, price: 470, source: "חבילת 10 — נשמר" },
-  {
-    family: "שמשונית",
-    w: 400,
-    h: 200,
-    qty: 1,
-    priceMin: 830,
-    source: "ייצור חוץ — המחיר הישן היה נכון",
-  },
-  {
-    family: "שמשונית",
-    w: 500,
-    h: 300,
-    qty: 1,
-    price: 1560,
-    source: "ייצור חוץ — המחיר הישן היה נכון",
-  },
-  {
-    family: "שמשונית",
-    w: 600,
-    h: 400,
-    qty: 1,
-    priceMin: 2400,
-    priceMax: 2500,
-    source: "ייצור חוץ — המחיר הישן היה נכון",
-  },
+  { family: "שמשונית", w: 200, h: 200, qty: 1, price: 320, source: "ייצור חוץ ₪80 למ״ר (8/31, 9/1)" },
+  { family: "שמשונית", w: 300, h: 200, qty: 1, price: 480, source: "ייצור חוץ ₪80 למ״ר (8/31, 9/1)" },
+  { family: "שמשונית", w: 400, h: 200, qty: 1, price: 640, source: "ייצור חוץ ₪80 למ״ר (8/31, 9/1)" },
+  { family: "שמשונית", w: 500, h: 300, qty: 1, price: 1200, source: "ייצור חוץ ₪80 למ״ר (8/31, 9/1)" },
+  { family: "שמשונית", w: 600, h: 400, qty: 1, price: 1920, source: "ייצור חוץ ₪80 למ״ר (8/31, 9/1)" },
   /* PVC */
-  { family: "שלטי PVC", w: 20, h: 30, qty: 1, price: 30, source: "סולם מאושר" },
+  { family: "שלטי PVC", w: 20, h: 30, qty: 1, price: 35, source: "מחירון הלקוח 8/19" },
+  { family: "שלטי PVC", w: 30, h: 60, qty: 1, price: 60, source: "מחירון הלקוח 8/19" },
+  { family: "שלטי PVC", w: 30, h: 80, qty: 1, price: 80, source: "מחירון הלקוח 8/19" },
+  { family: "שלטי PVC", w: 40, h: 60, qty: 1, price: 70, source: "מחירון הלקוח 8/19" },
   { family: "שלטי PVC", w: 30, h: 90, qty: 1, price: 90, source: "סולם מאושר" },
   {
     family: "שלטי PVC",
@@ -466,7 +486,9 @@ export const TARGETS: Target[] = [
     source: "סולם מאושר (מחיקת כפילות 754/760)",
   },
   /* פוליגל */
-  { family: "פוליגל", w: 120, h: 80, qty: 1, price: 85, source: "סולם מאושר (ביטול ₪70)" },
+  { family: "פוליגל", w: 120, h: 80, qty: 1, price: 90, source: "בודדים ₪90 (8/18)" },
+  { family: "פוליגל", w: 60, h: 40, qty: 1, price: 90, source: "בודדים ₪90 (8/18)" },
+  { family: "פוליגל", w: 120, h: 80, qty: 10, price: 470, source: "מבצע מרץ — 10 שלטים ₪470" },
   { family: "פוליגל", w: 40, h: 40, qty: 10, price: 295, source: "חבילה מאושרת" },
   /* קנבס */
   { family: "קנבס", w: 20, h: 20, qty: 1, price: 59, source: "הוזלה מאושרת" },
@@ -537,6 +559,13 @@ export const TARGETS: Target[] = [
   },
   { family: "רול אפ", qty: 1, nameLike: "רול אפ", price: 215, source: "נשמר" },
 ];
+
+/**
+ * קובץ המיגרציה שמייצר scripts/generate-config-migration.ts מהזרעים כאן.
+ * הבדיקה pricing-defaults.test.ts מוודאת שהקובץ המחויב שווה לזרעים.
+ */
+export const PRICING_MIGRATION_FILE =
+  "supabase/migrations/20260922120000_pricing_config_client_rules.sql";
 
 /** מע״מ — עוגני מתחרים שפורסמו לפני מע״מ מוכפלים ב-1.18 לפני השוואה. */
 export const VAT_FACTOR = 1.18;

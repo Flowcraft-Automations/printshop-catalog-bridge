@@ -7,7 +7,7 @@ import {
   type FamilyPricing,
 } from "./mdvd";
 import { baseFamilyPricing } from "./pricing-defaults";
-import { famFixture, mkAnchor } from "./pricing-fixtures";
+import { famFixture, liveFixture, mkAnchor } from "./pricing-fixtures";
 import { parseNumber } from "./parse";
 
 /* ------------------------------------------------------------------ *
@@ -232,8 +232,9 @@ describe("bug7_adopt_validation (pointer — full coverage in validate-suggestio
  * ------------------------------------------------------------------ */
 
 describe("bug8_stickers_price_must_follow_size", () => {
-  /* famFixture supplies the real approved rows for a catalog_surface family */
-  const fix = famFixture("מדבקות");
+  /* liveFixture supplies the verified rows; under catalog_binds = packs only
+     the ≥100 rows bind, singles come from the two-machine formula */
+  const fix = liveFixture("מדבקות");
   const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
   const q = (w: number, h: number, qty: number) =>
     priceJob(fix.cfg, fix.anchors, w, h, qty, fix.validated, { prepared })!;
@@ -242,7 +243,8 @@ describe("bug8_stickers_price_must_follow_size", () => {
     const j = q(115, 8, 10);
     expect(j.bindingRule).toBe("large_format");
     expect(j.total).not.toBe(136);
-    expect(j.total).toBe(755);
+    /* roll: 0.092 m² × ₪125 = 11.5 → ₪95 minimum × 10 */
+    expect(j.total).toBe(950);
   });
 
   it("a unit that does not fit the sheet still gets a real production cost", () => {
@@ -252,27 +254,26 @@ describe("bug8_stickers_price_must_follow_size", () => {
     expect(j.costFloorValue).toBeGreaterThan(0);
   });
 
-  it("large format is exempt from the 10-unit minimum", () => {
-    const j = q(17, 56, 1);
+  it("the roll is exempt from a sheet minimum order", () => {
+    const withMin = liveFixture("מדבקות", { minOrderQty: 10 });
+    const j = priceJob(withMin.cfg, withMin.anchors, 17, 56, 1, withMin.validated)!;
     expect(j.belowMinOrder).toBe(false);
     expect(j.total).toBe(95);
+    expect(priceJob(withMin.cfg, withMin.anchors, 5, 5, 5, withMin.validated)!.belowMinOrder).toBe(true);
   });
 
-  it("an approved price beats the 10-unit minimum", () => {
+  it("a sheet-sized single is one sheet, not the old ₪95 catalog row", () => {
     const j = q(30, 20, 1);
-    expect(j.belowMinOrder).toBe(false);
-    expect(j.bindingRule).toBe("validated");
-    expect(j.total).toBe(95);
-  });
-
-  it("the 10-unit minimum still applies to sheet-printable sizes", () => {
-    expect(q(5, 5, 5).belowMinOrder).toBe(true);
+    expect(j.bindingRule).toBe("sheet");
+    expect(j.total).toBe(20);
+    const old = liveFixture("מדבקות", { catalogBinds: "all" });
+    const o = priceJob(old.cfg, old.anchors, 30, 20, 1, old.validated)!;
+    expect(o.bindingRule).toBe("validated");
+    expect(o.total).toBe(95);
   });
 
   it("sizes above 9 ס״מ no longer collide on one price", () => {
-    const totals = [q(10, 10, 10), q(17, 17, 10), q(20, 30, 10), q(100, 100, 10)].map(
-      (j) => j.total,
-    );
+    const totals = [q(10, 10, 10), q(17, 17, 10), q(100, 100, 10)].map((j) => j.total);
     expect(new Set(totals).size).toBe(totals.length);
     for (let i = 1; i < totals.length; i++) expect(totals[i]!).toBeGreaterThan(totals[i - 1]!);
   });
@@ -285,26 +286,27 @@ describe("bug8_stickers_price_must_follow_size", () => {
       [15, 10],
     ] as [number, number][])
       expect(q(w, h, 100).total).toBe(187);
-    expect(q(17, 17, 80).total).toBe(270);
+    /* 80 units of 17×17: 40 sheets would be ₪800 — capped at the 100-pack */
+    expect(q(17, 17, 80).total).toBe(q(17, 17, 100).total);
   });
 
-  it("a size between two approved rows is priced between them", () => {
+  it("a roll size between two catalog singles is priced between them", () => {
     const mid = q(100, 80, 1).total;
     expect(mid).toBeGreaterThan(q(80, 60, 1).total);
     expect(mid).toBeLessThan(q(120, 80, 1).total);
-    expect(mid).toBe(115);
+    expect(mid).toBe(100);
   });
 
-  it("the quantity exponent discounts a large-format run, never a single unit", () => {
+  it("the roll is linear in quantity — no exponent discount, no single-unit surprise", () => {
     for (const [w, h, price] of [
       [17, 56, 95],
       [20, 70, 95],
-      [50, 70, 100],
+      [50, 70, 95],
     ] as [number, number, number][])
       expect(q(w, h, 1).total).toBe(price);
     const ten = q(115, 8, 10);
-    expect(ten.qtyFactor).toBeCloseTo(10 ** 0.9, 6);
-    expect(ten.total).toBeLessThan(10 * q(115, 8, 1).total);
+    expect(ten.qtyFactor).toBe(1);
+    expect(ten.total).toBe(10 * q(115, 8, 1).total);
   });
 
   it("totals still rise strictly with quantity", () => {

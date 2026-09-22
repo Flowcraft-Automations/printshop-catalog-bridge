@@ -11,6 +11,7 @@ import {
 } from "./mdvd";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { CLIENT_CATALOG } from "./client-catalog-fixture";
 import { OPTIONAL_FAMILY_CONFIGS, SPEC_ANCHORS, SPEC_FAMILY_CONFIGS } from "./pricing-defaults";
 
 /** The approved seed config for a family (spec or optional). */
@@ -40,14 +41,15 @@ export function mkAnchor(
   qty: number,
   price: number,
   name = `${w}x${h}@${qty}`,
+  anchor = false,
 ): JobAnchor {
-  return { id: name, name, w, h, area: (w * h) / 10000, qty, price };
+  return { id: name, name, w, h, area: (w * h) / 10000, qty, price, anchor };
 }
 
-/** SPEC_ANCHORS for one family, mapped to JobAnchor. */
+/** SPEC_ANCHORS for one family, mapped to JobAnchor (is_anchor rows by definition). */
 export function specAnchorsFor(name: string): JobAnchor[] {
   return SPEC_ANCHORS.filter((a) => a.family === name).map((a) =>
-    mkAnchor(a.w, a.h, a.qty, a.price),
+    mkAnchor(a.w, a.h, a.qty, a.price, undefined, true),
   );
 }
 
@@ -72,6 +74,37 @@ export function famFixture(name: string, over: Partial<FamilyPricing> = {}): Fam
     /* only the catalog_surface engine reads its prices from the catalog;
        the config-driven engines are scored against their approved seed */
     validated: seed.engine === "catalog_surface" ? catalogRows(name) : [],
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ *  The live catalog as it was on 2026-09-22 (client-catalog-fixture.ts):
+ *  every verified row with its is_anchor flag. This is what the app feeds
+ *  the engine, so the golden snapshot and the client acceptance cases run
+ *  against it. Families outside the fixture get the spec anchors only.
+ * ------------------------------------------------------------------ */
+
+/** Verified catalog rows for a family, mapped to JobAnchor (anchor = is_anchor). */
+export function liveRows(family: string): JobAnchor[] {
+  return (CLIENT_CATALOG[family] ?? []).map(([w, h, qty, price, anchor]) =>
+    mkAnchor(w, h, qty, price, `${w}/${h}@${qty}`, anchor),
+  );
+}
+
+/**
+ * The family as the app sees it in production: the seed config after the
+ * database round-trip, plus the live verified rows (`validated`) and the
+ * is_anchor rows among them (`anchors`). Falls back to famFixture's spec
+ * anchors for families the snapshot does not cover.
+ */
+export function liveFixture(name: string, over: Partial<FamilyPricing> = {}): FamFixture {
+  const base = famFixture(name, over);
+  const rows = liveRows(name);
+  if (!rows.length) return base;
+  return {
+    cfg: base.cfg,
+    anchors: rows.filter((r) => r.anchor === true),
+    validated: rows,
   };
 }
 

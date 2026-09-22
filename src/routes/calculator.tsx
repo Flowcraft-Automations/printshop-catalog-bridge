@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { explainFamily } from "@/lib/pricing/explain";
+import { MATERIAL_LABEL } from "@/lib/pricing/modifiers";
 import { resolvePlan } from "@/lib/pricing/plan";
 import { Anchor as AnchorIcon } from "lucide-react";
 import { PageTitle } from "@/components/AppShell";
@@ -21,6 +22,7 @@ import {
   SHEET_H_CM,
   SHEET_GAP_CM,
   familyAnchors,
+  isCatalogBinds,
   mergeCloseAnchors,
   familyValidated,
   isClosedOut,
@@ -36,10 +38,19 @@ import {
   slugify,
   validateFamilyPricing,
   writeFamilyPricing,
+  type CatalogBinds,
   type EngineKind,
   type FamilyPricing,
   type OverLimit,
 } from "@/lib/mdvd";
+
+/** הסבר של שורה אחת לכל מדיניות קשירה לקטלוג */
+const CATALOG_BINDS_HELP: Record<CatalogBinds, string> = {
+  all: "כל שורה מאומתת בקטלוג באותה מידה וכמות קובעת את המחיר כמות שהוא, ומידה מאומתת קטנה יותר מרצפת את המחיר.",
+  anchors: "רק שורות שסומנו ⚓ (עוגן) קובעות מחיר ומרצפות; שאר השורות המאומתות משמשות להשוואה בלבד.",
+  packs: "רק שורות מכמות החבילה הקטנה ומעלה (מחירי האתר לחבילות) קובעות; מחירי הבודדים הישנים אינם קובעים.",
+  none: "הקטלוג אינו קובע מחיר — הנוסחה בלבד. השורות מוצגות בלוח ההסכמה לצורך השוואה.",
+};
 
 export const Route = createFileRoute("/calculator")({
   head: () => ({
@@ -148,6 +159,11 @@ type Draft = {
   wholeBoard: boolean;
   boardW: string;
   boardH: string;
+  /* --- v3.3 --- */
+  sheetPrice: string;
+  outsourcedRateM2: string;
+  minJobPrice: string;
+  catalogBinds: CatalogBinds;
 };
 
 function Calculator() {
@@ -203,6 +219,10 @@ function Calculator() {
     wholeBoard: false,
     boardW: "",
     boardH: "",
+    sheetPrice: "",
+    outsourcedRateM2: "",
+    minJobPrice: "",
+    catalogBinds: "all",
   });
 
   const [sheetUnits, setSheetUnits] = useState<Record<string, number>>({});
@@ -239,6 +259,10 @@ function Calculator() {
       wholeBoard: saved.wholeBoard,
       boardW: saved.boardW ? String(saved.boardW) : "",
       boardH: saved.boardH ? String(saved.boardH) : "",
+      sheetPrice: saved.sheetPrice ? String(saved.sheetPrice) : "",
+      outsourcedRateM2: saved.outsourcedRateM2 ? String(saved.outsourcedRateM2) : "",
+      minJobPrice: saved.minJobPrice ? String(saved.minJobPrice) : "",
+      catalogBinds: saved.catalogBinds,
     });
 
     setSheetUnits(saved.sheetUnits);
@@ -259,7 +283,7 @@ function Calculator() {
       /* התצורה השמורה נושאת את כל שדות v3.1 (דליים, עקומות, סולמות, דו-צדדי,
          טבלת תפוקה, TODO וכו׳) — הטופס עורך רק את הסקלרים שמעליה */
       ...saved,
-      method: engine === "anchor_curve" ? "sheet" : "area",
+      method: engine === "anchor_curve" || engine === "two_machine_sheet" ? "sheet" : "area",
       /* סף מיקור חוץ — נפרד לחלוטין מגבול ההדפסה של המכונה */
       thresholdW: n(draft.tw),
       thresholdH: n(draft.th),
@@ -314,6 +338,12 @@ function Calculator() {
       boardW: n(draft.boardW),
       boardH: n(draft.boardH),
 
+      /* --- v3.3 --- */
+      sheetPrice: n(draft.sheetPrice),
+      outsourcedRateM2: n(draft.outsourcedRateM2),
+      minJobPrice: n(draft.minJobPrice),
+      catalogBinds: draft.catalogBinds,
+
       /* --- v3.1 --- */
       engine,
       /* בחירת מנוע בטופס = תצורה ממוגרת; שמירה תכתוב את שדה המנוע */
@@ -323,7 +353,10 @@ function Calculator() {
   }, [draft, sheetUnits, tiersOn, tiers, saved]);
 
   /* מנועים מבוססי-גיליון — קובעים אילו שדות/עמודות גיליון מוצגים */
-  const sheetish = cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield";
+  const sheetish =
+    cfg.engine === "anchor_curve" ||
+    cfg.engine === "sheet_yield" ||
+    cfg.engine === "two_machine_sheet";
 
   const anchors = useMemo(() => familyAnchors(products, family), [products, family]);
 
@@ -459,11 +492,18 @@ function Calculator() {
   const [qty, setQty] = useState("1");
   /* חד-צדדי / דו-צדדי — מתאפס בהחלפת משפחה */
   const [sides, setSides] = useState<1 | 2>(1);
+  /* חומר (מדבקות) — מפתח במקדם material_surcharge של המשפחה */
+  const [material, setMaterial] = useState("vinyl");
+  const materialPct = useMemo(() => {
+    const m = resolvePlan(cfg, cfg.plan).modifiers.find((x) => x.kind === "material_surcharge");
+    return m && m.kind === "material_surcharge" ? m.pct : null;
+  }, [cfg]);
+  /* כל משפחה נפתחת בכמות 1 — לקוח מזדמן קונה 1–4 (9/9); חבילות נבחרות בלחיצה */
   useEffect(() => {
-    if (cfg.packages.length) setQty(String(cfg.packages[0]));
-    else setQty("1");
+    setQty("1");
     setSides(1);
-  }, [family, cfg.packages.length]);
+    setMaterial("vinyl");
+  }, [family]);
 
   const nw = Number(w) || 0;
   const nh = Number(h) || 0;
@@ -477,8 +517,13 @@ function Calculator() {
     [family, cfg, prepared],
   );
   const job = useMemo(
-    () => priceJob(cfg, anchors, nw, nh, nq, validated, { dualSided: sides === 2, prepared }),
-    [cfg, anchors, nw, nh, nq, validated, sides, prepared],
+    () =>
+      priceJob(cfg, anchors, nw, nh, nq, validated, {
+        dualSided: sides === 2,
+        prepared,
+        ...(materialPct ? { material } : {}),
+      }),
+    [cfg, anchors, nw, nh, nq, validated, sides, prepared, materialPct, material],
   );
 
   const inconsistent = job?.inconsistent ?? [];
@@ -494,9 +539,13 @@ function Calculator() {
     () =>
       cfg.packages.map((p) => ({
         qty: p,
-        job: priceJob(cfg, anchors, nw, nh, p, validated, { dualSided: sides === 2 }),
+        job: priceJob(cfg, anchors, nw, nh, p, validated, {
+          dualSided: sides === 2,
+          prepared,
+          ...(materialPct ? { material } : {}),
+        }),
       })),
-    [cfg, anchors, nw, nh, validated, sides],
+    [cfg, anchors, nw, nh, validated, sides, prepared, materialPct, material],
   );
 
   /* the typed job's area, always shown */
@@ -520,6 +569,28 @@ function Calculator() {
       .sort((a, b) => a.gap - b.gap)
       .slice(0, 5);
   }, [validated, jobArea, nq]);
+
+  /* הסכמה עם הקטלוג: כל שורה מאומתת מול המחיר שהנוסחה לבדה נותנת לה
+     (catalog_binds = none) — הקטלוג הופך ממדריס שקט לבדיקה שאפשר לקרוא */
+  const agreement = useMemo(() => {
+    if (!family || !validated.length) return null;
+    const preparedNone = prepareFamily(cfg, anchors, validated, { catalogBinds: "none" });
+    const rows = validated.map((v) => {
+      const j = priceJob(cfg, anchors, v.w, v.h, v.qty, validated, {
+        catalogBinds: "none",
+        prepared: preparedNone,
+      });
+      const engine = j && !j.noQuote && !j.overMachine && !j.belowMinOrder ? j.total : null;
+      const delta = engine !== null && v.price > 0 ? (engine - v.price) / v.price : null;
+      return { ...v, engine, delta, rule: j?.bindingRule ?? null };
+    });
+    const scored = rows.filter((r): r is typeof r & { delta: number } => r.delta !== null);
+    const mean = scored.length
+      ? scored.reduce((t, r) => t + Math.abs(r.delta), 0) / scored.length
+      : 0;
+    const worst = [...scored].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 5);
+    return { total: rows.length, scored: scored.length, mean, worst };
+  }, [family, cfg, anchors, validated]);
 
   const famList = useMemo(() => {
     const q = famSearch.trim().toLowerCase();
@@ -640,6 +711,31 @@ function Calculator() {
                 ))}
               </div>
             ) : null}
+            {/* חומר — רק כשלמשפחה יש מקדם material_surcharge (מדבקות) */}
+            {materialPct ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {Object.keys(materialPct).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setMaterial(k)}
+                    title={
+                      (materialPct[k] ?? 0) > 0
+                        ? `+${Math.round((materialPct[k] ?? 0) * 100)}% (טרם אושר)`
+                        : "ללא תוספת"
+                    }
+                    className={`border-2 px-2 py-0.5 text-[11px] font-bold ${
+                      material === k
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-background"
+                        : "border-[var(--line,#c9d4de)] text-muted-foreground"
+                    }`}
+                  >
+                    {MATERIAL_LABEL[k] ?? k}
+                    {(materialPct[k] ?? 0) > 0 ? ` +${Math.round((materialPct[k] ?? 0) * 100)}%` : ""}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {/* area — always visible */}
@@ -662,10 +758,10 @@ function Calculator() {
               </div>
             ) : job?.noQuote ? (
               <>
-                <div className="text-lg font-bold text-destructive">אין מחיר</div>
-                {job.configError ? (
-                  <div className="text-xs text-muted-foreground">{job.configError}</div>
-                ) : null}
+                <div className="text-lg font-bold text-[var(--ink)]">הצעת מחיר לפי בקשה</div>
+                <div className="text-xs text-muted-foreground">
+                  {job.configError ?? job.detail ?? "אין תמחור אוטומטי למידה זו"}
+                </div>
               </>
             ) : job ? (
               <>
@@ -724,7 +820,12 @@ function Calculator() {
             ) : null}
             {job.above ? (
               <div className="font-bold text-[var(--ink)]">
-                ייצור חוץ — {shekel(cfg.outsourceCost)}/מ״ר
+                ייצור חוץ —{" "}
+                {shekel(cfg.outsourcedRateM2 > 0 ? cfg.outsourcedRateM2 : cfg.outsourceCost)}
+                /מ״ר
+                {cfg.outsourcedRateM2 > 0 && cfg.minJobPrice > 0
+                  ? ` · מינימום ${shekel(cfg.minJobPrice)}`
+                  : ""}
               </div>
             ) : null}
             {job.dualPct > 0 ? (
@@ -807,7 +908,27 @@ function Calculator() {
               </div>
             ) : null}
 
-            {job.unitsPerSheet ? (
+            {cfg.engine === "two_machine_sheet" ? (
+              job.unitsPerSheet ? (
+                <div className="font-bold text-[var(--ink)]">
+                  מדפסת קטנה · {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)}{" "}
+                  גיליונות · {shekel(cfg.sheetPrice)} לגיליון · שטח הדפסה {printableSheet(cfg).w}×
+                  {printableSheet(cfg).h} ס״מ
+                  {job.bindingRule === "validated" ||
+                  job.bindingRule === "anchor" ||
+                  job.bindingRule === "curve" ||
+                  job.bindingRule === "package_min"
+                    ? " · מחיר חבילה"
+                    : ""}
+                </div>
+              ) : (
+                <div className="font-bold text-[var(--ink)]">
+                  מדפסת גדולה (גליל) · {jobArea.toFixed(3)} מ״ר · לפי מ״ר
+                  {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""} —
+                  המדבקה אינה נכנסת לגיליון {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                </div>
+              )
+            ) : job.unitsPerSheet ? (
               <div>
                 {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)} גיליונות · שטח הדפסה{" "}
                 {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
@@ -1039,12 +1160,13 @@ function Calculator() {
                 </div>
               ) : null}
 
+              {/* ---------- (א) מנוע ומדיניות קשירה לקטלוג ---------- */}
               <div className="flex flex-wrap items-end gap-6">
                 <Field
                   label="מנוע תמחור"
                   value={draft.engine}
                   onChange={(v) => setDraft((p) => ({ ...p, engine: v }))}
-                  width="w-48"
+                  width="w-56"
                   as="select"
                 >
                   {(Object.keys(ENGINE_LABEL) as EngineKind[]).map((k) => (
@@ -1053,6 +1175,23 @@ function Calculator() {
                     </option>
                   ))}
                 </Field>
+                <Field
+                  label="שורות הקטלוג קובעות מחיר"
+                  value={draft.catalogBinds}
+                  onChange={(v) =>
+                    setDraft((p) => ({ ...p, catalogBinds: isCatalogBinds(v) ? v : p.catalogBinds }))
+                  }
+                  width="w-64"
+                  as="select"
+                >
+                  <option value="all">כל שורה מאומתת</option>
+                  <option value="anchors">רק עוגנים ⚓</option>
+                  <option value="packs">רק חבילות (מכמות {cfg.shortRunRefQty})</option>
+                  <option value="none">אף שורה — נוסחה בלבד</option>
+                </Field>
+                <div className="w-full text-[11px] font-bold text-muted-foreground">
+                  {CATALOG_BINDS_HELP[cfg.catalogBinds]}
+                </div>
               </div>
 
               {draft.engine === "per_m2" && anchors.some((a) => a.qty > 500) ? (
@@ -1061,280 +1200,350 @@ function Calculator() {
                 </div>
               ) : null}
 
-              {/* סיכום קריאה-בלבד של טבלאות התצורה (נטענות מהמיגרציה; עריכה בגרסה הבאה) */}
-              {cfg.engine === "anchor_curve" &&
-              (cfg.sizeBuckets.length || cfg.curveAnchors.length) ? (
-                <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-                  עקומה מוגדרת: {cfg.sizeBuckets.length} דליים · {cfg.curveAnchors.length} נקודות
-                  {cfg.qtyMultipliers.length ? ` · ${cfg.qtyMultipliers.length} מקדמי כמות` : ""}
-                  {cfg.dualSurcharge.length ? ` · ${cfg.dualSurcharge.length} מדרגות דו-צדדי` : ""}
+              {/* ---------- מגבלות מכונה — גבול הייצור המוחלט קודם ---------- */}
+              <div className="mt-4 w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                  מגבלות מכונה · גבול ייצור מוחלט {cfg.capW || "∞"}×{cfg.capL || "∞"} ס״מ
                 </div>
-              ) : null}
-              {cfg.engine === "size_ladder" && cfg.sizeLadder.length ? (
-                <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-                  סולם: {cfg.sizeLadder.length} מידות
+                <div className="flex flex-wrap items-end gap-6">
+                  <Field
+                    label='גבול ייצור מוחלט — רוחב (ס"מ)'
+                    value={draft.capW}
+                    onChange={(v) => setDraft((p) => ({ ...p, capW: v }))}
+                    width="w-48"
+                    placeholder="ללא"
+                  />
+                  <Field
+                    label='גבול ייצור מוחלט — אורך (ס"מ)'
+                    value={draft.capL}
+                    onChange={(v) => setDraft((p) => ({ ...p, capL: v }))}
+                    width="w-48"
+                    placeholder="ללא"
+                  />
+                  <Field
+                    label='גבול הדפסה — רוחב (ס"מ)'
+                    value={draft.maxPrintW}
+                    onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
+                    width="w-44"
+                    placeholder="ללא"
+                  />
+                  <Field
+                    label='גבול הדפסה — אורך (ס"מ)'
+                    value={draft.maxPrintL}
+                    onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
+                    width="w-44"
+                    placeholder="ללא"
+                  />
+                  <Field
+                    label="מעל גבול ההדפסה"
+                    value={draft.overLimit}
+                    onChange={(v) =>
+                      setDraft((p) => ({ ...p, overLimit: v as typeof p.overLimit }))
+                    }
+                    width="w-48"
+                    as="select"
+                  >
+                    <option value="weld">פיצול לחלקים (ריתוך)</option>
+                    <option value="mount">הדבקה על לוח</option>
+                    <option value="block">אין ייצור</option>
+                    <option value="outsource">ייצור חוץ</option>
+                  </Field>
+                  {draft.overLimit === "outsource" ? (
+                    <>
+                      <Field
+                        label="תעריף ייצור חוץ ללקוח ₪/מ״ר"
+                        value={draft.outsourcedRateM2}
+                        onChange={(v) => setDraft((p) => ({ ...p, outsourcedRateM2: v }))}
+                        width="w-52"
+                        placeholder="עלות × מקדם"
+                      />
+                      <div className="mb-[6px] w-72 text-[11px] font-bold text-muted-foreground">
+                        הצד הצר מעל גבול הרוחב → ייצור חוץ במחיר שטוח למ״ר (עם מינימום העבודה).
+                        שורות קטלוג במידות ייצור חוץ אינן קובעות מחיר.
+                      </div>
+                    </>
+                  ) : null}
+                  {draft.overLimit === "mount" ? (
+                    <>
+                      <Field
+                        label="עלות הדבקה ₪ למ״ר"
+                        value={draft.mountCostM2}
+                        onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
+                        width="w-40"
+                        placeholder="0"
+                      />
+                      <Field
+                        label="עלות הדבקה ₪ ליחידה"
+                        value={draft.mountCostUnit}
+                        onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
+                        width="w-40"
+                        placeholder="0"
+                      />
+                    </>
+                  ) : null}
+                  <label className="mb-[6px] flex items-center gap-2 text-xs font-black">
+                    <input
+                      type="checkbox"
+                      checked={draft.wholeBoard}
+                      onChange={(e) => setDraft((p) => ({ ...p, wholeBoard: e.target.checked }))}
+                    />
+                    חיוב חומר לפי לוח שלם (השארית נזרקת)
+                  </label>
+                  {draft.wholeBoard ? (
+                    <>
+                      <Field
+                        label='לוח — רוחב (ס"מ)'
+                        value={draft.boardW}
+                        onChange={(v) => setDraft((p) => ({ ...p, boardW: v }))}
+                        width="w-40"
+                      />
+                      <Field
+                        label='לוח — אורך (ס"מ)'
+                        value={draft.boardH}
+                        onChange={(v) => setDraft((p) => ({ ...p, boardH: v }))}
+                        width="w-40"
+                      />
+                    </>
+                  ) : null}
                 </div>
-              ) : null}
-              {cfg.engine === "per_m2" && cfg.perM2Tiers.length ? (
-                <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-                  מדרגות מ״ר:{" "}
-                  {cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ")}
-                </div>
-              ) : null}
-              {cfg.engine === "sheet_yield" ? (
-                cfg.yieldTable.length ? (
-                  <div className="mt-2 text-[11px] font-bold text-muted-foreground">
-                    טבלת תפוקה: {cfg.yieldTable.length} שורות
-                  </div>
-                ) : (
-                  <div className="mt-2 border-2 border-dashed border-[var(--line,#c9d4de)] p-3 text-xs font-bold text-muted-foreground opacity-60">
-                    טבלת תפוקה — TODO (עריכה בגרסה הבאה; המחיר מחושב מעלות חומר × מקדם)
-                  </div>
-                )
-              ) : null}
+              </div>
 
-              <div className="mt-4 flex flex-wrap items-end gap-6">
-                <Field
-                  label={
-                    cfg.engine === "sheet_yield"
-                      ? "עלות גיליון ₪"
-                      : cfg.engine === "anchor_curve"
-                        ? "עלות ייצור ₪ לגיליון"
-                        : "עלות ייצור ₪/מ״ר"
-                  }
-                  value={draft.cost}
-                  onChange={(v) => setDraft((p) => ({ ...p, cost: v }))}
-                  width="w-44"
-                />
-                <Field
-                  label="תעריף מיקור חוץ ₪/מ״ר"
-                  value={draft.out}
-                  onChange={(v) => setDraft((p) => ({ ...p, out: v }))}
-                  width="w-48"
-                />
+              {/* ---------- (ב) הגדרות המנוע שנבחר ---------- */}
+              <div className="mt-4 w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                  הגדרות המנוע — {ENGINE_LABEL[cfg.engine]}
+                </div>
+
+                {/* סיכום קריאה-בלבד של טבלאות התצורה (נטענות מהזרעים; עריכה בקוד) */}
+                {cfg.engine === "two_machine_sheet" ? (
+                  <div className="mb-3 text-[11px] font-bold text-muted-foreground">
+                    גיליון קטן: {shekel(cfg.sheetPrice)} לגיליון · חבילות האתר מ-
+                    {cfg.shortRunRefQty.toLocaleString()} יח׳ ({cfg.sizeBuckets.length} דליי גודל ×{" "}
+                    {cfg.qtyMultipliers.length} מקדמי כמות) · גליל:{" "}
+                    {cfg.perM2Tiers.length
+                      ? cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ")
+                      : "אין מדרגות מ״ר!"}
+                    {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""}
+                  </div>
+                ) : null}
+                {(cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface") &&
+                (cfg.sizeBuckets.length || cfg.curveAnchors.length) ? (
+                  <div className="mb-3 text-[11px] font-bold text-muted-foreground">
+                    עקומה מוגדרת: {cfg.sizeBuckets.length} דליים · {cfg.curveAnchors.length} נקודות
+                    {cfg.qtyMultipliers.length ? ` · ${cfg.qtyMultipliers.length} מקדמי כמות` : ""}
+                    {cfg.dualSurcharge.length ? ` · ${cfg.dualSurcharge.length} מדרגות דו-צדדי` : ""}
+                  </div>
+                ) : null}
+                {cfg.engine === "size_ladder" ? (
+                  <div className="mb-3 text-[11px] font-bold text-muted-foreground">
+                    סולם: {cfg.sizeLadder.length} מידות
+                    {cfg.sizeLadder.length
+                      ? " — " +
+                        [...cfg.sizeLadder]
+                          .sort((a, b) => a.w * a.h - b.w * b.h)
+                          .map((p) => `${p.w}×${p.h} ${shekel(p.price)}`)
+                          .join(" · ")
+                      : ""}
+                  </div>
+                ) : null}
                 {cfg.engine === "per_m2" ? (
-                  <>
-                    <Field
-                      label='סף מיקור חוץ — רוחב (ס"מ)'
-                      value={draft.tw}
-                      onChange={(v) => setDraft((p) => ({ ...p, tw: v }))}
-                      width="w-44"
-                      placeholder="ללא"
-                    />
-                    <Field
-                      label='סף מיקור חוץ — גובה (ס"מ)'
-                      value={draft.th}
-                      onChange={(v) => setDraft((p) => ({ ...p, th: v }))}
-                      width="w-44"
-                      placeholder="ללא"
-                    />
-                  </>
-                ) : cfg.engine === "anchor_curve" ? (
-                  /* לא שדות: הסף כאן נגזר מהגיליון עצמו, ואין ערך שאפשר להזין
-                     שישנה אותו. שדות הסף הישנים לא נקראו באף מסלול תמחור. */
-                  <div className="w-72 self-end text-[11px] font-bold text-muted-foreground">
-                    <div className={labelCls}>סף פורמט גדול</div>
-                    <div className="border-b-2 border-dashed border-[var(--line,#c9d4de)] px-1 py-1">
-                      נגזר משטח ההדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ — יחידה
-                      שאינה נכנסת לגיליון מתומחרת לפי מ״ר, ללא מינימום הכמות
-                    </div>
+                  <div className="mb-3 text-[11px] font-bold text-muted-foreground">
+                    מדרגות מ״ר:{" "}
+                    {cfg.perM2Tiers.length
+                      ? cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ")
+                      : "אין — עלות × מקדם"}
                   </div>
                 ) : null}
-                <Field
-                  label="מקדם רווח (×)"
-                  value={draft.margin}
-                  onChange={(v) => setDraft((p) => ({ ...p, margin: v }))}
-                />
-                {cfg.engine === "anchor_curve" ? (
-                  <Field
-                    label="חבילות"
-                    value={draft.packages}
-                    onChange={(v) => setDraft((p) => ({ ...p, packages: v }))}
-                    width="w-56"
-                  />
-                ) : null}
-                {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
-                  <Field
-                    label="ריצה קצרה — % ממחיר כמות הייחוס"
-                    value={draft.shortRunPct}
-                    onChange={(v) => setDraft((p) => ({ ...p, shortRunPct: v }))}
-                    width="w-56"
-                    placeholder="70"
-                  />
-                )}
-                {/* מקדם כמות חל אך ורק על ענף הפורמט הגדול — במסלול הגיליון
-                    qtyMultipliers כבר מגלם את הנחת הכמות, והחלה כפולה תוזיל
-                    פעמיים. מוצג רק למשפחות שיש להן ענף כזה בפועל. */}
-                {cfg.engine === "anchor_curve" && cfg.outsourceCost > 0 ? (
-                  <Field
-                    label="מקדם כמות — פורמט גדול (1 = ליניארי)"
-                    value={draft.qtyExponent}
-                    onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
-                    width="w-64"
-                    placeholder="1"
-                  />
-                ) : null}
-                <Field
-                  label="מינימום הזמנה (יחידות)"
-                  value={draft.minOrderQty}
-                  onChange={(v) => setDraft((p) => ({ ...p, minOrderQty: v }))}
-                  width="w-44"
-                  placeholder="ללא"
-                />
-                <Field
-                  label="מינימום הזמנה ₪ (כולל מע״מ)"
-                  value={draft.minOrderValue}
-                  onChange={(v) => setDraft((p) => ({ ...p, minOrderValue: v }))}
-                  width="w-48"
-                  placeholder="ללא"
-                />
-                <div className="mb-[6px] text-[11px] font-bold text-muted-foreground">
-                  עיגול אוטומטי: עד ₪20 → 0.5 · עד ₪100 → ₪1 · מעל ₪100 → ₪5
-                </div>
-
-                {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
-                  <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
-                    <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                      גיליון הדפסה
+                {cfg.engine === "sheet_yield" ? (
+                  cfg.yieldTable.length ? (
+                    <div className="mb-3 text-[11px] font-bold text-muted-foreground">
+                      טבלת תפוקה: {cfg.yieldTable.length} שורות
                     </div>
-                    <div className="flex flex-wrap items-end gap-6">
+                  ) : (
+                    <div className="mb-3 border-2 border-dashed border-[var(--line,#c9d4de)] p-3 text-xs font-bold text-muted-foreground opacity-60">
+                      טבלת תפוקה — TODO (עריכה בקוד; המחיר מחושב מעלות חומר × מקדם)
+                    </div>
+                  )
+                ) : null}
+                {cfg.engine === "unit_floor" ? (
+                  <div className="mb-3 text-[11px] font-bold text-muted-foreground">
+                    מחירי מבנה: {cfg.formatPrices.length} תצורות
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-end gap-6">
+                  {cfg.engine === "two_machine_sheet" ? (
+                    <>
                       <Field
-                        label='רוחב גיליון (ס"מ)'
-                        value={draft.sheetW}
-                        onChange={(v) => setDraft((p) => ({ ...p, sheetW: v }))}
-                        width="w-36"
+                        label="מחיר גיליון קטן ₪"
+                        value={draft.sheetPrice}
+                        onChange={(v) => setDraft((p) => ({ ...p, sheetPrice: v }))}
+                        width="w-40"
+                        placeholder="20"
                       />
                       <Field
-                        label='גובה גיליון (ס"מ)'
-                        value={draft.sheetH}
-                        onChange={(v) => setDraft((p) => ({ ...p, sheetH: v }))}
-                        width="w-36"
-                      />
-                      <Field
-                        label='שוליים לא מודפסים (ס"מ)'
-                        value={draft.sheetMargin}
-                        onChange={(v) => setDraft((p) => ({ ...p, sheetMargin: v }))}
-                        width="w-48"
-                      />
-                      <Field
-                        label='מרווח בין יחידות (ס"מ)'
-                        value={draft.sheetGap}
-                        onChange={(v) => setDraft((p) => ({ ...p, sheetGap: v }))}
+                        label="גליל — מינימום ₪ ליחידה"
+                        value={draft.minJobPrice}
+                        onChange={(v) => setDraft((p) => ({ ...p, minJobPrice: v }))}
                         width="w-44"
+                        placeholder="ללא"
                       />
-                      <div className="text-xs text-muted-foreground">
-                        שטח הדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
-                        {nw && nh ? (
-                          <>
-                            {" · "}
-                            {sheetUnitsFor(cfg, nw, nh).units} יח׳ בגיליון עבור {nw}×{nh}
-                            {sheetUnitsFor(cfg, nw, nh).manual ? " (ידני)" : ""}
-                          </>
-                        ) : null}
+                    </>
+                  ) : null}
+                  {cfg.engine === "per_m2" ? (
+                    <Field
+                      label="מינימום ₪ לעבודה (עד 1 מ״ר)"
+                      value={draft.minJobPrice}
+                      onChange={(v) => setDraft((p) => ({ ...p, minJobPrice: v }))}
+                      width="w-48"
+                      placeholder="ללא"
+                    />
+                  ) : null}
+                  <Field
+                    label={
+                      cfg.engine === "sheet_yield"
+                        ? "עלות גיליון ₪"
+                        : cfg.engine === "anchor_curve" || cfg.engine === "two_machine_sheet"
+                          ? "עלות ייצור ₪ לגיליון"
+                          : "עלות ייצור ₪/מ״ר"
+                    }
+                    value={draft.cost}
+                    onChange={(v) => setDraft((p) => ({ ...p, cost: v }))}
+                    width="w-44"
+                  />
+                  <Field
+                    label="עלות ייצור חוץ ₪/מ״ר"
+                    value={draft.out}
+                    onChange={(v) => setDraft((p) => ({ ...p, out: v }))}
+                    width="w-48"
+                  />
+                  {cfg.engine === "per_m2" ? (
+                    <>
+                      <Field
+                        label='סף מיקור חוץ — רוחב (ס"מ)'
+                        value={draft.tw}
+                        onChange={(v) => setDraft((p) => ({ ...p, tw: v }))}
+                        width="w-44"
+                        placeholder="ללא"
+                      />
+                      <Field
+                        label='סף מיקור חוץ — גובה (ס"מ)'
+                        value={draft.th}
+                        onChange={(v) => setDraft((p) => ({ ...p, th: v }))}
+                        width="w-44"
+                        placeholder="ללא"
+                      />
+                    </>
+                  ) : cfg.engine === "anchor_curve" ? (
+                    /* לא שדות: הסף כאן נגזר מהגיליון עצמו, ואין ערך שאפשר להזין
+                       שישנה אותו. שדות הסף הישנים לא נקראו באף מסלול תמחור. */
+                    <div className="w-72 self-end text-[11px] font-bold text-muted-foreground">
+                      <div className={labelCls}>סף פורמט גדול</div>
+                      <div className="border-b-2 border-dashed border-[var(--line,#c9d4de)] px-1 py-1">
+                        נגזר משטח ההדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ — יחידה
+                        שאינה נכנסת לגיליון מתומחרת לפי מ״ר, ללא מינימום הכמות
                       </div>
                     </div>
+                  ) : null}
+                  <Field
+                    label="מקדם רווח (×)"
+                    value={draft.margin}
+                    onChange={(v) => setDraft((p) => ({ ...p, margin: v }))}
+                  />
+                  {cfg.engine === "anchor_curve" ? (
+                    <Field
+                      label="חבילות"
+                      value={draft.packages}
+                      onChange={(v) => setDraft((p) => ({ ...p, packages: v }))}
+                      width="w-56"
+                    />
+                  ) : null}
+                  {(cfg.engine === "anchor_curve" || cfg.engine === "sheet_yield") && (
+                    <Field
+                      label="ריצה קצרה — % ממחיר כמות הייחוס"
+                      value={draft.shortRunPct}
+                      onChange={(v) => setDraft((p) => ({ ...p, shortRunPct: v }))}
+                      width="w-56"
+                      placeholder="70"
+                    />
+                  )}
+                  {/* מקדם כמות חל אך ורק על ענף הפורמט הגדול של עקומת העוגנים */}
+                  {cfg.engine === "anchor_curve" && cfg.outsourceCost > 0 ? (
+                    <Field
+                      label="מקדם כמות — פורמט גדול (1 = ליניארי)"
+                      value={draft.qtyExponent}
+                      onChange={(v) => setDraft((p) => ({ ...p, qtyExponent: v }))}
+                      width="w-64"
+                      placeholder="1"
+                    />
+                  ) : null}
+                  <Field
+                    label="מינימום הזמנה (יחידות)"
+                    value={draft.minOrderQty}
+                    onChange={(v) => setDraft((p) => ({ ...p, minOrderQty: v }))}
+                    width="w-44"
+                    placeholder="ללא"
+                  />
+                  <Field
+                    label="מינימום הזמנה ₪ (כולל מע״מ)"
+                    value={draft.minOrderValue}
+                    onChange={(v) => setDraft((p) => ({ ...p, minOrderValue: v }))}
+                    width="w-48"
+                    placeholder="ללא"
+                  />
+                  <Field
+                    label="מ״ר מינימלי ליחידה (מעל הסף)"
+                    value={draft.minUnitArea}
+                    onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
+                    width="w-44"
+                  />
+                  <div className="mb-[6px] text-[11px] font-bold text-muted-foreground">
+                    עיגול אוטומטי: עד ₪20 → 0.5 · עד ₪100 → ₪1 · מעל ₪100 → ₪5
                   </div>
-                )}
 
-                <Field
-                  label="מ״ר מינימלי ליחידה (מעל הסף)"
-                  value={draft.minUnitArea}
-                  onChange={(v) => setDraft((p) => ({ ...p, minUnitArea: v }))}
-                  width="w-44"
-                />
-
-                <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
-                  <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                    מגבלות מכונה
-                  </div>
-                  <div className="flex flex-wrap items-end gap-6">
-                    <Field
-                      label='גבול הדפסה — רוחב (ס"מ)'
-                      value={draft.maxPrintW}
-                      onChange={(v) => setDraft((p) => ({ ...p, maxPrintW: v }))}
-                      width="w-44"
-                      placeholder="ללא"
-                    />
-                    <Field
-                      label='גבול הדפסה — אורך (ס"מ)'
-                      value={draft.maxPrintL}
-                      onChange={(v) => setDraft((p) => ({ ...p, maxPrintL: v }))}
-                      width="w-44"
-                      placeholder="ללא"
-                    />
-                    {/* ההתנהגות מעל גבול ההדפסה נשמרה תמיד במסד (over_limit) אבל
-                        לא הייתה לה שום שליטה במסך — הדרישה "מעל 120 מחלקים לשני
-                        חלקים" לא הייתה ניתנת להגדרה. */}
-                    <Field
-                      label="מעל גבול ההדפסה"
-                      value={draft.overLimit}
-                      onChange={(v) =>
-                        setDraft((p) => ({ ...p, overLimit: v as typeof p.overLimit }))
-                      }
-                      width="w-48"
-                      as="select"
-                    >
-                      <option value="weld">פיצול לחלקים (ריתוך)</option>
-                      <option value="mount">הדבקה על לוח</option>
-                      <option value="block">אין ייצור</option>
-                    </Field>
-                    <Field
-                      label='גבול ייצור מוחלט — רוחב (ס"מ)'
-                      value={draft.capW}
-                      onChange={(v) => setDraft((p) => ({ ...p, capW: v }))}
-                      width="w-48"
-                      placeholder="ללא"
-                    />
-                    <Field
-                      label='גבול ייצור מוחלט — אורך (ס"מ)'
-                      value={draft.capL}
-                      onChange={(v) => setDraft((p) => ({ ...p, capL: v }))}
-                      width="w-48"
-                      placeholder="ללא"
-                    />
-                    {draft.overLimit === "mount" ? (
-                      <>
+                  {sheetish && (
+                    <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
+                      <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
+                        {cfg.engine === "two_machine_sheet" ? "גיליון המדפסת הקטנה" : "גיליון הדפסה"}
+                      </div>
+                      <div className="flex flex-wrap items-end gap-6">
                         <Field
-                          label="עלות הדבקה ₪ למ״ר"
-                          value={draft.mountCostM2}
-                          onChange={(v) => setDraft((p) => ({ ...p, mountCostM2: v }))}
-                          width="w-40"
-                          placeholder="0"
+                          label='רוחב גיליון (ס"מ)'
+                          value={draft.sheetW}
+                          onChange={(v) => setDraft((p) => ({ ...p, sheetW: v }))}
+                          width="w-36"
                         />
                         <Field
-                          label="עלות הדבקה ₪ ליחידה"
-                          value={draft.mountCostUnit}
-                          onChange={(v) => setDraft((p) => ({ ...p, mountCostUnit: v }))}
-                          width="w-40"
-                          placeholder="0"
-                        />
-                      </>
-                    ) : null}
-                    <label className="mb-[6px] flex items-center gap-2 text-xs font-black">
-                      <input
-                        type="checkbox"
-                        checked={draft.wholeBoard}
-                        onChange={(e) => setDraft((p) => ({ ...p, wholeBoard: e.target.checked }))}
-                      />
-                      חיוב חומר לפי לוח שלם (השארית נזרקת)
-                    </label>
-                    {draft.wholeBoard ? (
-                      <>
-                        <Field
-                          label='לוח — רוחב (ס"מ)'
-                          value={draft.boardW}
-                          onChange={(v) => setDraft((p) => ({ ...p, boardW: v }))}
-                          width="w-40"
+                          label='גובה גיליון (ס"מ)'
+                          value={draft.sheetH}
+                          onChange={(v) => setDraft((p) => ({ ...p, sheetH: v }))}
+                          width="w-36"
                         />
                         <Field
-                          label='לוח — אורך (ס"מ)'
-                          value={draft.boardH}
-                          onChange={(v) => setDraft((p) => ({ ...p, boardH: v }))}
-                          width="w-40"
+                          label='שוליים לא מודפסים (ס"מ)'
+                          value={draft.sheetMargin}
+                          onChange={(v) => setDraft((p) => ({ ...p, sheetMargin: v }))}
+                          width="w-48"
                         />
-                      </>
-                    ) : null}
-                  </div>
+                        <Field
+                          label='מרווח בין יחידות (ס"מ)'
+                          value={draft.sheetGap}
+                          onChange={(v) => setDraft((p) => ({ ...p, sheetGap: v }))}
+                          width="w-44"
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          שטח הדפסה {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                          {nw && nh ? (
+                            <>
+                              {" · "}
+                              {sheetUnitsFor(cfg, nw, nh).units} יח׳ בגיליון עבור {nw}×{nh}
+                              {sheetUnitsFor(cfg, nw, nh).manual ? " (ידני)" : ""}
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1350,8 +1559,10 @@ function Calculator() {
                   מדרגות כמות — מחיר קבוע ליחידה (גובר על מקדם כמות)
                 </label>
                 <div className="mt-1 text-[11px] font-bold text-muted-foreground">
-                  לדוגמה: מכמות 10 ומעלה — 47 ₪ ליחידה. מידה ריקה = כל המידות במשפחה. מחיר מאומת
-                  בקטלוג באותה מידה ובאותה כמות עדיין גובר.
+                  לדוגמה: מכמות 10 ומעלה — 47 ₪ ליחידה. מדרגה עם מידה חלה על כל מידה שנכנסת בה
+                  (120×80 חלה גם על 100×80); מידה ריקה = כל המידות במשפחה. בין יחידה בודדת
+                  לכמות המדרגה המחיר עולה ליניארית. מחיר מאומת בקטלוג באותה מידה ובאותה כמות
+                  עדיין גובר (לפי מדיניות הקשירה).
                 </div>
 
                 {tiersOn ? (
@@ -1418,6 +1629,59 @@ function Calculator() {
                   </div>
                 ) : null}
               </div>
+
+              {/* הסכמה עם הקטלוג — הנוסחה לבדה מול כל שורה מאומתת */}
+              {agreement ? (
+                <div className="mt-5 border-2 border-dashed border-[var(--ink)]/40 p-4">
+                  <div className="text-sm font-black text-[var(--ink)]">
+                    הסכמה עם הקטלוג — {agreement.scored.toLocaleString()} מתוך{" "}
+                    {agreement.total.toLocaleString()} שורות מאומתות מתומחרות בנוסחה בלבד · סטייה
+                    ממוצעת {Math.round(agreement.mean * 100)}%
+                  </div>
+                  <div className="mt-1 text-[11px] font-bold text-muted-foreground">
+                    מה הנוסחה (ללא קשירה לקטלוג) הייתה נותנת לכל שורה מאומתת. סטייה גדולה = הקטלוג
+                    והכלל של המשפחה אינם מסכימים — אחד מהם צריך להתעדכן. השורות עצמן אינן נערכות כאן.
+                  </div>
+                  {agreement.worst.length ? (
+                    <table className="mt-3 w-full text-xs">
+                      <thead>
+                        <tr className="text-[11px] text-muted-foreground">
+                          <th className="text-right font-bold">מידה</th>
+                          <th className="text-right font-bold">כמות</th>
+                          <th className="text-right font-bold">קטלוג</th>
+                          <th className="text-right font-bold">נוסחה</th>
+                          <th className="text-right font-bold">Δ</th>
+                          <th className="text-right font-bold">כלל</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {agreement.worst.map((r) => (
+                          <tr key={r.id} className="border-t border-[var(--line,#c9d4de)]">
+                            <td className="py-1 font-bold">
+                              {r.w}×{r.h}
+                              {r.anchor ? " ⚓" : ""}
+                            </td>
+                            <td className="py-1">{r.qty.toLocaleString()}</td>
+                            <td className="py-1">{shekel(r.price)}</td>
+                            <td className="py-1">{r.engine === null ? "—" : shekel(r.engine)}</td>
+                            <td
+                              className={`py-1 font-black ${
+                                Math.abs(r.delta) > 0.1 ? "text-destructive" : "text-[var(--ink)]"
+                              }`}
+                            >
+                              {r.delta > 0 ? "+" : ""}
+                              {Math.round(r.delta * 100)}%
+                            </td>
+                            <td className="py-1 text-muted-foreground">
+                              {r.rule ? BINDING_LABEL[r.rule] : ""}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="mt-4 border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-3">
                 <button

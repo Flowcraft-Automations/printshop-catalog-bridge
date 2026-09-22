@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { priceJob, type JobOptions, type JobPrice } from "./mdvd";
-import { famFixture, type FamFixture } from "./pricing-fixtures";
+import { famFixture, liveFixture, type FamFixture } from "./pricing-fixtures";
 
 /* ------------------------------------------------------------------ *
  *  Acceptance suite — the client-approved spec points, verbatim.
@@ -14,13 +14,13 @@ function job(fix: FamFixture, w: number, h: number, qty: number, opts: JobOption
 }
 
 /* ================================ מדבקות ================================ */
-/* מנוע `catalog_surface`: base(שטח) × mult(כמות), שניהם נקראים מהשורות
-   המאושרות בקטלוג. השורות מגיעות מ-reports/dry-run-2026-08-25.csv דרך
-   famFixture, ולכן הבדיקות נמדדות מול מחירון הלקוח ולא מול מספרים בקוד. */
-describe("מדבקות (catalog_surface, base(area) × mult(qty))", () => {
-  const fix = famFixture("מדבקות");
+/* מנוע `two_machine_sheet`: גיליון קטן (₪20 לגיליון, לא יותר מחבילת 100)
+   או גליל (לפי מ״ר על השטח בפועל, מינימום ₪95). liveFixture מספק את שורות
+   הקטלוג המאומתות; במדיניות "packs" רק שורות מ-100 יח׳ ומעלה קובעות. */
+describe("מדבקות (two_machine_sheet — small sheet or roll)", () => {
+  const fix = liveFixture("מדבקות");
 
-  it("every approved catalog row quotes its own price", () => {
+  it("every website pack (≥100) still quotes its catalog price", () => {
     for (const [w, h, qty, price] of [
       [3, 3, 100, 115],
       [3, 3, 1000, 315],
@@ -34,69 +34,81 @@ describe("מדבקות (catalog_surface, base(area) × mult(qty))", () => {
       [15, 10, 1000, 590],
       [16, 6, 100, 187],
       [10, 10, 100, 187],
-      [17, 17, 80, 270],
-      [30, 20, 1, 95],
     ] as [number, number, number, number][])
       expect({ w, h, qty, total: job(fix, w, h, qty).total }).toEqual({ w, h, qty, total: price });
   });
 
+  it("the old catalog singles no longer bind: 30×20 × 1 is one sheet = ₪20", () => {
+    const j = job(fix, 30, 20, 1);
+    expect(j.total).toBe(20);
+    expect(j.bindingRule).toBe("sheet");
+    /* the same family with the old policy still quotes the catalog row */
+    const old = liveFixture("מדבקות", { catalogBinds: "all" });
+    expect(job(old, 30, 20, 1).total).toBe(95);
+  });
+
+  it("17×17 × 80 is capped at the 100-pack price", () => {
+    const j = job(fix, 17, 17, 80);
+    expect(j.bindingRule).toBe("package_min");
+    expect(j.total).toBe(job(fix, 17, 17, 100).total);
+  });
+
   it("price grows with area at a fixed quantity", () => {
     const at = (w: number, h: number) => job(fix, w, h, 10).total;
-    /* 10×10 → 17×17 → 20×30 (large format) → 100×100 */
+    /* 10×10 (2 sheets) → 17×17 (5 sheets) → 20×30 (5 sheets) → 100×100 (roll) */
     expect(at(10, 10)).toBeLessThan(at(17, 17));
-    expect(at(17, 17)).toBeLessThan(at(20, 30));
+    expect(at(17, 17)).toBeLessThanOrEqual(at(20, 30));
     expect(at(20, 30)).toBeLessThan(at(100, 100));
   });
 
-  it("a size between two approved rows is priced between them", () => {
-    /* 100×80 = 0.80 מ״ר, between 80×60 (₪105) and 120×80 (₪120) */
+  it("a roll size between two catalog singles is priced between them", () => {
+    /* 100×80 = 0.80 מ״ר → ₪100, between 80×60 (₪95) and 120×80 (₪120) */
     const mid = job(fix, 100, 80, 1).total;
     expect(mid).toBeGreaterThan(job(fix, 80, 60, 1).total);
     expect(mid).toBeLessThan(job(fix, 120, 80, 1).total);
   });
 
-  it("14×11 × 22 → ₪145 (short-run ramp off the surface)", () => {
-    expect(job(fix, 14, 11, 22).total).toBe(145);
+  it("14×11 × 22 → ₪60 (8 per sheet, 3 sheets)", () => {
+    expect(job(fix, 14, 11, 22).total).toBe(60);
   });
-  it("11×14 × 22 → ₪145 (orientation-insensitive)", () => {
-    expect(job(fix, 11, 14, 22).total).toBe(145);
+  it("11×14 × 22 → ₪60 (orientation-insensitive)", () => {
+    expect(job(fix, 11, 14, 22).total).toBe(60);
   });
 
-  /* the LIVE config carries מינימום הזמנה 10 (kept per the 2026-08-25 review);
-     the ramp math below 10 is verified on a min-free variant of the same seed */
-  const rampFix = famFixture("מדבקות", { minOrderQty: 0 });
-
-  it("qty below the live minimum (10) → מינימום הזמנה, no quote", () => {
-    const j = job(fix, 3, 3, 5);
+  it("there is no minimum order — but a family that sets one still refuses sheet work below it", () => {
+    expect(job(fix, 3, 3, 5).belowMinOrder).toBe(false);
+    const withMin = liveFixture("מדבקות", { minOrderQty: 10 });
+    const j = job(withMin, 3, 3, 5);
     expect(j.belowMinOrder).toBe(true);
     expect(j.total).toBe(0);
     expect(j.label).toContain("מינימום הזמנה");
+    /* the roll is not sheet work — exempt */
+    expect(job(withMin, 17, 56, 1).belowMinOrder).toBe(false);
   });
 
-  it("short run never runs backwards (bug #2): qty10 ≥ qty1", () => {
+  it("quantity never runs backwards (bug #2): qty10 ≥ qty1, and 99 ≤ 100", () => {
     for (const [w, h] of [
       [3, 3],
       [5, 5],
       [3, 10],
     ] as [number, number][])
-      expect(job(rampFix, w, h, 10).total).toBeGreaterThanOrEqual(job(rampFix, w, h, 1).total);
-  });
-
-  it("the short-run ramp reaches the reference price at the reference quantity", () => {
-    /* 100 יח׳ is the reference — the ramp must land on the surface price */
-    expect(job(rampFix, 5, 5, 100).total).toBe(job(fix, 5, 5, 100).total);
+      expect(job(fix, w, h, 10).total).toBeGreaterThanOrEqual(job(fix, w, h, 1).total);
+    expect(job(fix, 5, 5, 99).total).toBeLessThanOrEqual(job(fix, 5, 5, 100).total);
   });
 });
 
-
 /* ================================ שמשונית ================================ */
 describe("שמשונית (per_m2 + approved anchors)", () => {
-  const fix = famFixture("שמשונית");
+  /* live rows: only is_anchor rows bind (catalog_binds = anchors) */
+  const fix = liveFixture("שמשונית");
 
-  it("60×40 → ₪65 (job minimum up to 1 m²), binding rule package_min", () => {
-    const j = job(fix, 60, 40, 1);
-    expect(j.total).toBe(65);
+  it("120×10 → ₪70 (job minimum), binding rule package_min", () => {
+    const j = job(fix, 120, 10, 1);
+    expect(j.total).toBe(70);
     expect(j.bindingRule).toBe("package_min");
+  });
+  it("60×40 → ₪70 (approved anchor = the minimum)", () => {
+    expect(job(fix, 60, 40, 1).total).toBe(70);
   });
   it("120×100 → ₪105 (approved anchor, verbatim)", () => {
     expect(job(fix, 120, 100, 1).total).toBe(105);
@@ -112,21 +124,31 @@ describe("שמשונית (per_m2 + approved anchors)", () => {
     expect(t).toBeGreaterThanOrEqual(75);
     expect(t).toBeLessThanOrEqual(80);
   });
-  it("400×200 → ₪840 outsourced (70 × 8 m² × 1.5), ≥ ₪830", () => {
-    const j = job(fix, 400, 200, 1);
-    expect(j.bindingRule).toBe("outsourced");
-    expect(j.total).toBe(840);
-    expect(j.total).toBeGreaterThanOrEqual(830);
+  it("outsourced above 150: flat ₪80/m² — 160×160 → 205, 200×200 → 320, 300×200 → 480, 400×200 → 640", () => {
+    for (const [w, h, want] of [
+      [160, 160, 205],
+      [200, 200, 320],
+      [300, 200, 480],
+      [400, 200, 640],
+    ] as [number, number, number][]) {
+      const j = job(fix, w, h, 1);
+      expect({ w, h, total: j.total, rule: j.bindingRule }).toEqual({ w, h, total: want, rule: "outsourced" });
+    }
   });
-  it("400×200 with seam (ריתוך בבית) → NOT outsourced", () => {
+  it("the old outsourced catalog rows (≈₪104/m²) no longer bind: 200×200 was ₪416", () => {
+    expect(fix.validated.some((a) => a.w === 200 && a.h === 200 && a.price === 416)).toBe(true);
+    expect(job(fix, 200, 200, 1).total).toBe(320);
+  });
+  it("400×200 with seam (ריתוך בבית) → welded in-house on the tiers, 8 m² × 72 = ₪575", () => {
     const j = job(fix, 400, 200, 1, { withSeam: true });
     expect(j.bindingRule).not.toBe("outsourced");
-    expect(j.total).toBeGreaterThan(0);
+    expect(j.total).toBe(575);
+    expect(j.panels).toBe(2);
   });
-  it("120×80 × 10 → ₪470 (approved 10-pack qty tier)", () => {
+  it("120×80 × 10 → ₪815 (the ₪470 10-pack belongs to פוליגל; no tier here)", () => {
     const j = job(fix, 120, 80, 10);
-    expect(j.total).toBe(470);
-    expect(j.bindingRule).toBe("tier");
+    expect(j.total).toBe(815);
+    expect(j.bindingRule).toBe("curve");
   });
   it("200×140 (short side 140 < 150) → NOT outsourced", () => {
     const j = job(fix, 200, 140, 1);
@@ -137,10 +159,22 @@ describe("שמשונית (per_m2 + approved anchors)", () => {
 
 /* ================================ שלטי PVC ================================ */
 describe("שלטי PVC (size_ladder)", () => {
-  const fix = famFixture("שלטי PVC");
+  const fix = liveFixture("שלטי PVC");
 
+  it("the client's 8/19 price list: 20×30 = 35 · 30×60 = 60 · 30×80 = 80 · 40×60 = 70", () => {
+    for (const [w, h, want] of [
+      [20, 30, 35],
+      [30, 60, 60],
+      [30, 80, 80],
+      [40, 60, 70],
+    ] as [number, number, number][])
+      expect({ w, h, total: job(fix, w, h, 1).total }).toEqual({ w, h, total: want });
+  });
   it("30×90 → ₪90 (ladder point, verbatim)", () => {
     expect(job(fix, 30, 90, 1).total).toBe(90);
+  });
+  it("above the assumed 150×300 cap there is no price", () => {
+    expect(job(fix, 160, 200, 1).overMachine).toBe(true);
   });
   it("80×200 → ₪350 (ladder top)", () => {
     expect(job(fix, 80, 200, 1).total).toBe(350);
@@ -156,20 +190,48 @@ describe("שלטי PVC (size_ladder)", () => {
 });
 
 /* ================================ פוליגל ================================ */
-describe("פוליגל (size_ladder + approved packs)", () => {
-  const fix = famFixture("פוליגל");
+describe("פוליגל (per_m2 ₪80 with a ₪90 single + approved packs)", () => {
+  /* live rows carry the rejected ₪55–70 singles; catalog_binds = none */
+  const fix = liveFixture("פוליגל");
 
-  it("40×40 → ₪55", () => {
-    expect(job(fix, 40, 40, 1).total).toBe(55);
+  it("singles are ₪90 — 40×40, 60×40 and 120×80 alike (8/18)", () => {
+    for (const [w, h] of [
+      [40, 40],
+      [60, 40],
+      [120, 80],
+    ] as [number, number][]) {
+      const j = job(fix, w, h, 1);
+      expect({ w, h, total: j.total, rule: j.bindingRule }).toEqual({ w, h, total: 90, rule: "package_min" });
+    }
   });
-  it("120×80 → ₪85", () => {
-    expect(job(fix, 120, 80, 1).total).toBe(85);
+  it("bigger in-house sizes grow with area: 150×100 → 120, 200×100 → 160", () => {
+    expect(job(fix, 150, 100, 1).total).toBe(120);
+    expect(job(fix, 200, 100, 1).total).toBe(160);
   });
-  it("120×80 × 10 → ₪470 (approved pack)", () => {
+  it("120×80 × 10 → ₪470 and 40×40 × 10 → ₪295 (approved packs)", () => {
     expect(job(fix, 120, 80, 10).total).toBe(470);
-  });
-  it("40×40 × 10 → ₪295 (approved pack)", () => {
     expect(job(fix, 40, 40, 10).total).toBe(295);
+  });
+  it("a smaller sign in the same pack quantity gets the pack rate: 100×80 × 10 → ₪470", () => {
+    const j = job(fix, 100, 80, 10);
+    expect(j.total).toBe(470);
+    expect(j.bindingRule).toBe("tier");
+  });
+  it("2–9 units ramp linearly from the single to the pack: 120×80 × 5 → ₪259", () => {
+    const j = job(fix, 120, 80, 5);
+    expect(j.total).toBe(259);
+    expect(j.bindingRule).toBe("short_run");
+    let prev = 0;
+    for (let n = 1; n <= 12; n++) {
+      const t = job(fix, 120, 80, n).total;
+      expect(t).toBeGreaterThanOrEqual(prev);
+      prev = t;
+    }
+  });
+  it("above 150 wide → outsourced at ₪80/m²: 160×160 → ₪205", () => {
+    const j = job(fix, 160, 160, 1);
+    expect(j.bindingRule).toBe("outsourced");
+    expect(j.total).toBe(205);
   });
 });
 
