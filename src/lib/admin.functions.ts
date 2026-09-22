@@ -153,7 +153,11 @@ export const deleteUser = createServerFn({ method: "POST" })
     if (data.userId === context.userId) throw new Error("אי אפשר למחוק את עצמך");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
-    if (error) throw new Error(error.message);
+    // An already-missing auth user just means the profile row is orphaned:
+    // clean up the app-side rows instead of failing.
+    if (error && !/not found/i.test(error.message)) throw new Error(error.message);
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
+    await supabaseAdmin.from("user_family_access").delete().eq("user_id", data.userId);
     await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
     return { ok: true };
   });
