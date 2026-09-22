@@ -769,7 +769,7 @@ function Catalog() {
 
       const { error } = await supabase
         .from("products")
-        .update({ ...patch, updated_at: stamp })
+        .update({ ...patch, updated_at: stamp } as ProductUpdate)
         .in("id", ids);
       if (error) throw error;
       return { autoCount: 0 };
