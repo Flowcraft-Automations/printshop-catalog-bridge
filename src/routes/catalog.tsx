@@ -798,7 +798,7 @@ function Catalog() {
         site_status: "to_add",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      } as ProductInsert);
       if (error) throw error;
     },
     onSuccess: () => {
