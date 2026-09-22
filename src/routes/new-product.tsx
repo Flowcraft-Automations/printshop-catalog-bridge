@@ -61,7 +61,7 @@ function NewProduct() {
       const { error } = await supabase.from("products").insert({
         row_key: `${slugify(name)}-${Date.now()}`,
         name,
-        family: family || null,
+        family,
         width_cm: width ? Number(width) : null,
         height_cm: height ? Number(height) : null,
         qty: qty ? Number(qty) : 1,

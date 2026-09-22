@@ -17,6 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
+type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import {
@@ -755,7 +759,7 @@ function Catalog() {
           if (Object.keys(auto).length) autoCount++;
           const { error } = await supabase
             .from("products")
-            .update({ ...patch, ...auto, updated_at: stamp })
+            .update({ ...patch, ...auto, updated_at: stamp } as ProductUpdate)
             .eq("id", id);
           if (error) throw error;
         }
@@ -765,7 +769,7 @@ function Catalog() {
 
       const { error } = await supabase
         .from("products")
-        .update({ ...patch, updated_at: stamp })
+        .update({ ...patch, updated_at: stamp } as ProductUpdate)
         .in("id", ids);
       if (error) throw error;
       return { autoCount: 0 };
@@ -794,7 +798,7 @@ function Catalog() {
         site_status: "to_add",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      } as ProductInsert);
       if (error) throw error;
     },
     onSuccess: () => {
