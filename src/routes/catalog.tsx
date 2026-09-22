@@ -589,14 +589,18 @@ function Catalog() {
       out[p.id] = {
         area,
         directCost: job.cost,
-        ratePerM2: job.above ? e.cfg.outsourceCost : e.cfg.cost,
+        ratePerM2: job.above
+          ? e.cfg.outsourcedRateM2 > 0
+            ? e.cfg.outsourcedRateM2
+            : e.cfg.outsourceCost
+          : e.cfg.cost,
         floor,
         hasCost: job.cost > 0,
         below: job.cost > 0 && cur !== null && cur < floor,
         thresholdW: e.cfg.thresholdW,
         thresholdH: e.cfg.thresholdH,
         aboveThreshold: job.above,
-        outsourceRate: e.cfg.outsourceCost,
+        outsourceRate: e.cfg.outsourcedRateM2 > 0 ? e.cfg.outsourcedRateM2 : e.cfg.outsourceCost,
       };
     }
     COST = out;
