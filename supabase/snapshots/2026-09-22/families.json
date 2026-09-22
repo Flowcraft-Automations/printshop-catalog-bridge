@@ -1,0 +1,2179 @@
+[
+  {
+    "family": "שמשונית",
+    "items_count": 286,
+    "notes": null,
+    "cost_per_m2": 20,
+    "outsource_cost_per_m2": 70,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 99999,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [],
+        "engine": "per_m2",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [
+          {
+            "size": "120x80",
+            "min_qty": 10,
+            "unit_price": 47
+          }
+        ],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 150,
+        "sheet_units": {},
+        "size_ladder": [],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [
+          {
+            "rate": 85,
+            "min_m2": 0
+          },
+          {
+            "rate": 75,
+            "min_m2": 2
+          },
+          {
+            "rate": 72,
+            "min_m2": 4
+          }
+        ],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 65,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": true,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      }
+    }
+  },
+  {
+    "family": "מדבקות",
+    "items_count": 177,
+    "notes": null,
+    "cost_per_m2": 6,
+    "outsource_cost_per_m2": 70,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 150,
+        "todos": [],
+        "engine": "catalog_surface",
+        "margin": 1.3,
+        "method": "sheet",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [
+          100,
+          150,
+          200,
+          250,
+          500,
+          1000
+        ],
+        "rounding": 1,
+        "qty_tiers": [
+          {
+            "size": null,
+            "min_qty": 10,
+            "unit_price": 40
+          }
+        ],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 120,
+        "sheet_units": {
+          "5x5": 30
+        },
+        "size_ladder": [],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": 0.9,
+        "sheet_margin": 1.5,
+        "size_buckets": [
+          {
+            "id": "3",
+            "max_h": 3,
+            "max_w": 3,
+            "factor": null,
+            "base100": 115,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "4",
+            "max_h": 4,
+            "max_w": 4,
+            "factor": null,
+            "base100": 121,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "5",
+            "max_h": 5,
+            "max_w": 5,
+            "factor": null,
+            "base100": 126,
+            "includes": [
+              "8x5"
+            ],
+            "quote_only": false
+          },
+          {
+            "id": "6",
+            "max_h": 6,
+            "max_w": 6,
+            "factor": null,
+            "base100": 137,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "8",
+            "max_h": 8,
+            "max_w": 8,
+            "factor": null,
+            "base100": 148,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "9",
+            "max_h": 9,
+            "max_w": 9,
+            "factor": null,
+            "base100": 154,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "24x12",
+            "max_h": 12,
+            "max_w": 24,
+            "factor": null,
+            "base100": 187,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "42x20",
+            "max_h": 20,
+            "max_w": 42,
+            "factor": null,
+            "base100": 287,
+            "includes": [],
+            "quote_only": false
+          }
+        ],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 10,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [
+          {
+            "qty": 100,
+            "mult": 1
+          },
+          {
+            "qty": 150,
+            "mult": 1.06
+          },
+          {
+            "qty": 200,
+            "mult": 1.163
+          },
+          {
+            "qty": 250,
+            "mult": 1.295
+          },
+          {
+            "qty": 500,
+            "mult": 1.832
+          },
+          {
+            "qty": 1000,
+            "mult": 3.049
+          }
+        ],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": true,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.35
+      }
+    }
+  },
+  {
+    "family": "מגנטים",
+    "items_count": 89,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 127
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "קאפה",
+    "items_count": 52,
+    "notes": null,
+    "cost_per_m2": 40,
+    "outsource_cost_per_m2": 46,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": {
+          "modifiers": [
+            {
+              "kind": "cost_floor"
+            }
+          ]
+        },
+        "cap_l": 240,
+        "cap_w": 120,
+        "todos": [
+          "קאפה: מחירי מדרגות תפוקה (יח׳ בגיליון) טרם אומתו מול הלקוח (TODO)"
+        ],
+        "engine": "sheet_yield",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 120,
+        "board_w": 240,
+        "sheet_h": 120,
+        "sheet_w": 240,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0,
+        "over_limit": "mount",
+        "max_print_l": 90,
+        "max_print_w": 60,
+        "sheet_units": {},
+        "size_ladder": [],
+        "whole_board": true,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 25,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 6,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      },
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 40,
+            "base": 0,
+            "rate_m2": 247
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "שלטי PVC",
+    "items_count": 51,
+    "notes": null,
+    "cost_per_m2": 6,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [],
+        "engine": "size_ladder",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 0,
+        "sheet_units": {},
+        "size_ladder": [
+          {
+            "h": 30,
+            "w": 20,
+            "price": 30
+          },
+          {
+            "h": 40,
+            "w": 30,
+            "price": 40
+          },
+          {
+            "h": 50,
+            "w": 50,
+            "price": 80
+          },
+          {
+            "h": 90,
+            "w": 30,
+            "price": 90
+          },
+          {
+            "h": 70,
+            "w": 50,
+            "price": 100
+          },
+          {
+            "h": 40,
+            "w": 100,
+            "price": 115
+          },
+          {
+            "h": 100,
+            "w": 50,
+            "price": 145
+          },
+          {
+            "h": 90,
+            "w": 60,
+            "price": 150
+          },
+          {
+            "h": 70,
+            "w": 100,
+            "price": 155
+          },
+          {
+            "h": 140,
+            "w": 70,
+            "price": 200
+          },
+          {
+            "h": 80,
+            "w": 120,
+            "price": 200
+          },
+          {
+            "h": 150,
+            "w": 100,
+            "price": 300
+          },
+          {
+            "h": 200,
+            "w": 80,
+            "price": 350
+          }
+        ],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      }
+    }
+  },
+  {
+    "family": "אחר",
+    "items_count": 50,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "קנבס",
+    "items_count": 50,
+    "notes": null,
+    "cost_per_m2": 15,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 200,
+        "cap_w": 140,
+        "todos": [],
+        "engine": "size_ladder",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "block",
+        "max_print_l": 200,
+        "max_print_w": 140,
+        "sheet_units": {},
+        "size_ladder": [
+          {
+            "h": 20,
+            "w": 20,
+            "price": 59
+          },
+          {
+            "h": 30,
+            "w": 30,
+            "price": 95
+          },
+          {
+            "h": 40,
+            "w": 30,
+            "price": 105
+          },
+          {
+            "h": 45,
+            "w": 30,
+            "price": 110
+          },
+          {
+            "h": 30,
+            "w": 50,
+            "price": 115
+          },
+          {
+            "h": 60,
+            "w": 30,
+            "price": 120
+          },
+          {
+            "h": 40,
+            "w": 50,
+            "price": 140
+          },
+          {
+            "h": 75,
+            "w": 50,
+            "price": 159
+          },
+          {
+            "h": 90,
+            "w": 90,
+            "price": 230
+          },
+          {
+            "h": 70,
+            "w": 100,
+            "price": 245
+          },
+          {
+            "h": 120,
+            "w": 80,
+            "price": 255
+          },
+          {
+            "h": 140,
+            "w": 70,
+            "price": 281
+          },
+          {
+            "h": 120,
+            "w": 90,
+            "price": 280
+          },
+          {
+            "h": 100,
+            "w": 120,
+            "price": 310
+          },
+          {
+            "h": 180,
+            "w": 60,
+            "price": 365
+          },
+          {
+            "h": 100,
+            "w": 150,
+            "price": 385
+          }
+        ],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0.1,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 2.4,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      },
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 67,
+            "base": 0,
+            "rate_m2": 436
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "דפים",
+    "items_count": 35,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "פליירים",
+    "items_count": 32,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [],
+        "engine": "anchor_curve",
+        "margin": 1.3,
+        "method": "sheet",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [
+          10,
+          50,
+          100,
+          250,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          20000
+        ],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 160,
+        "max_print_w": 150,
+        "sheet_units": {},
+        "size_ladder": [],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [
+          {
+            "id": "10/15",
+            "max_h": 15,
+            "max_w": 10,
+            "factor": 0.835,
+            "base100": null,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "A5",
+            "max_h": 21,
+            "max_w": 15,
+            "factor": 1,
+            "base100": null,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "A4",
+            "max_h": 30,
+            "max_w": 21,
+            "factor": 1.8,
+            "base100": null,
+            "includes": [],
+            "quote_only": false
+          },
+          {
+            "id": "A3",
+            "max_h": 42,
+            "max_w": 30,
+            "factor": 3.24,
+            "base100": null,
+            "includes": [],
+            "quote_only": true
+          }
+        ],
+        "curve_anchors": [
+          {
+            "qty": 10,
+            "size": "A5",
+            "price": 75
+          },
+          {
+            "qty": 50,
+            "size": "A5",
+            "price": 85
+          },
+          {
+            "qty": 100,
+            "size": "A5",
+            "price": 95
+          },
+          {
+            "qty": 250,
+            "size": "A5",
+            "price": 140
+          },
+          {
+            "qty": 500,
+            "size": "A5",
+            "price": 225
+          },
+          {
+            "qty": 1000,
+            "size": "A5",
+            "price": 395
+          },
+          {
+            "qty": 2000,
+            "size": "A5",
+            "price": 475
+          },
+          {
+            "qty": 3000,
+            "size": "A5",
+            "price": 535
+          },
+          {
+            "qty": 5000,
+            "size": "A5",
+            "price": 600
+          },
+          {
+            "qty": 10000,
+            "size": "A5",
+            "price": 1093
+          },
+          {
+            "qty": 12000,
+            "size": "A5",
+            "price": 1250
+          },
+          {
+            "qty": 20000,
+            "size": "A5",
+            "price": 1600
+          },
+          {
+            "qty": 1000,
+            "size": "10/15",
+            "price": 330
+          },
+          {
+            "qty": 1000,
+            "size": "A4",
+            "price": 710
+          }
+        ],
+        "digital_setup": 72,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 1,
+        "tail_per_unit": 0.05,
+        "dual_surcharge": [
+          {
+            "pct": 0.08,
+            "max_qty": 249
+          },
+          {
+            "pct": 0.2,
+            "max_qty": 999
+          },
+          {
+            "pct": 0.1,
+            "max_qty": 4999
+          },
+          {
+            "pct": 0.03,
+            "max_qty": null
+          }
+        ],
+        "digital_max_qty": 1000,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0.32,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {
+          "170": 0.08
+        },
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 10,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      }
+    }
+  },
+  {
+    "family": "פוליגל",
+    "items_count": 29,
+    "notes": null,
+    "cost_per_m2": 6,
+    "outsource_cost_per_m2": 60,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [],
+        "engine": "size_ladder",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [
+          {
+            "size": "120x80",
+            "min_qty": 10,
+            "unit_price": 47
+          },
+          {
+            "size": "40x40",
+            "min_qty": 10,
+            "unit_price": 29.5
+          }
+        ],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 150,
+        "sheet_units": {},
+        "size_ladder": [
+          {
+            "h": 40,
+            "w": 40,
+            "price": 55
+          },
+          {
+            "h": 60,
+            "w": 60,
+            "price": 55
+          },
+          {
+            "h": 80,
+            "w": 60,
+            "price": 65
+          },
+          {
+            "h": 80,
+            "w": 100,
+            "price": 65
+          },
+          {
+            "h": 80,
+            "w": 120,
+            "price": 85
+          }
+        ],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": true,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      }
+    }
+  },
+  {
+    "family": "חשבוניות",
+    "items_count": 26,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [
+          "חשבוניות: מספר סטים לפנקס (25/50) טרם אומת בסנזיי — המחיר עשוי להשתנות (TODO)"
+        ],
+        "engine": "unit_floor",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 0,
+        "sheet_units": {},
+        "size_ladder": [],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [
+          {
+            "h": 21,
+            "w": 14.8,
+            "qty": 10,
+            "label": "A5 × 10 פנקסים",
+            "price": 320
+          },
+          {
+            "h": null,
+            "w": null,
+            "qty": 10,
+            "label": "שישיות × 10 פנקסים",
+            "price": 418
+          },
+          {
+            "h": 29.7,
+            "w": 21,
+            "qty": 10,
+            "label": "A4 × 10 פנקסים",
+            "price": 418
+          },
+          {
+            "h": 29.7,
+            "w": 21,
+            "qty": 20,
+            "label": "A4 × 20 פנקסים",
+            "price": 858
+          }
+        ],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      },
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "חולצה",
+    "items_count": 19,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "הדפסה על חפצים",
+    "items_count": 16,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "הדפסה על לוקובונד",
+    "items_count": 16,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 70,
+            "base": 0,
+            "rate_m2": 377
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "כרטיסי ביקור",
+    "items_count": 16,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "זכוכית",
+    "items_count": 12,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [],
+        "engine": "size_ladder",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 0,
+        "sheet_units": {},
+        "size_ladder": [
+          {
+            "h": 30,
+            "w": 20,
+            "price": 160
+          },
+          {
+            "h": 70,
+            "w": 100,
+            "price": 675
+          },
+          {
+            "h": 80,
+            "w": 120,
+            "price": 1035
+          }
+        ],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      },
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 100,
+            "base": 0,
+            "rate_m2": 1114
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "פולדר",
+    "items_count": 10,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "מעטפות",
+    "items_count": 9,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 17
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "חותמות",
+    "items_count": 8,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "בלוק עץ",
+    "items_count": 7,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 29,
+            "base": 0,
+            "rate_m2": 2564
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "רול אפ",
+    "items_count": 6,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "הזמנות",
+    "items_count": 5,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "מתנות",
+    "items_count": 5,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "אלבומים",
+    "items_count": 3,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "גלויות",
+    "items_count": 3,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "פנקסים",
+    "items_count": 3,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": null,
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [
+          "חשבוניות: מספר סטים לפנקס (25/50) טרם אומת בסנזיי — המחיר עשוי להשתנות (TODO)"
+        ],
+        "engine": "unit_floor",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 0,
+        "sheet_units": {},
+        "size_ladder": [],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [
+          {
+            "h": 21,
+            "w": 14.8,
+            "qty": 10,
+            "label": "A5 × 10 פנקסים",
+            "price": 320
+          },
+          {
+            "h": null,
+            "w": null,
+            "qty": 10,
+            "label": "שישיות × 10 פנקסים",
+            "price": 418
+          },
+          {
+            "h": 29.7,
+            "w": 21,
+            "qty": 10,
+            "label": "A4 × 10 פנקסים",
+            "price": 418
+          },
+          {
+            "h": 29.7,
+            "w": 21,
+            "qty": 20,
+            "label": "A4 × 20 פנקסים",
+            "price": 858
+          }
+        ],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      },
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "גרפיקה",
+    "items_count": 2,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "הדפסה",
+    "items_count": 1,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "חולצות",
+    "items_count": 1,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "כוסות",
+    "items_count": 1,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "מתקני תצוגה",
+    "items_count": 1,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "ניירת",
+    "items_count": 1,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": 150,
+    "outsource_height_cm": 160,
+    "pricing_config": {
+      "cost": {
+        "overhead_mult": 2
+      },
+      "tiers": [
+        {
+          "cost": {
+            "cost_per_m2": 0
+          },
+          "name": "כללי",
+          "match": {},
+          "method": "area_linear",
+          "params": {
+            "min": 0,
+            "base": 0,
+            "rate_m2": 0
+          }
+        }
+      ],
+      "rounding": {
+        "step": 1,
+        "direction": "nearest"
+      },
+      "qty_model": {
+        "type": "power",
+        "exponent": 0.85
+      }
+    }
+  },
+  {
+    "family": "פרספקס",
+    "items_count": null,
+    "notes": null,
+    "cost_per_m2": 0,
+    "outsource_cost_per_m2": null,
+    "outsource_width_cm": null,
+    "outsource_height_cm": null,
+    "pricing_config": {
+      "v3": {
+        "plan": {
+          "gates": [
+            {
+              "kind": "quote_only",
+              "note": "פרספקס — ממתין לגיליון עלויות מהלקוח"
+            }
+          ]
+        },
+        "cap_l": 0,
+        "cap_w": 0,
+        "todos": [
+          "פרספקס: אין עדיין עלויות ומחירים — כל מידה מוחזרת כהצעת מחיר (TODO לקוח)"
+        ],
+        "engine": "size_ladder",
+        "margin": 1.3,
+        "method": "area",
+        "board_h": 0,
+        "board_w": 0,
+        "sheet_h": 32,
+        "sheet_w": 45,
+        "packages": [],
+        "rounding": 1,
+        "qty_tiers": [],
+        "sheet_gap": 0.5,
+        "over_limit": "weld",
+        "max_print_l": 0,
+        "max_print_w": 0,
+        "sheet_units": {},
+        "size_ladder": [],
+        "whole_board": false,
+        "yield_table": [],
+        "per_m2_tiers": [],
+        "qty_exponent": null,
+        "sheet_margin": 0,
+        "size_buckets": [],
+        "curve_anchors": [],
+        "digital_setup": 0,
+        "format_prices": [],
+        "min_job_price": 0,
+        "min_order_qty": 0,
+        "min_unit_area": 1,
+        "mount_cost_m2": 0,
+        "panoramic_pct": 0,
+        "short_run_pct": 0.7,
+        "tail_per_unit": null,
+        "dual_surcharge": [],
+        "digital_max_qty": 0,
+        "min_order_value": 0,
+        "mount_cost_unit": 0,
+        "qty_multipliers": [],
+        "digital_per_unit": 0,
+        "panoramic_aspect": 0,
+        "paper_weight_pct": {},
+        "vinyl_cost_sheet": 0,
+        "qty_tiers_enabled": false,
+        "short_run_ref_qty": 100,
+        "outsourced_vat_incl": null,
+        "outsourced_margin_factor": 1.5
+      }
+    }
+  }
+]
