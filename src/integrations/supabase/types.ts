@@ -20,7 +20,7 @@ export type Database = {
           password: string | null
         }
         Insert: {
-          id: number
+          id?: number
           password?: string | null
         }
         Update: {
@@ -62,7 +62,7 @@ export type Database = {
           outsource_cost_per_m2: number | null
           outsource_height_cm: number | null
           outsource_width_cm: number | null
-          pricing_config: Json | null
+          pricing_config: Json
         }
         Insert: {
           cost_per_m2?: number
@@ -72,7 +72,7 @@ export type Database = {
           outsource_cost_per_m2?: number | null
           outsource_height_cm?: number | null
           outsource_width_cm?: number | null
-          pricing_config?: Json | null
+          pricing_config?: Json
         }
         Update: {
           cost_per_m2?: number
@@ -82,13 +82,13 @@ export type Database = {
           outsource_cost_per_m2?: number | null
           outsource_height_cm?: number | null
           outsource_width_cm?: number | null
-          pricing_config?: Json | null
+          pricing_config?: Json
         }
         Relationships: []
       }
       product_history: {
         Row: {
-          batch_id: string
+          batch_id: string | null
           changed_at: string
           field: string
           id: string
@@ -98,7 +98,7 @@ export type Database = {
           source: string
         }
         Insert: {
-          batch_id: string
+          batch_id?: string | null
           changed_at?: string
           field: string
           id?: string
@@ -108,7 +108,7 @@ export type Database = {
           source?: string
         }
         Update: {
-          batch_id?: string
+          batch_id?: string | null
           changed_at?: string
           field?: string
           id?: string
@@ -167,8 +167,8 @@ export type Database = {
           anomaly: string | null
           competitor_price: number | null
           competitor_ref: string | null
-          created_at: string | null
-          family: string | null
+          created_at: string
+          family: string
           final_price: number | null
           height_cm: number | null
           id: string
@@ -176,21 +176,21 @@ export type Database = {
           name: string
           notes: string | null
           proposed_price: number | null
-          qty: number | null
+          qty: number
           row_key: string
-          senzey_dup_count: number | null
-          senzey_exists: boolean | null
+          senzey_dup_count: number
+          senzey_exists: boolean
           senzey_group: string | null
           senzey_ids: string | null
           senzey_price: number | null
-          senzey_status: string | null
+          senzey_status: string
           site_category: string | null
-          site_exists: boolean | null
+          site_exists: boolean
           site_price: number | null
-          site_status: string | null
+          site_status: string
           site_url: string | null
-          source: string | null
-          updated_at: string | null
+          source: string
+          updated_at: string
           verified: boolean
           verified_at: string | null
           width_cm: number | null
@@ -199,8 +199,8 @@ export type Database = {
           anomaly?: string | null
           competitor_price?: number | null
           competitor_ref?: string | null
-          created_at?: string | null
-          family?: string | null
+          created_at?: string
+          family: string
           final_price?: number | null
           height_cm?: number | null
           id?: string
@@ -208,21 +208,21 @@ export type Database = {
           name: string
           notes?: string | null
           proposed_price?: number | null
-          qty?: number | null
+          qty?: number
           row_key: string
-          senzey_dup_count?: number | null
-          senzey_exists?: boolean | null
+          senzey_dup_count?: number
+          senzey_exists?: boolean
           senzey_group?: string | null
           senzey_ids?: string | null
           senzey_price?: number | null
-          senzey_status?: string | null
+          senzey_status?: string
           site_category?: string | null
-          site_exists?: boolean | null
+          site_exists?: boolean
           site_price?: number | null
-          site_status?: string | null
+          site_status?: string
           site_url?: string | null
-          source?: string | null
-          updated_at?: string | null
+          source?: string
+          updated_at?: string
           verified?: boolean
           verified_at?: string | null
           width_cm?: number | null
@@ -231,8 +231,8 @@ export type Database = {
           anomaly?: string | null
           competitor_price?: number | null
           competitor_ref?: string | null
-          created_at?: string | null
-          family?: string | null
+          created_at?: string
+          family?: string
           final_price?: number | null
           height_cm?: number | null
           id?: string
@@ -240,26 +240,34 @@ export type Database = {
           name?: string
           notes?: string | null
           proposed_price?: number | null
-          qty?: number | null
+          qty?: number
           row_key?: string
-          senzey_dup_count?: number | null
-          senzey_exists?: boolean | null
+          senzey_dup_count?: number
+          senzey_exists?: boolean
           senzey_group?: string | null
           senzey_ids?: string | null
           senzey_price?: number | null
-          senzey_status?: string | null
+          senzey_status?: string
           site_category?: string | null
-          site_exists?: boolean | null
+          site_exists?: boolean
           site_price?: number | null
-          site_status?: string | null
+          site_status?: string
           site_url?: string | null
-          source?: string | null
-          updated_at?: string | null
+          source?: string
+          updated_at?: string
           verified?: boolean
           verified_at?: string | null
           width_cm?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_family_fkey"
+            columns: ["family"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["family"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -304,7 +312,15 @@ export type Database = {
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_family_access_family_fkey"
+            columns: ["family"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["family"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -332,6 +348,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_family_access: { Args: { _family: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -339,9 +356,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -469,7 +487,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "moderator", "user"],
     },
   },
 } as const
