@@ -756,7 +756,7 @@ function Catalog() {
           if (Object.keys(auto).length) autoCount++;
           const { error } = await supabase
             .from("products")
-            .update({ ...patch, ...auto, updated_at: stamp })
+            .update({ ...patch, ...auto, updated_at: stamp } as ProductUpdate)
             .eq("id", id);
           if (error) throw error;
         }
