@@ -5,6 +5,7 @@ import {
   type FamilyPricing,
   type PreparedFamily,
 } from "../mdvd";
+import { MATERIAL_LABEL } from "./modifiers";
 import type { PricingPlan } from "./plan";
 
 /* ------------------------------------------------------------------ *
@@ -82,6 +83,20 @@ function describeSource(
         he: `עקומת עוגנים: מחיר בסיס לפי דלי גודל × מקדם כמות (${n(cfg.sizeBuckets.length)} דליים)`,
         en: `Anchor curve: a base price per size bucket × a quantity multiplier (${n(cfg.sizeBuckets.length)} buckets)`,
       };
+    case "two_machine_sheet": {
+      const s = printableSheet(cfg);
+      const tiers = cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ");
+      return {
+        he:
+          `שתי מכונות. מדבקה שנכנסת לגיליון הקטן (${s.w}×${s.h} ס״מ) מתומחרת לפי גיליונות — ${shekel(cfg.sheetPrice)} לגיליון לפי כמה נכנסות בגיליון — ולעולם לא יותר מחבילת ${n(cfg.shortRunRefQty)} היחידות של דלי הגודל; ` +
+          `מ-${n(cfg.shortRunRefQty)} יחידות המחיר הוא מחירי החבילות של האתר. ` +
+          `מדבקה שאינה נכנסת לגיליון מודפסת במדפסת הגדולה (גליל) לפי מ״ר${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` עם מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""}`,
+        en:
+          `Two machines. A sticker that fits the small sheet (${s.w}×${s.h} cm) is priced per sheet — ${shekel(cfg.sheetPrice)} a sheet by how many fit — and never above the size bucket's ${n(cfg.shortRunRefQty)}-unit pack; ` +
+          `from ${n(cfg.shortRunRefQty)} units the website pack prices apply. ` +
+          `A sticker that does not fit is printed on the big roll printer per m²${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` with a ${shekel(cfg.minJobPrice)} minimum per unit` : ""}`,
+      };
+    }
     case "cost_plus":
       return {
         he: `עלות-פלוס: (עלות נייר + עלות הדפסה × צדדים) × מקדם ${plan.source.markup}`,
@@ -131,6 +146,11 @@ export function explainFamily(
                 he: `מידה רחבה מ-${cfg.maxPrintW} ס״מ מודבקת על לוח`,
                 en: `A size wider than ${cfg.maxPrintW} cm is mounted on a board`,
               }
+            : cfg.overLimit === "outsource"
+              ? {
+                  he: `מידה שצידה הצר רחב מ-${cfg.maxPrintW} ס״מ מיוצרת בייצור חוץ${cfg.outsourcedRateM2 > 0 ? ` — ${shekel(cfg.outsourcedRateM2)} למ״ר${cfg.minJobPrice > 0 ? `, מינימום ${shekel(cfg.minJobPrice)}` : ""}` : ""} (עם תפר: ריתוך פאנלים בבית)`,
+                  en: `A size whose short side exceeds ${cfg.maxPrintW} cm is outsourced${cfg.outsourcedRateM2 > 0 ? ` — ${shekel(cfg.outsourcedRateM2)} per m²${cfg.minJobPrice > 0 ? `, minimum ${shekel(cfg.minJobPrice)}` : ""}` : ""} (with a seam: welded in-house)`,
+                }
             : {
                 he: `מידה רחבה מ-${cfg.maxPrintW} ס״מ אינה מיוצרת`,
                 en: `A size wider than ${cfg.maxPrintW} cm is not produced`,
@@ -155,6 +175,17 @@ export function explainFamily(
           .join(" · ")}`,
         en: `Paper weight adjusts the price: ${Object.entries(m.pct)
           .map(([k, v]) => `${k}g +${Math.round(v * 100)}%`)
+          .join(" · ")}`,
+      });
+    if (m.kind === "material_surcharge")
+      steps.push({
+        he: `חומר משנה את המחיר: ${Object.entries(m.pct)
+          .filter(([, v]) => v > 0)
+          .map(([k, v]) => `${MATERIAL_LABEL[k] ?? k} +${Math.round(v * 100)}%`)
+          .join(" · ")}`,
+        en: `Material adjusts the price: ${Object.entries(m.pct)
+          .filter(([, v]) => v > 0)
+          .map(([k, v]) => `${k} +${Math.round(v * 100)}%`)
           .join(" · ")}`,
       });
     if (m.kind === "size_floor")
@@ -211,9 +242,20 @@ export function explainFamily(
   const sheetBased =
     cfg.engine === "catalog_surface" ||
     cfg.engine === "anchor_curve" ||
-    cfg.engine === "sheet_yield";
+    cfg.engine === "sheet_yield" ||
+    cfg.engine === "two_machine_sheet";
   if (sheetBased)
     settings.push({ he: `שטח הדפסה: ${s.w}×${s.h} ס״מ`, en: `Printable sheet: ${s.w}×${s.h} cm` });
+  if (cfg.engine === "two_machine_sheet")
+    settings.push({
+      he: `גיליון קטן: ${shekel(cfg.sheetPrice)} · חבילות מ-${n(cfg.shortRunRefQty)} יח׳ · גליל: מינימום ${shekel(cfg.minJobPrice)} ליחידה`,
+      en: `Small sheet: ${shekel(cfg.sheetPrice)} · packs from ${n(cfg.shortRunRefQty)} units · roll: minimum ${shekel(cfg.minJobPrice)} per unit`,
+    });
+  if (cfg.overLimit === "outsource" && cfg.outsourcedRateM2 > 0)
+    settings.push({
+      he: `ייצור חוץ: ${shekel(cfg.outsourcedRateM2)} למ״ר`,
+      en: `Outsourced: ${shekel(cfg.outsourcedRateM2)} per m²`,
+    });
   const usesShortRun = cfg.engine === "catalog_surface" || cfg.engine === "anchor_curve";
   if (usesShortRun && cfg.shortRunPct > 0 && cfg.shortRunPct < 1)
     settings.push({

@@ -1277,6 +1277,7 @@ function Calculator() {
                       <option value="weld">פיצול לחלקים (ריתוך)</option>
                       <option value="mount">הדבקה על לוח</option>
                       <option value="block">אין ייצור</option>
+                      <option value="outsource">ייצור חוץ</option>
                     </Field>
                     <Field
                       label='גבול ייצור מוחלט — רוחב (ס"מ)'

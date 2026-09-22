@@ -17,6 +17,15 @@ export type ModifierContext = {
   heightCm: number;
   paperWeight?: string | undefined;
   dualSided: boolean;
+  /** מפתח חומר (מדבקות): "vinyl" | "diecut_vinyl" | "transparent" … */
+  material?: string | undefined;
+};
+
+/** תוויות החומרים לבורר בממשק ולפירוט המחיר */
+export const MATERIAL_LABEL: Record<string, string> = {
+  vinyl: "ויניל",
+  diecut_vinyl: "ויניל בחיתוך צורני",
+  transparent: "שקוף",
 };
 
 export type ModifierOutcome = {
@@ -75,6 +84,17 @@ const minOrderValue: ModifierFn = (spec, price) => {
   };
 };
 
+const materialSurcharge: ModifierFn = (spec, price, ctx) => {
+  if (spec.kind !== "material_surcharge" || !ctx.material) return null;
+  const pct = spec.pct[ctx.material];
+  if (!pct || pct <= 0) return null;
+  return {
+    price: price * (1 + pct),
+    noRound: false,
+    detail: `חומר: ${MATERIAL_LABEL[ctx.material] ?? ctx.material} +${Math.round(pct * 100)}%`,
+  };
+};
+
 /* Floors are resolved inside priceJob's finish(), because they must bind on
    EVERY path — including the approved-price and large-format paths that
    return before the modifier stage. Declared here so a family opts in. */
@@ -87,6 +107,7 @@ const REGISTRY: Record<ModifierSpec["kind"], ModifierFn> = {
   size_floor: sizeFloor,
   cost_floor: costFloor,
   min_order_value: minOrderValue,
+  material_surcharge: materialSurcharge,
 };
 
 /** Applies a family's modifiers in order, collecting what each one did. */

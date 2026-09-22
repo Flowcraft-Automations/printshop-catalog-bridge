@@ -40,14 +40,15 @@ export function mkAnchor(
   qty: number,
   price: number,
   name = `${w}x${h}@${qty}`,
+  anchor = false,
 ): JobAnchor {
-  return { id: name, name, w, h, area: (w * h) / 10000, qty, price };
+  return { id: name, name, w, h, area: (w * h) / 10000, qty, price, anchor };
 }
 
-/** SPEC_ANCHORS for one family, mapped to JobAnchor. */
+/** SPEC_ANCHORS for one family, mapped to JobAnchor (is_anchor rows by definition). */
 export function specAnchorsFor(name: string): JobAnchor[] {
   return SPEC_ANCHORS.filter((a) => a.family === name).map((a) =>
-    mkAnchor(a.w, a.h, a.qty, a.price),
+    mkAnchor(a.w, a.h, a.qty, a.price, undefined, true),
   );
 }
 

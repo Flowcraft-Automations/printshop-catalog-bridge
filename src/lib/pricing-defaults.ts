@@ -69,6 +69,10 @@ export function baseFamilyPricing(over: Partial<FamilyPricing> = {}): FamilyPric
     digitalPerUnit: 0,
     digitalMaxQty: 0,
     todos: [],
+    /* --- v3.3 --- */
+    catalogBinds: "all",
+    sheetPrice: 0,
+    outsourcedRateM2: 0,
     ...over,
   };
 }
@@ -205,7 +209,7 @@ const SHIMSHONIT = baseFamilyPricing({
   /* הצד הצר מעל 150 ס״מ → ייצור חוץ (רצפה ×1.5); עם תפר = ריתוך בבית */
   maxPrintW: 150,
   maxPrintL: 0,
-  overLimit: "weld",
+  overLimit: "outsource",
   outsourcedMarginFactor: 1.5,
   outsourcedVatIncluded: null,
   /* חבילת 10 × 120/80 = ₪470 — מוצר דגל, נשמר */
@@ -244,7 +248,7 @@ const POLYGAL = baseFamilyPricing({
     { w: 120, h: 80, price: 85 },
   ],
   maxPrintW: 150,
-  overLimit: "weld",
+  overLimit: "outsource",
   /* חבילות: 120/80×10 = ₪470 (נשמר) · 40/40×10 = ₪295 */
   qtyTiersEnabled: true,
   qtyTiers: [

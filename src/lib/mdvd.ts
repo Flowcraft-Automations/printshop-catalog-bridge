@@ -157,6 +157,12 @@ function normalizeSizeText(s: string) {
   return sizeKey(parts[0] as number, parts[1] as number);
 }
 
+/** סובלנות מידה (ס״מ) להתאמת שורת קטלוג / נקודת סולם לעבודה. */
+const DIM_TOL = 0.51;
+const sameSize = (aw: number, ah: number, bw: number, bh: number) =>
+  Math.abs(Math.max(aw, ah) - Math.max(bw, bh)) <= DIM_TOL &&
+  Math.abs(Math.min(aw, ah) - Math.min(bw, bh)) <= DIM_TOL;
+
 /** Printing sheet used for sticker nesting. */
 export const SHEET_W_CM = 45;
 export const SHEET_H_CM = 32;
@@ -387,10 +393,30 @@ export type FamilyPricing = {
   digitalMaxQty: number;
   /** הערות TODO מהתצורה — מוצגות בממשק */
   todos: string[];
+
+  /* --- v3.3 --- */
+  /** אילו שורות קטלוג רשאיות לקבוע מחיר: none / anchors / packs (מכמות החבילה) / all */
+  catalogBinds: CatalogBinds;
+  /** מחיר גיליון קטן ₪ (מנוע שתי מכונות) */
+  sheetPrice: number;
+  /** תעריף ייצור חוץ ללקוח ₪ למ״ר (שטוח); 0 = עלות חוץ × מקדם (הנוסחה הישנה) */
+  outsourcedRateM2: number;
 };
 
-/** מה קורה מעל גבול ההדפסה */
-export type OverLimit = "weld" | "mount" | "block";
+/** מה קורה מעל גבול ההדפסה: ריתוך פאנלים / הדבקה על לוח / אין ייצור / ייצור חוץ */
+export type OverLimit = "weld" | "mount" | "block" | "outsource";
+
+/**
+ * מדיניות קשירה לקטלוג — אילו שורות מאומתות רשאיות לקבוע מחיר לעבודה:
+ *  none    — נוסחה בלבד (הקטלוג משמש להשוואה בלבד)
+ *  anchors — רק שורות שסומנו is_anchor
+ *  packs   — רק שורות מכמות החבילה הקטנה (shortRunRefQty) ומעלה
+ *  all     — כל שורה מאומתת (ההתנהגות הישנה)
+ */
+export type CatalogBinds = "none" | "anchors" | "packs" | "all";
+export function isCatalogBinds(v: unknown): v is CatalogBinds {
+  return v === "none" || v === "anchors" || v === "packs" || v === "all";
+}
 
 /** מדרגת כמות — מכמות minQty ומעלה, מחיר קבוע ליחידה. size ריק = כל המידות. */
 export type QtyTier = {
@@ -463,7 +489,7 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
       const legacyMountH = Math.max(0, num(v?.["mount_h"]));
       const raw = String(v?.["over_limit"] ?? "");
       const overLimit: OverLimit =
-        raw === "weld" || raw === "mount" || raw === "block"
+        raw === "weld" || raw === "mount" || raw === "block" || raw === "outsource"
           ? raw
           : legacyMountW > 0 && legacyMountH > 0
             ? "mount"
@@ -631,6 +657,11 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     todos: Array.isArray(v?.["todos"])
       ? (v?.["todos"] as unknown[]).map((t) => String(t).trim()).filter(Boolean)
       : [],
+
+    /* --- v3.3 --- */
+    catalogBinds: isCatalogBinds(v?.["catalog_binds"]) ? v["catalog_binds"] : "all",
+    sheetPrice: Math.max(0, num(v?.["sheet_price"])),
+    outsourcedRateM2: Math.max(0, num(v?.["outsourced_rate_m2"])),
   };
 }
 
@@ -647,7 +678,12 @@ export function writeFamilyPricing(cfg: FamilyPricing, prev?: unknown) {
     v3: {
       engine: cfg.engine,
       /* legacy hint so a pre-v3.1 build reading this config degrades sanely */
-      method: cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface" ? "sheet" : "area",
+      method:
+        cfg.engine === "anchor_curve" ||
+        cfg.engine === "catalog_surface" ||
+        cfg.engine === "two_machine_sheet"
+          ? "sheet"
+          : "area",
       margin: cfg.margin,
       rounding: cfg.rounding,
       packages: cfg.packages,
@@ -720,6 +756,10 @@ export function writeFamilyPricing(cfg: FamilyPricing, prev?: unknown) {
       digital_per_unit: cfg.digitalPerUnit,
       digital_max_qty: cfg.digitalMaxQty,
       todos: cfg.todos,
+      /* --- v3.3 --- */
+      catalog_binds: cfg.catalogBinds,
+      sheet_price: cfg.sheetPrice,
+      outsourced_rate_m2: cfg.outsourcedRateM2,
     },
   };
 }
@@ -748,16 +788,24 @@ export type MachineCheck = {
   blocked: boolean;
   /** printed vinyl mounted on board instead of direct print */
   mounted: boolean;
+  /** מיוצר בייצור חוץ (over_limit = outsource, ללא תפר) */
+  outsourced: boolean;
   note: string;
 };
 
 /** Machine limits for a job: printable width, length cap and the mounting boundary. */
-export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineCheck {
+export function machineCheck(
+  cfg: FamilyPricing,
+  w: number,
+  h: number,
+  opts: { withSeam?: boolean } = {},
+): MachineCheck {
   const short = Math.min(w, h);
   const long = Math.max(w, h);
   let panels = 1;
   let blocked = false;
   let mounted = false;
+  let outsourced = false;
   const notes: string[] = [];
 
   const overW = cfg.maxPrintW > 0 && short > cfg.maxPrintW + 0.01;
@@ -768,7 +816,12 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
      סוג המשפחה. בעבר משפחות גיליון דולגו כאן ("לא ניתנות לריתוך"), ולכן
      מדבקות מעל 120 ס״מ לא התפצלו — הלקוח (2026-09-03): מחלקים לשני חלקים. */
   if (overW || overL) {
-    if (cfg.overLimit === "weld") {
+    /* עם תפר = ריתוך פאנלים בבית גם כשמדיניות המשפחה היא ייצור חוץ */
+    const mode: OverLimit = cfg.overLimit === "outsource" && opts.withSeam ? "weld" : cfg.overLimit;
+    if (mode === "outsource") {
+      outsourced = true;
+      notes.push(`ייצור חוץ — מעל רוחב ההדפסה ${cfg.maxPrintW || "∞"} ס״מ`);
+    } else if (mode === "weld") {
       if (overL) {
         blocked = true;
         notes.push(`מעל האורך המרבי ${cfg.maxPrintL} ס״מ — לא ניתן לייצור`);
@@ -776,7 +829,7 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
         panels = Math.ceil(short / cfg.maxPrintW);
         notes.push(`מסופק ב-${panels} חלקים (רוחב הדפסה ${cfg.maxPrintW} ס״מ)`);
       }
-    } else if (cfg.overLimit === "mount") {
+    } else if (mode === "mount") {
       mounted = true;
       notes.push(`הדבקת ויניל על הלוח (מעל ${limitText})`);
     } else {
@@ -792,11 +845,12 @@ export function machineCheck(cfg: FamilyPricing, w: number, h: number): MachineC
     blocked = true;
     panels = 1;
     mounted = false;
+    outsourced = false;
     notes.length = 0;
     notes.push(`מעל גבול הייצור המוחלט ${cfg.capW || "∞"}×${cfg.capL || "∞"} ס״מ — לא ניתן לייצור`);
   }
 
-  return { panels, blocked, mounted, note: notes.join(" · ") };
+  return { panels, blocked, mounted, outsourced, note: notes.join(" · ") };
 }
 
 /** The usable (printable) sheet area for a family, in cm. */
@@ -894,6 +948,7 @@ export function familyAnchors(products: Product[], family: string): JobAnchor[] 
       area: (w * h) / 10000,
       qty: Math.max(1, Number(p.qty) || 1),
       price,
+      anchor: true,
     });
   }
   return out.sort((a, b) => a.area - b.area || a.qty - b.qty);
@@ -949,7 +1004,13 @@ export function mergeCloseAnchors(anchors: JobAnchor[]): {
  * ================================================================== */
 
 export type EngineKind =
-  "anchor_curve" | "per_m2" | "size_ladder" | "sheet_yield" | "unit_floor" | "catalog_surface";
+  | "anchor_curve"
+  | "per_m2"
+  | "size_ladder"
+  | "sheet_yield"
+  | "unit_floor"
+  | "catalog_surface"
+  | "two_machine_sheet";
 
 export const ENGINE_LABEL: Record<EngineKind, string> = {
   anchor_curve: "עקומת עוגנים",
@@ -958,11 +1019,13 @@ export const ENGINE_LABEL: Record<EngineKind, string> = {
   sheet_yield: "תפוקת גיליון",
   unit_floor: "מחיר רצפה",
   catalog_surface: "משטח מחירים מהקטלוג",
+  two_machine_sheet: "שתי מכונות — גיליון / גליל",
 };
 
 export function isEngineKind(v: unknown): v is EngineKind {
   return (
     v === "catalog_surface" ||
+    v === "two_machine_sheet" ||
     v === "anchor_curve" ||
     v === "per_m2" ||
     v === "size_ladder" ||
@@ -987,6 +1050,7 @@ export type BindingRule =
   | "min_order_qty"
   | "machine_blocked"
   | "tier"
+  | "sheet"
   | "cost";
 
 export const BINDING_LABEL: Record<BindingRule, string> = {
@@ -1004,6 +1068,7 @@ export const BINDING_LABEL: Record<BindingRule, string> = {
   min_order_qty: "מינימום הזמנה",
   machine_blocked: "מעל מגבלות המכונה",
   tier: "מדרגת כמות",
+  sheet: "גיליון קטן",
   cost: "לפי עלות",
 };
 
@@ -1096,6 +1161,10 @@ export type JobOptions = {
   noAssert?: boolean;
   /** תוכנית תמחור מפורשת; ברירת המחדל נגזרת מהתצורה של המשפחה */
   plan?: PricingPlan;
+  /** חומר (מדבקות): מפתח במקדם material_surcharge, למשל "diecut_vinyl" */
+  material?: string;
+  /** דריסת מדיניות הקשירה לקטלוג של המשפחה (דוח הסכמה: "none" = נוסחה בלבד) */
+  catalogBinds?: CatalogBinds;
 };
 
 /** Aspect ratio (long/short side), clamped so extreme banners don't explode. */
@@ -1117,11 +1186,6 @@ export function roundPrice(v: number, rule?: BindingRule): number {
   if (v < 100) return Math.round(v);
   return Math.round(v / 5) * 5;
 }
-
-const DIM_TOL = 0.51;
-const sameSize = (aw: number, ah: number, bw: number, bh: number) =>
-  Math.abs(Math.max(aw, ah) - Math.max(bw, bh)) <= DIM_TOL &&
-  Math.abs(Math.min(aw, ah) - Math.min(bw, bh)) <= DIM_TOL;
 
 function bucketRank(b: SizeBucket) {
   if (b.maxW <= 0 && b.maxH <= 0) return Infinity; // catch-all last
@@ -1186,7 +1250,7 @@ export function validateFamilyPricing(cfg: FamilyPricing, anchors: JobAnchor[]):
   }
   /* דלי סל חסום-גודל לצד דליים ממודדים = מחיר שמפסיק להגיב לגודל. זו בדיוק
      התקלה של מדבקות ‎10+‎ (₪187 לכל מידה מ-10 ס״מ ועד גבול הייצור). */
-  if (cfg.engine === "anchor_curve") {
+  if (cfg.engine === "anchor_curve" || cfg.engine === "two_machine_sheet") {
     const sized = cfg.sizeBuckets.filter((b) => b.maxW > 0 || b.maxH > 0);
     const catchAll = cfg.sizeBuckets.find((b) => b.maxW <= 0 && b.maxH <= 0 && !b.includes.length);
     if (catchAll && sized.length)
@@ -1361,13 +1425,57 @@ export function surfacePrice(
  * catalog anchors, then enforces monotonicity ON THE DATA —
  * size-floor first (nested buckets), quantity-cummax last.
  */
-export function prepareFamily(
+/**
+ * שורות הקטלוג הרשאיות לקבוע מחיר (D1). `anchors` הן שורות is_anchor מטבען;
+ * `validated` מסוננות לפי הדגל. עבודה בייצור חוץ לעולם אינה נקשרת לקטלוג.
+ * הרשימה המלאה ממשיכה להגיע לממשק (רשימת "מחירים מאומתים") — הסינון כאן
+ * משפיע רק על התמחור.
+ */
+export function bindableRows(
   cfg: FamilyPricing,
   anchors: JobAnchor[],
-  validated: JobAnchor[] = [],
+  validated: JobAnchor[],
+  opts: { outsourced?: boolean; policy?: CatalogBinds } = {},
+): { anchors: JobAnchor[]; validated: JobAnchor[] } {
+  const policy = opts.policy ?? cfg.catalogBinds;
+  if (opts.outsourced || policy === "none") return { anchors: [], validated: [] };
+  if (policy === "anchors")
+    return { anchors, validated: validated.filter((a) => a.anchor === true) };
+  if (policy === "packs") {
+    const from = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
+    return {
+      anchors: anchors.filter((a) => a.qty >= from),
+      validated: validated.filter((a) => a.qty >= from),
+    };
+  }
+  return { anchors, validated };
+}
+
+/**
+ * היחידה נכנסת לשטח ההדפסה של הגיליון באחד משני הכיוונים (כולל, 0.01 ס״מ).
+ * גיאומטרי בלבד — הגדרת sheet_units ידנית לעולם אינה מעבירה מידה בין המכונות.
+ */
+export function fitsSheet(cfg: FamilyPricing, w: number, h: number): boolean {
+  const s = printableSheet(cfg);
+  const T = 0.01;
+  return (w <= s.w + T && h <= s.h + T) || (h <= s.w + T && w <= s.h + T);
+}
+
+export function prepareFamily(
+  cfg: FamilyPricing,
+  anchorsIn: JobAnchor[],
+  validatedIn: JobAnchor[] = [],
+  opts: { catalogBinds?: CatalogBinds } = {},
 ): PreparedFamily {
   const adjustments: CurveAdjustment[] = [];
-  const configErrors = validateFamilyPricing(cfg, anchors);
+  /* תקינות התצורה נבדקת מול כל העוגנים; התמחור רואה רק את הרשאים להיקשר */
+  const configErrors = validateFamilyPricing(cfg, anchorsIn);
+  const { anchors, validated } = bindableRows(
+    cfg,
+    anchorsIn,
+    validatedIn,
+    opts.catalogBinds ? { policy: opts.catalogBinds } : {},
+  );
   const todos = [...cfg.todos];
   const buckets = [...cfg.sizeBuckets].sort((a, b) => bucketRank(a) - bucketRank(b));
   const byBucket = new Map<string, CurvePoint[]>();
@@ -1377,7 +1485,12 @@ export function prepareFamily(
     configErrors.push("תצורת משפחה ישנה — נדרשת מיגרציית תצורה v3 (המחיר מחושב מעלות בלבד)");
   }
 
-  if ((cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface") && buckets.length) {
+  if (
+    (cfg.engine === "anchor_curve" ||
+      cfg.engine === "catalog_surface" ||
+      cfg.engine === "two_machine_sheet") &&
+    buckets.length
+  ) {
     const master = buckets.find((b) => b.factor !== null && Math.abs((b.factor ?? 0) - 1) < 1e-9);
     const masterPts = master
       ? cfg.curveAnchors
@@ -1766,6 +1879,21 @@ function priceAnchorCurve(
   };
 }
 
+/** מדרגת המ״ר שחלה על שטח נתון (המדרגות ממוינות בעלייה בעת הקריאה). */
+function tierRate(tiers: PerM2Tier[], area: number): { rate: number; from: number } {
+  let rate = tiers[0]!.rate;
+  let from = tiers[0]!.minM2;
+  for (const t of tiers) {
+    if (area >= t.minM2) {
+      rate = t.rate;
+      from = t.minM2;
+    }
+  }
+  return { rate, from };
+}
+
+/* ייצור חוץ אינו מטופל כאן: ההחלטה (over_limit = outsource) והתמחור השטוח
+   למ״ר יושבים ב-priceJob לפני כל קשירה לקטלוג, ומשותפים לכל המנועים. */
 function pricePerM2(
   cfg: FamilyPricing,
   w: number,
@@ -1776,28 +1904,6 @@ function pricePerM2(
   const area = (w * h) / 10000;
   const short = Math.min(w, h);
   const overWidth = cfg.maxPrintW > 0 && short > cfg.maxPrintW + 0.01;
-
-  /* מיקור חוץ: הצד הצר גדול מרוחב ההדפסה — אלא אם נבחר "עם תפר" (ריתוך בבית) */
-  if (overWidth && !opts.withSeam) {
-    const rate = cfg.outsourceCost;
-    if (!(rate > 0))
-      return {
-        raw: 0,
-        bindingRule: "outsourced",
-        detail: "",
-        noRound: false,
-        noQuote: true,
-        error: "לא הוגדרה עלות מיקור חוץ למשפחה",
-      };
-    const factor = cfg.outsourcedMarginFactor > 0 ? cfg.outsourcedMarginFactor : 1.5;
-    const y = rate * area * factor * units;
-    return {
-      raw: y,
-      bindingRule: "outsourced",
-      noRound: false,
-      detail: `הצד הצר ${short} ס״מ מעל גבול ההדפסה ${cfg.maxPrintW} ס״מ · ${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר × ${factor} × ${units.toLocaleString()} יח׳`,
-    };
-  }
 
   if (!cfg.perM2Tiers.length) {
     /* תצורה ישנה — אין מדרגות: עלות × מקדם */
@@ -1811,14 +1917,7 @@ function pricePerM2(
     };
   }
 
-  let rate = cfg.perM2Tiers[0]!.rate;
-  let tierFrom = cfg.perM2Tiers[0]!.minM2;
-  for (const t of cfg.perM2Tiers) {
-    if (area >= t.minM2) {
-      rate = t.rate;
-      tierFrom = t.minM2;
-    }
-  }
+  const { rate, from: tierFrom } = tierRate(cfg.perM2Tiers, area);
   const flatArea = cfg.minUnitArea > 0 ? cfg.minUnitArea : 1;
   const minP = cfg.minJobPrice > 0 ? cfg.minJobPrice : 0;
   const perUnit = Math.max(minP, rate * area);
@@ -2009,6 +2108,104 @@ function priceUnitFloor(cfg: FamilyPricing, w: number, h: number, units: number)
   };
 }
 
+/**
+ * מדבקות — שתי מכונות (D2).
+ *  נכנס לגיליון הקטן: לפי גיליונות (sheetPrice) או לפי חבילת הכמות של דלי
+ *  הגודל — מתחת לכמות החבילה: min(חבילה, max(גיליונות, חלק יחסי מהחבילה));
+ *  מהחבילה ומעלה: עקומת הדליים כמו תמיד.
+ *  אינו נכנס: גליל לפי מ״ר (perM2Tiers, minJobPriceליחידה) על השטח בפועל —
+ *  פיצול לחלקים (machineCheck) אינו מכפיל את השטח.
+ */
+function priceTwoMachineSheet(
+  p: PreparedFamily,
+  cfg: FamilyPricing,
+  w: number,
+  h: number,
+  units: number,
+): EngineResult {
+  const area = (w * h) / 10000;
+
+  /* ---- גליל (מדפסת גדולה) ---- */
+  if (!fitsSheet(cfg, w, h)) {
+    if (!cfg.perM2Tiers.length)
+      return {
+        raw: 0,
+        bindingRule: "large_format",
+        detail: "",
+        noRound: false,
+        noQuote: true,
+        error: "לא הוגדרו מדרגות מ״ר לגליל",
+      };
+    const { rate, from } = tierRate(cfg.perM2Tiers, area);
+    const minP = cfg.minJobPrice > 0 ? cfg.minJobPrice : 0;
+    const perUnit = Math.max(minP, rate * area);
+    const bound = perUnit > rate * area + 1e-9;
+    return {
+      raw: perUnit * units,
+      bindingRule: "large_format",
+      noRound: false,
+      detail: `מדפסת גדולה (גליל) · ${area.toFixed(3)} מ״ר × ${shekel(rate)} למ״ר${
+        from > 0 ? ` (מ-${from} מ״ר)` : ""
+      }${bound ? ` · מינימום ${shekel(minP)} ליחידה` : ""} × ${units.toLocaleString()} יח׳`,
+    };
+  }
+
+  /* ---- גיליון (מדפסת קטנה) ---- */
+  if (!(cfg.sheetPrice > 0))
+    return {
+      raw: 0,
+      bindingRule: "sheet",
+      detail: "",
+      noRound: false,
+      noQuote: true,
+      error: "לא הוגדר מחיר גיליון למשפחה",
+    };
+  const per = Math.max(1, sheetUnitsFor(cfg, w, h).units);
+  const sheets = Math.ceil(units / per);
+  const sheetTotal = sheets * cfg.sheetPrice;
+  const sheetNote = `${per} יח׳ בגיליון · ${sheets} גיליונות × ${shekel(cfg.sheetPrice)}`;
+  const bucket = resolveBucket(p.buckets, w, h);
+  const pts = bucket ? (p.byBucket.get(bucket.id) ?? []) : [];
+  if (!bucket || !pts.length)
+    return {
+      raw: sheetTotal,
+      bindingRule: "sheet",
+      noRound: true,
+      detail: `מדפסת קטנה · ${sheetNote} · אין דלי גודל — מחיר לפי גיליונות`,
+    };
+  const refQty = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
+  /* מכמות החבילה ומעלה — עקומת הדליים (התאמה מדויקת / אינטרפולציה / זנב) */
+  if (units >= refQty) return priceAnchorCurve(p, cfg, w, h, units);
+
+  const pack = curvePriceAt(pts, refQty);
+  const prorata = pack.price * (units / refQty);
+  const best = Math.max(sheetTotal, prorata);
+  const note = `מדפסת קטנה · דלי ${bucket.id}`;
+  if (pack.price <= best + 1e-9)
+    return {
+      raw: pack.price,
+      bindingRule: "package_min",
+      noRound: pack.exact,
+      quoteOnly: bucket.quoteOnly,
+      detail: `${note} · חבילת ${refQty.toLocaleString()} יח׳ (${shekel(pack.price)}) זולה מ-${sheetNote}`,
+    };
+  if (sheetTotal >= prorata)
+    return {
+      raw: sheetTotal,
+      bindingRule: "sheet",
+      noRound: true,
+      quoteOnly: bucket.quoteOnly,
+      detail: `${note} · ${sheetNote}`,
+    };
+  return {
+    raw: prorata,
+    bindingRule: "curve",
+    noRound: false,
+    quoteOnly: bucket.quoteOnly,
+    detail: `${note} · ${shekel(pack.price)} ל-${refQty.toLocaleString()} יח׳ × ${units.toLocaleString()}/${refQty.toLocaleString()} (${sheetNote})`,
+  };
+}
+
 /* ------------------------------------------------------------------ *
  *  JobPrice + priceJob — the one pricing entry point
  * ------------------------------------------------------------------ */
@@ -2076,9 +2273,16 @@ const SOURCE_FOR: Partial<Record<BindingRule, JobPrice["source"]>> = {
   cost_floor: "cost",
   machine_blocked: "cost",
   min_order_qty: "cost",
+  sheet: "cost",
 };
 
-/** The one pricing entry point. */
+const NO_AUTO_LABEL = "הצעת מחיר — אין תמחור אוטומטי למשפחה זו";
+
+/**
+ * The one pricing entry point.
+ * לעולם לא מחזיר ₪0 כמחיר: תוצאה אפסית שאינה סירוב מפורש (מינימום / מכונה /
+ * הצעת מחיר) הופכת ל"הצעת מחיר לפי בקשה" עם הסיבה.
+ */
 export function priceJob(
   cfg: FamilyPricing,
   anchors: JobAnchor[],
@@ -2088,28 +2292,64 @@ export function priceJob(
   validated: JobAnchor[] = [],
   opts: JobOptions = {},
 ): JobPrice | null {
+  const job = priceJobRaw(cfg, anchors, w, h, qty, validated, opts);
+  if (!job || job.noQuote || job.belowMinOrder || job.overMachine || job.total > 0) return job;
+  return {
+    ...job,
+    noQuote: true,
+    total: 0,
+    unit: 0,
+    belowCost: false,
+    label: NO_AUTO_LABEL,
+    configError: job.configError ?? "המנוע החזיר ₪0 — חסרים נתוני תמחור למשפחה",
+  };
+}
+
+function priceJobRaw(
+  cfg: FamilyPricing,
+  anchorsIn: JobAnchor[],
+  w: number,
+  h: number,
+  qty: number,
+  validatedIn: JobAnchor[] = [],
+  opts: JobOptions = {},
+): JobPrice | null {
   if (!(w > 0) || !(h > 0)) return null;
   const units = Math.max(1, Math.round(qty) || 1);
   const area = (w * h) / 10000;
   const margin = cfg.margin > 0 ? cfg.margin : DEFAULT_MARGIN;
-  const machine = machineCheck(cfg, w, h);
-  const prepared = opts.prepared ?? prepareFamily(cfg, anchors, validated);
+  const machine = machineCheck(cfg, w, h, opts.withSeam ? { withSeam: true } : {});
+  const prepared =
+    opts.prepared ??
+    prepareFamily(
+      cfg,
+      anchorsIn,
+      validatedIn,
+      opts.catalogBinds ? { catalogBinds: opts.catalogBinds } : {},
+    );
 
-  const outsourcedJob =
-    cfg.engine === "per_m2" &&
-    cfg.maxPrintW > 0 &&
-    Math.min(w, h) > cfg.maxPrintW + 0.01 &&
-    !opts.withSeam;
+  /* ייצור חוץ — החלטה של מגבלות המכונה (over_limit = outsource), לכל מנוע */
+  const outsourcedJob = machine.outsourced;
+
+  /* הקטלוג נקשר רק לפי מדיניות המשפחה (D1); בייצור חוץ — לעולם לא */
+  const { anchors, validated } = bindableRows(cfg, anchorsIn, validatedIn, {
+    outsourced: outsourcedJob,
+    ...(opts.catalogBinds ? { policy: opts.catalogBinds } : {}),
+  });
 
   const per =
     cfg.engine === "sheet_yield" ||
     cfg.engine === "anchor_curve" ||
     cfg.engine === "catalog_surface" ||
+    cfg.engine === "two_machine_sheet" ||
     cfg.method === "sheet"
       ? sheetUnitsFor(cfg, w, h)
       : null;
   const sheets = per && per.units > 0 ? units / per.units : 0;
   const mountCost = machine.mounted ? (cfg.mountCostM2 * area + cfg.mountCostUnit) * units : 0;
+
+  /* גליל (שתי מכונות): היחידה אינה נכנסת לגיליון הקטן — המנוע מתמחר לפי מ״ר */
+  const roll = cfg.engine === "two_machine_sheet" && !fitsSheet(cfg, w, h);
 
   /* פורמט גדול: היחידה אינה נכנסת כלל לגיליון ההדפסה. עקומת הדליים מכוילת
      לעבודות גיליון, ולכן היא אינה תקפה כאן — התמחור עובר לתעריף המ״ר. */
@@ -2125,7 +2365,7 @@ export function priceJob(
   const cost =
     (cfg.engine === "sheet_yield"
       ? Math.ceil(sheets || 0) * (cfg.cost + cfg.vinylCostPerSheet)
-      : outsourcedJob || largeFormat
+      : outsourcedJob || largeFormat || roll
         ? cfg.outsourceCost * area * units
         : per && per.units > 0
           ? Math.ceil(sheets) * cfg.cost
@@ -2207,7 +2447,7 @@ export function priceJob(
       hasAnchors: anchors.length > 0 || prepared.hasCurve,
       source: SOURCE_FOR[bindingRule] ?? "anchor",
       qtyFactor: 1,
-      noOutsourceCost: outsourcedJob && !(cfg.outsourceCost > 0),
+      noOutsourceCost: outsourcedJob && !(cfg.outsourcedRateM2 > 0) && !(cfg.outsourceCost > 0),
       belowMinOrder: false,
       minOrderQty: cfg.minOrderQty,
       panels: machine.panels,
@@ -2251,7 +2491,7 @@ export function priceJob(
     if (
       gate.kind === "min_order_qty" &&
       units < gate.qty &&
-      !(gate.exemptLargeFormat && largeFormat)
+      !(gate.exemptLargeFormat && (largeFormat || roll))
     )
       return {
         ...finish(
@@ -2276,6 +2516,41 @@ export function priceJob(
       belowCost: false,
       overMachine: true,
     };
+  }
+
+  /* ייצור חוץ (D3) — תעריף שטוח ללקוח למ״ר, לפני כל קשירה לקטלוג ולפני רצפות.
+     ללא תעריף: הנוסחה הישנה (עלות חוץ × מקדם); ללא שניהם: אין מחיר. */
+  if (outsourcedJob) {
+    const rate = cfg.outsourcedRateM2;
+    if (rate > 0) {
+      const minP = cfg.minJobPrice > 0 ? cfg.minJobPrice : 0;
+      const perUnit = Math.max(minP, rate * area);
+      const bound = perUnit > rate * area + 1e-9;
+      return finish(
+        perUnit * units,
+        "outsourced",
+        BINDING_LABEL.outsourced,
+        `${shekel(rate)} למ״ר × ${area.toFixed(2)} מ״ר${
+          bound ? ` (מינימום ${shekel(minP)} ליחידה)` : ""
+        } × ${units.toLocaleString()} יח׳ · ${machine.note}`,
+      );
+    }
+    if (!(cfg.outsourceCost > 0))
+      return {
+        ...finish(0, "outsourced", "אין מחיר — לא הוגדר תעריף ייצור חוץ", machine.note),
+        total: 0,
+        unit: 0,
+        belowCost: false,
+        noQuote: true,
+        configError: "לא הוגדרה עלות מיקור חוץ למשפחה",
+      };
+    const factor = cfg.outsourcedMarginFactor > 0 ? cfg.outsourcedMarginFactor : 1.5;
+    return finish(
+      cfg.outsourceCost * area * factor * units,
+      "outsourced",
+      BINDING_LABEL.outsourced,
+      `${shekel(cfg.outsourceCost)} למ״ר × ${area.toFixed(2)} מ״ר × ${factor} × ${units.toLocaleString()} יח׳ · ${machine.note}`,
+    );
   }
 
   /* P0 — validated catalog price: exact size + exact quantity, verbatim.
@@ -2393,6 +2668,18 @@ export function priceJob(
     }
   }
 
+  /* תצורה ישנה (ללא v3) — אין נוסחה. שורת קטלוג מדויקת (P0/P1) עדיין מצוטטת;
+     כל השאר: הצעת מחיר לפי בקשה, לעולם לא ₪0 (D4). */
+  if (cfg.legacy)
+    return {
+      ...finish(0, "cost", NO_AUTO_LABEL, "תצורת משפחה ישנה — נדרשת מיגרציית תצורה v3"),
+      total: 0,
+      unit: 0,
+      belowCost: false,
+      noQuote: true,
+      configError: prepared.configErrors[0] ?? "תצורת משפחה ישנה — נדרשת מיגרציית תצורה v3",
+    };
+
   /* פורמט גדול — לפי מ״ר, עם רצפת מ״ר ליחידה. רץ אחרי P0 כדי שמחיר מאומת
      מהקטלוג לאותה מידה+כמות ימשיך לגבור על הנוסחה. */
   if (largeFormat) {
@@ -2457,6 +2744,9 @@ export function priceJob(
     case "unit_floor":
       er = priceUnitFloor(cfg, w, h, units);
       break;
+    case "two_machine_sheet":
+      er = priceTwoMachineSheet(prepared, cfg, w, h, units);
+      break;
   }
 
   if (er.noQuote) {
@@ -2483,6 +2773,7 @@ export function priceJob(
     heightCm: h,
     paperWeight: opts.paperWeight,
     dualSided: opts.dualSided === true,
+    material: opts.material,
   });
   raw = mods.price;
   if (mods.noRound !== null) noRound = mods.noRound;
@@ -2518,7 +2809,7 @@ export function priceJob(
   /* אסרטת מונוטוניות — הנתונים כבר מנורמלים, לכן זו בדיקת הגנה בלבד.
      בדו-צדדי מדרגות התוספת יורדות בכוונה (20% → 10% ב-1000) — לא נבדק. */
   if (!opts.noAssert && !opts.dualSided && job.total > 0 && units > 1) {
-    const probe = priceJob(cfg, anchors, w, h, units - 1, validated, {
+    const probe = priceJob(cfg, anchorsIn, w, h, units - 1, validatedIn, {
       ...opts,
       prepared,
       noAssert: true,

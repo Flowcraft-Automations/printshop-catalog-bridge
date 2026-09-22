@@ -114,6 +114,7 @@ describe("explanation covers every rule kind", () => {
     { kind: "size_ladder" },
     { kind: "sheet_yield" },
     { kind: "unit_floor" },
+    { kind: "two_machine_sheet" },
     { kind: "cost_plus", paper: {}, click: {}, markup: 2 },
   ];
   const MODIFIERS: ModifierSpec[] = [
@@ -122,6 +123,7 @@ describe("explanation covers every rule kind", () => {
     { kind: "size_floor" },
     { kind: "cost_floor" },
     { kind: "min_order_value", value: 250 },
+    { kind: "material_surcharge", pct: { diecut_vinyl: 0.25 } },
   ];
 
   it("describes every price source", () => {
