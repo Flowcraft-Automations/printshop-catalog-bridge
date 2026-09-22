@@ -23,12 +23,12 @@ describe("pricing plan", () => {
   });
 
   it("a family's override adds to the derived plan instead of replacing it", () => {
-    const cfg = famFixture("מדבקות").cfg;
+    const cfg = famFixture("מדבקות", { minOrderQty: 10 }).cfg;
     const plan = resolvePlan(cfg, { modifiers: [{ kind: "cost_floor" }] });
     /* the minimum-order gate is still derived — declaring it twice is what
        would let cfg.minOrderQty and the plan drift apart */
     expect(plan.gates.some((g) => g.kind === "min_order_qty")).toBe(true);
-    expect(plan.source.kind).toBe("catalog_surface");
+    expect(plan.source.kind).toBe("two_machine_sheet");
     expect(plan.modifiers.some((m) => m.kind === "cost_floor")).toBe(true);
     expect(plan.modifiers.some((m) => m.kind === "size_floor")).toBe(true);
   });
@@ -106,8 +106,8 @@ describe("over-limit = פיצול לחלקים (מדבקות — 120 ס״מ viny
   });
 
   it("splitting does not change the price — same material, same ₪", () => {
-    /* 130×130 is an approved catalog row at ₪155; delivery in 2 parts must
-       not reprice it */
+    /* 130×130 = 1.69 m² on the roll → ₪92/m² = ₪155 (the catalog single is
+       also ₪155); delivery in 2 parts must not reprice it */
     const j = q(130, 130);
     expect(j.total).toBe(155);
     expect(j.machineNote).toContain("מסופק ב-2 חלקים");

@@ -37,7 +37,7 @@ describe("family explanation", () => {
       explain("מדבקות")
         .steps.map((l) => l.he)
         .join(" "),
-    ).toContain("שטח");
+    ).toContain("גיליון");
     expect(
       explain("שמשונית")
         .steps.map((l) => l.he)
@@ -61,9 +61,17 @@ describe("family explanation", () => {
     const shim = explain("שמשונית");
     expect(shim.cfg.shortRunPct).toBeGreaterThan(0);
     expect(shim.settings.map((s) => s.he).join(" ")).not.toContain("ריצה קצרה");
-    /* מדבקות does use it */
+    /* the two-machine sticker engine does not read it either */
     expect(
       explain("מדבקות")
+        .settings.map((s) => s.he)
+        .join(" "),
+    ).not.toContain("ריצה קצרה");
+    /* an anchor-curve family with a real ramp does */
+    const fix = famFixture("פליירים", { shortRunPct: 0.7 });
+    const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
+    expect(
+      explainFamily(fix.cfg, resolvePlan(fix.cfg, fix.cfg.plan), prepared)
         .settings.map((s) => s.he)
         .join(" "),
     ).toContain("ריצה קצרה");
@@ -82,7 +90,14 @@ describe("family explanation", () => {
       .steps.map((l) => l.he)
       .join(" ");
     expect(s).toContain("120");
-    expect(s).toContain("10 יחידות");
+    expect(s).toContain("150");
+    const fix = famFixture("מדבקות", { minOrderQty: 10 });
+    const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
+    expect(
+      explainFamily(fix.cfg, resolvePlan(fix.cfg, fix.cfg.plan), prepared)
+        .steps.map((l) => l.he)
+        .join(" "),
+    ).toContain("10 יחידות");
   });
 
   it("describes the over-limit behaviour the admin chose", () => {
@@ -93,6 +108,8 @@ describe("family explanation", () => {
     expect(he("מדבקות")).toContain("בכמה חלקים");
     expect(he("קאפה")).toContain("מודבקת על לוח");
     expect(he("קנבס")).toContain("אינה מיוצרת");
+    expect(he("שמשונית")).toContain("ייצור חוץ");
+    expect(he("שמשונית")).toContain("80");
   });
 });
 

@@ -764,6 +764,33 @@ export function writeFamilyPricing(cfg: FamilyPricing, prev?: unknown) {
   };
 }
 
+/** "MAXxMIN" (מפתח מידה מנורמל) → [max, min] */
+function tierDims(size: string): [number, number] {
+  const [a, b] = size.split("x").map(Number);
+  return [a ?? 0, b ?? 0];
+}
+
+/**
+ * מדרגות הכמות של מידת המדרגה הקטנה ביותר שמכילה את העבודה (שני הממדים ≥).
+ * "10 שלטים עד 120×80 = ₪47 ליחידה" חל גם על 100×80, לא רק על התאמה מדויקת —
+ * אחרת שלט קטן יותר בכמות זהה יוצא יקר פי שניים מהמבצע.
+ */
+export function sizeTiersFor(cfg: FamilyPricing, w: number, h: number): QtyTier[] {
+  const jMax = Math.max(w, h);
+  const jMin = Math.min(w, h);
+  let best: { area: number; tiers: QtyTier[] } | null = null;
+  for (const t of cfg.qtyTiers) {
+    if (!t.size) continue;
+    const [tMax, tMin] = tierDims(t.size);
+    if (!(tMax > 0) || !(tMin > 0)) continue;
+    if (tMax + DIM_TOL < jMax || tMin + DIM_TOL < jMin) continue;
+    const area = tMax * tMin;
+    if (!best || area < best.area - 1e-9) best = { area, tiers: [t] };
+    else if (Math.abs(area - best.area) <= 1e-9) best.tiers.push(t);
+  }
+  return best ? [...best.tiers].sort((a, b) => a.minQty - b.minQty) : [];
+}
+
 /** The qty tier that applies to this job, if tiers are enabled. */
 export function matchQtyTier(
   cfg: FamilyPricing,
@@ -772,13 +799,9 @@ export function matchQtyTier(
   units: number,
 ): QtyTier | null {
   if (!cfg.qtyTiersEnabled || !cfg.qtyTiers.length) return null;
-  const key = sizeKey(w, h);
   const pick = (list: QtyTier[]) =>
     list.filter((t) => units >= t.minQty).sort((a, b) => b.minQty - a.minQty)[0] ?? null;
-  return (
-    pick(cfg.qtyTiers.filter((t) => t.size && t.size === key)) ??
-    pick(cfg.qtyTiers.filter((t) => !t.size))
-  );
+  return pick(sizeTiersFor(cfg, w, h)) ?? pick(cfg.qtyTiers.filter((t) => !t.size));
 }
 
 export type MachineCheck = {
@@ -1427,7 +1450,9 @@ export function surfacePrice(
  */
 /**
  * שורות הקטלוג הרשאיות לקבוע מחיר (D1). `anchors` הן שורות is_anchor מטבען;
- * `validated` מסוננות לפי הדגל. עבודה בייצור חוץ לעולם אינה נקשרת לקטלוג.
+ * `validated` מסוננות לפי הדגל. עבודה בייצור חוץ לעולם אינה נקשרת לקטלוג,
+ * ושורה שמידתה עצמה היא מידת ייצור חוץ (הצד הצר מעל רוחב ההדפסה) היא מחיר
+ * ייצור חוץ ישן — אינה קובעת ואינה מרצפת עבודות בבית (למשל "עם תפר").
  * הרשימה המלאה ממשיכה להגיע לממשק (רשימת "מחירים מאומתים") — הסינון כאן
  * משפיע רק על התמחור.
  */
@@ -1439,16 +1464,18 @@ export function bindableRows(
 ): { anchors: JobAnchor[]; validated: JobAnchor[] } {
   const policy = opts.policy ?? cfg.catalogBinds;
   if (opts.outsourced || policy === "none") return { anchors: [], validated: [] };
-  if (policy === "anchors")
-    return { anchors, validated: validated.filter((a) => a.anchor === true) };
-  if (policy === "packs") {
-    const from = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
-    return {
-      anchors: anchors.filter((a) => a.qty >= from),
-      validated: validated.filter((a) => a.qty >= from),
-    };
-  }
-  return { anchors, validated };
+  const inHouse = (a: JobAnchor) =>
+    !(cfg.overLimit === "outsource" && cfg.maxPrintW > 0 && Math.min(a.w, a.h) > cfg.maxPrintW + 0.01);
+  const keep = (a: JobAnchor) =>
+    inHouse(a) &&
+    (policy === "all" ||
+      (policy === "anchors" && a.anchor === true) ||
+      (policy === "packs" && a.qty >= Math.max(1, Math.floor(cfg.shortRunRefQty || 100))));
+  return {
+    /* anchors are is_anchor rows by construction — the flag is not re-checked */
+    anchors: anchors.filter((a) => policy === "anchors" ? inHouse(a) : keep(a)),
+    validated: validated.filter(keep),
+  };
 }
 
 /**
@@ -2600,6 +2627,35 @@ function priceJobRaw(
       {},
       true,
     );
+  }
+
+  /* רמפת חבילה (D5): בין יחידה בודדת לחבילת הכמות של המידה — ליניארי בסה״כ
+     (ליניארי ליחידה היה מוריד את הסכום בין 7 ל-9 יחידות). מנועים ליניאריים
+     בכמות בלבד; עוגן קטלוג מדויק לאותה כמות ממשיך לגבור. */
+  if (
+    (cfg.engine === "per_m2" || cfg.engine === "size_ladder") &&
+    cfg.qtyTiersEnabled &&
+    units > 1 &&
+    !opts.dualSided &&
+    !anchors.some((a) => sameSize(a.w, a.h, w, h) && a.qty === units)
+  ) {
+    const next = sizeTiersFor(cfg, w, h).find((t) => t.minQty > units);
+    if (next) {
+      const one =
+        cfg.engine === "per_m2"
+          ? pricePerM2(cfg, w, h, 1, opts)
+          : priceSizeLadder(prepared, cfg, w, h, 1);
+      const pack = next.unitPrice * next.minQty;
+      if (!one.noQuote && one.raw > 0 && pack > one.raw) {
+        const total = one.raw + (pack - one.raw) * ((units - 1) / (next.minQty - 1));
+        return finish(
+          total,
+          "short_run",
+          BINDING_LABEL.short_run,
+          `${units.toLocaleString()} יח׳ — בין יחידה בודדת (${shekel(one.raw)}) לחבילת ${next.minQty.toLocaleString()} (${shekel(pack)}, ${shekel(next.unitPrice)} ליחידה) · ${one.detail}`,
+        );
+      }
+    }
   }
 
   /* P1 — exact catalog anchor for engines without a merged curve

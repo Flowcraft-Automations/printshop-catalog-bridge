@@ -58,6 +58,13 @@ describe("catalog_binds — which catalog rows may set a price", () => {
     const b = bindableRows(cfgWith("all"), anchors, validated, { outsourced: true });
     expect(b.validated.length).toBe(0);
   });
+  it("a row whose own size is an outsourced size never binds an in-house job", () => {
+    const cfg = { ...cfgWith("all"), maxPrintW: 150, overLimit: "outsource" as const };
+    const rows = [row(350, 200, 1, 700, true), row(120, 80, 1, 90, true)];
+    const b = bindableRows(cfg, rows, rows);
+    expect(b.validated.map((a) => a.price)).toEqual([90]);
+    expect(b.anchors.map((a) => a.price)).toEqual([90]);
+  });
   it("a verified non-anchor row prices the job under 'all' but not under 'anchors'", () => {
     const all = priceJob(cfgWith("all"), anchors, 30, 60, 1, validated)!;
     expect(all.bindingRule).toBe("validated");

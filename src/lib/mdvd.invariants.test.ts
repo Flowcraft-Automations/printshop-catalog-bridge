@@ -41,7 +41,7 @@ const SWEEP_SIZES: Record<string, [number, number][]> = {
     [115, 8],
     [100, 100],
   ],
-  /* 120×80 carries the approved 10-pack qty tier */
+  /* 120×80 is a client-approved anchor (₪90); no qty tiers any more */
   שמשונית: [
     [60, 40],
     [100, 90],
@@ -52,7 +52,8 @@ const SWEEP_SIZES: Record<string, [number, number][]> = {
     [60, 100],
     [80, 200],
   ],
-  /* 40×40 and 120×80 carry the approved 10-pack qty tiers */
+  /* 40×40 and 120×80 carry the approved 10-pack qty tiers; 100×80 falls
+     under the 120×80 tier by dominance and ramps up to it below 10 */
   פוליגל: [
     [40, 40],
     [100, 80],
@@ -267,8 +268,25 @@ describe("VAT", () => {
  * ------------------------------------------------------------------ */
 
 describe("catalog_surface accuracy (leave-one-out over the approved rows)", () => {
+  /* מדבקות moved to two_machine_sheet (2026-09-22); the surface engine stays
+     in the codebase, so its accuracy is still measured on the legacy sticker
+     geometry it was fitted for */
   const NAME = "מדבקות";
-  const fix = famFixture(NAME);
+  const fix = famFixture(NAME, {
+    engine: "catalog_surface",
+    catalogBinds: "all",
+    minOrderQty: 10,
+    sheetW: 45,
+    sheetH: 32,
+    sheetMargin: 1.5,
+    sheetGap: 0.5,
+    sheetPrice: 0,
+    perM2Tiers: [],
+    minJobPrice: 0,
+    qtyExponent: 0.9,
+    qtyExponentPinned: true,
+    plan: null,
+  });
   const rows = catalogRows(NAME);
 
   it("the family is configured for the surface engine and has enough rows", () => {
