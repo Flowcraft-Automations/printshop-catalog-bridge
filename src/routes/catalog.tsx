@@ -18,6 +18,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+
+type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
+type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 import { businessConfigQuery, familiesQuery, productHistoryQuery, productNotesQuery, productsQuery } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import {
