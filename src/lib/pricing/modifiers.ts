@@ -135,7 +135,11 @@ export function applyModifiers(
   let panels = 1;
 
   for (const spec of specs) {
-    const out = REGISTRY[spec.kind](spec, current, ctx);
+    /* a plan stored in the database can name a modifier this build does not
+       know — ignore it instead of crashing the whole calculator */
+    const fn = spec && typeof spec.kind === "string" ? REGISTRY[spec.kind] : undefined;
+    if (typeof fn !== "function") continue;
+    const out = fn(spec, current, ctx);
     if (!out) continue;
     current = out.price;
     if (out.detail) details.push(out.detail);
