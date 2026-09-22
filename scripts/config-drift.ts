@@ -24,7 +24,18 @@ const rows = args.live
       })();
 
 const byName = new Map(rows.map((r) => [r.family, r]));
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/* key order is not a difference: {w,h,price} and {h,w,price} are the same ladder point */
+const canon = (v: unknown): unknown =>
+  Array.isArray(v)
+    ? v.map(canon)
+    : v && typeof v === "object"
+      ? Object.fromEntries(
+          Object.keys(v as Record<string, unknown>)
+            .sort()
+            .map((k) => [k, canon((v as Record<string, unknown>)[k])]),
+        )
+      : v;
+const same = (a: unknown, b: unknown) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
 let drift = 0;
 for (const [name, seed] of Object.entries(SPEC_FAMILY_CONFIGS)) {
   const live = byName.get(name);
