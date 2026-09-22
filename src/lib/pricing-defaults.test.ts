@@ -9,7 +9,12 @@ import {
   writeFamilyPricing,
   type FamilyPricing,
 } from "./mdvd";
-import { OPTIONAL_FAMILY_CONFIGS, SPEC_ANCHORS, SPEC_FAMILY_CONFIGS } from "./pricing-defaults";
+import {
+  OPTIONAL_FAMILY_CONFIGS,
+  PRICING_MIGRATION_FILE,
+  SPEC_ANCHORS,
+  SPEC_FAMILY_CONFIGS,
+} from "./pricing-defaults";
 import { familyRow, specAnchorsFor } from "./pricing-fixtures";
 
 const HEBREW = /[֐-׿]/;
@@ -137,14 +142,7 @@ describe("SPEC_ANCHORS", () => {
  *     writeFamilyPricing(seed) for every family.
  * ------------------------------------------------------------------ */
 
-const MIGRATION_PATH = join(
-  import.meta.dir,
-  "..",
-  "..",
-  "supabase",
-  "migrations",
-  "20260825000000_pricing_config_v3.sql",
-);
+const MIGRATION_PATH = join(import.meta.dir, "..", "..", PRICING_MIGRATION_FILE);
 
 /**
  * Extract {family → parsed pricing_config JSON} from the migration.

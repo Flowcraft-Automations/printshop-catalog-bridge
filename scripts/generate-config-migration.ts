@@ -6,68 +6,32 @@
  *    bun run scripts/generate-config-migration.ts           # print SQL
  *    bun run scripts/generate-config-migration.ts --write   # + write file
  *
- *  Output file: supabase/migrations/20260825000000_pricing_config_v3.sql
+ *  Output file: PRICING_MIGRATION_FILE (src/lib/pricing-defaults.ts) — the
+ *  drift guard in pricing-defaults.test.ts reads the same constant.
  *  Deterministic by construction — no dates, no randomness — so re-running
  *  it against unchanged pricing-defaults produces a byte-identical file.
  *  Never touches any database.
+ *
+ *  Since 2026-09-22 the seed is authoritative: on existing rows only
+ *  `sheet_units` (LIVE_WINS_KEYS in scripts/lib/config-seed.ts) survives
+ *  from the live row; everything else — minimum order, sheet size, machine
+ *  limits, over-limit policy, tiers — comes from the seed. Admin-form edits
+ *  must be mirrored into pricing-defaults.ts (scripts/config-drift.ts).
  * ------------------------------------------------------------------ */
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { writeFamilyPricing, type FamilyPricing } from "../src/lib/mdvd";
-import { SPEC_FAMILY_CONFIGS, OPTIONAL_FAMILY_CONFIGS } from "../src/lib/pricing-defaults";
+import {
+  OPTIONAL_FAMILY_CONFIGS,
+  PRICING_MIGRATION_FILE,
+  SPEC_FAMILY_CONFIGS,
+} from "../src/lib/pricing-defaults";
+import { LIVE_WINS_KEYS, scalarColumns } from "./lib/config-seed";
 
-const OUT_FILE = resolve(
-  import.meta.dir,
-  "../supabase/migrations/20260825000000_pricing_config_v3.sql",
-);
+const OUT_FILE = resolve(import.meta.dir, "..", PRICING_MIGRATION_FILE);
 
 const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const slug = (s: string) => s.trim().replace(/\s+/g, "-");
-
-/**
- * v3 keys where LIVE tuning wins over the seed on existing rows — the
- * operational settings users set in the app (machine limits, sheet layout,
- * mounts, minimum order). Engine/curve data always comes from the seed.
- * qty_tiers is deliberately NOT preserved: the seeded שמשונית 120x80 tier
- * supersedes the live one (approved in the 2026-08-25 review).
- */
-const LIVE_WINS_KEYS = [
-  "min_order_qty",
-  "min_order_value",
-  "sheet_units",
-  "sheet_w",
-  "sheet_h",
-  "sheet_margin",
-  "sheet_gap",
-  "max_print_w",
-  "max_print_l",
-  "cap_w",
-  "cap_l",
-  "over_limit",
-  "mount_cost_m2",
-  "mount_cost_unit",
-  "whole_board",
-  "board_w",
-  "board_h",
-];
-
-/** Scalar `families` columns a seed sets alongside pricing_config. */
-function scalarColumns(cfg: FamilyPricing): [string, number | null][] {
-  const out: [string, number | null][] = [];
-  if (cfg.cost > 0) out.push(["cost_per_m2", cfg.cost]);
-  if (cfg.outsourceCost > 0) out.push(["outsource_cost_per_m2", cfg.outsourceCost]);
-  if (cfg.engine === "per_m2" && cfg.maxPrintW > 0) {
-    /* per_m2 outsourcing keys on the narrow side only — height unbounded */
-    out.push(["outsource_width_cm", cfg.maxPrintW]);
-    out.push(["outsource_height_cm", 99999]);
-  } else {
-    /* every other engine ignores the threshold pair — clear it so the config
-       screen cannot show a rule that no pricing path reads */
-    out.push(["outsource_width_cm", null]);
-    out.push(["outsource_height_cm", null]);
-  }
-  return out;
-}
 
 function familyUpsert(family: string, cfg: FamilyPricing): string {
   const json = JSON.stringify(writeFamilyPricing(cfg));
@@ -78,8 +42,8 @@ function familyUpsert(family: string, cfg: FamilyPricing): string {
   const keyArray = LIVE_WINS_KEYS.map((k) => `'${k}'`).join(",");
   const sets = [
     /* Existing rows: other top-level keys (legacy `customer`) kept; the v3
-       block comes from the seed, with the LIVE operational keys layered on
-       top so tuning done in the app survives re-running the migration. */
+       block comes from the seed, with only the live-wins keys (sheet_units)
+       layered on top. */
     `pricing_config = (COALESCE(public.families.pricing_config,'{}'::jsonb) - 'v3')
     || jsonb_build_object('v3',
          (EXCLUDED.pricing_config -> 'v3')
@@ -121,10 +85,10 @@ ALTER TABLE public.families ADD COLUMN IF NOT EXISTS outsource_height_cm numeric
 `);
 
   lines.push(`-- ----------------------------------------------------------------
--- Family configurations. On existing rows: engine/curve data comes from
--- the seed, LIVE operational tuning (machine limits, sheet layout,
--- mounts, minimum order) is preserved, and other top-level keys of
--- pricing_config — e.g. the legacy "customer" block — are kept.
+-- Family configurations. On existing rows the whole v3 block comes from
+-- the seed (the client's rules of 2026-09-22); only sheet_units — the
+-- per-size nesting overrides entered in the app — is kept from the live
+-- row, and other top-level keys of pricing_config are left untouched.
 -- ----------------------------------------------------------------`);
   for (const [family, cfg] of Object.entries(SPEC_FAMILY_CONFIGS)) {
     lines.push(`\n-- ${family}`);
@@ -157,6 +121,7 @@ ALTER TABLE public.families ADD COLUMN IF NOT EXISTS outsource_height_cm numeric
 const sql = generate();
 console.log(sql);
 if (process.argv.includes("--write")) {
+  mkdirSync(dirname(OUT_FILE), { recursive: true });
   writeFileSync(OUT_FILE, sql, "utf8");
   console.error(`written: ${OUT_FILE}`);
 }

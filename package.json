@@ -12,7 +12,13 @@
     "format": "prettier --write .",
     "test": "bun test src",
     "test:watch": "bun test --watch src",
-    "report:dry-run": "bun run scripts/dry-run-report.ts"
+    "report:dry-run": "bun run scripts/dry-run-report.ts",
+    "repro": "bun run scripts/repro/run.ts",
+    "golden:regen": "bun run scripts/golden-regenerate.ts",
+    "report:agreement": "bun run scripts/catalog-agreement.ts",
+    "config:drift": "bun run scripts/config-drift.ts",
+    "config:migration": "bun run scripts/generate-config-migration.ts --write",
+    "docs:pricing": "bun run scripts/pricing-doc.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
