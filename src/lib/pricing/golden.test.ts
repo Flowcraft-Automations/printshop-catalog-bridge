@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { priceJob, prepareFamily, type JobOptions } from "../mdvd";
-import { famFixture } from "../pricing-fixtures";
+import { liveFixture } from "../pricing-fixtures";
 import { GOLDEN_OPTS, GOLDEN_QTY, GOLDEN_SIZES, signature } from "./golden-grid";
 
 /* ------------------------------------------------------------------ *
@@ -48,7 +48,7 @@ describe("golden prices — the refactor must not move a single price", () => {
 
   for (const [name, rows] of golden) {
     it(`${name}: every quote matches the snapshot`, () => {
-      const fix = famFixture(name);
+      const fix = liveFixture(name);
       const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
       const drift: string[] = [];
       for (const { w, h, qty, sigs } of rows) {

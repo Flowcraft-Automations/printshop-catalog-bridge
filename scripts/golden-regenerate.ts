@@ -16,13 +16,13 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { priceJob, prepareFamily, type JobOptions } from "../src/lib/mdvd";
 import { OPTIONAL_FAMILY_CONFIGS, SPEC_FAMILY_CONFIGS } from "../src/lib/pricing-defaults";
-import { famFixture } from "../src/lib/pricing-fixtures";
+import { liveFixture } from "../src/lib/pricing-fixtures";
 import { GOLDEN_OPTS, GOLDEN_QTY, GOLDEN_SIZES, signature } from "../src/lib/pricing/golden-grid";
 
 const OUT = resolve(import.meta.dir, "../src/lib/pricing/golden-prices.txt");
 const lines: string[] = [];
 for (const name of Object.keys({ ...SPEC_FAMILY_CONFIGS, ...OPTIONAL_FAMILY_CONFIGS })) {
-  const fix = famFixture(name);
+  const fix = liveFixture(name);
   const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
   lines.push(`# ${name}`);
   for (const [w, h] of GOLDEN_SIZES) {
