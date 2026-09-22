@@ -1,1 +1,0 @@
-GRANT SELECT ON public.families TO sandbox_exec;

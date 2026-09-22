@@ -1,1 +1,0 @@
-REVOKE EXECUTE ON FUNCTION public.log_product_changes() FROM PUBLIC, anon, authenticated;

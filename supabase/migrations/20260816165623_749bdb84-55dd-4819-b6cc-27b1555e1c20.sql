@@ -1,1 +1,0 @@
-UPDATE public.families SET outsource_cost_per_m2 = 70 WHERE family = 'מדבקות';
