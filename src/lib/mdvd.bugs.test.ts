@@ -243,8 +243,8 @@ describe("bug8_stickers_price_must_follow_size", () => {
     const j = q(115, 8, 10);
     expect(j.bindingRule).toBe("large_format");
     expect(j.total).not.toBe(136);
-    /* roll: 0.092 m² × ₪125 = 11.5 → ₪95 minimum × 10 */
-    expect(j.total).toBe(950);
+    /* big printer: 10 × 0.092 m² = 0.92 m² × ₪125 = ₪115, above the ₪95 job minimum */
+    expect(j.total).toBe(115);
   });
 
   it("a unit that does not fit the sheet still gets a real production cost", () => {
@@ -300,7 +300,7 @@ describe("bug8_stickers_price_must_follow_size", () => {
     expect(mid.bindingRule).toBe("size_floor");
   });
 
-  it("the roll is linear in quantity — no exponent discount, no single-unit surprise", () => {
+  it("the big printer bills the whole job by area, with one job minimum", () => {
     /* approved roll-size singles bind (56×17 = 95, 70×20 = 95, 70×50 = 100) */
     for (const [w, h, price] of [
       [17, 56, 95],
@@ -308,19 +308,27 @@ describe("bug8_stickers_price_must_follow_size", () => {
       [50, 70, 100],
     ] as [number, number, number][])
       expect(q(w, h, 1).total).toBe(price);
+    /* one unit sits on the ₪95 job minimum; ten units are billed by their
+       total area (0.92 m² × ₪125), which is far less than ten minimums */
+    const one = q(115, 8, 1);
     const ten = q(115, 8, 10);
+    expect(one.total).toBe(95);
     expect(ten.qtyFactor).toBe(1);
-    expect(ten.total).toBe(10 * q(115, 8, 1).total);
+    expect(ten.total).toBe(115);
+    expect(ten.total).toBeLessThan(10 * one.total);
   });
 
-  it("totals still rise strictly with quantity", () => {
+  it("totals never fall with quantity (the job minimum makes the first few flat)", () => {
     let prev = 0;
     for (const qty of [1, 5, 10, 25, 100]) {
       const j = q(115, 8, qty);
       expect(j.monotoneViolation).toBe(false);
-      expect(j.total).toBeGreaterThan(prev);
+      expect(j.total).toBeGreaterThanOrEqual(prev);
       prev = j.total;
     }
+    /* flat while the minimum binds, rising once the area exceeds it */
+    expect(q(115, 8, 5).total).toBe(q(115, 8, 1).total);
+    expect(q(115, 8, 100).total).toBeGreaterThan(q(115, 8, 10).total);
   });
 
   it("a family with no approved rows still prices through the config fallback", () => {

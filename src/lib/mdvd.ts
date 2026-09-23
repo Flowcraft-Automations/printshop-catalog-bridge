@@ -1926,6 +1926,25 @@ function tierRate(tiers: PerM2Tier[], area: number): { rate: number; from: numbe
   return { rate, from };
 }
 
+/**
+ * מחיר לשטח נתון לפי מדרגות מ״ר — מונוטוני: שטח גדול יותר לעולם אינו זול יותר.
+ * כל מדרגה "מציעה" rate × max(שטח, סף המדרגה), והזולה מביניהן קובעת. כך אין
+ * מדרגה: היום 1.49 מ״ר עולה 125×1.49 = ₪186 בעוד 1.5 מ״ר עולה 92×1.5 = ₪138,
+ * כלומר מדבקה גדולה יותר זולה יותר. עם הכלל הזה שתיהן ₪138, והבודדים
+ * המאושרים בקטלוג (130×130 = ₪155, 140×140 = ₪180) נשמרים כפי שהם.
+ */
+function areaPrice(
+  tiers: PerM2Tier[],
+  area: number,
+): { price: number; rate: number; from: number } {
+  let best = { price: Infinity, rate: tiers[0]!.rate, from: tiers[0]!.minM2 };
+  for (const t of tiers) {
+    const price = t.rate * Math.max(area, t.minM2);
+    if (price < best.price - 1e-9) best = { price, rate: t.rate, from: t.minM2 };
+  }
+  return best;
+}
+
 /* ייצור חוץ אינו מטופל כאן: ההחלטה (over_limit = outsource) והתמחור השטוח
    למ״ר יושבים ב-priceJob לפני כל קשירה לקטלוג, ומשותפים לכל המנועים. */
 function pricePerM2(
@@ -2147,8 +2166,10 @@ function priceUnitFloor(cfg: FamilyPricing, w: number, h: number, units: number)
  *  נכנס לגיליון הקטן: לפי גיליונות (sheetPrice) או לפי חבילת הכמות של דלי
  *  הגודל — מתחת לכמות החבילה: min(חבילה, max(גיליונות, חלק יחסי מהחבילה));
  *  מהחבילה ומעלה: עקומת הדליים כמו תמיד.
- *  אינו נכנס: גליל לפי מ״ר (perM2Tiers, minJobPriceליחידה) על השטח בפועל —
- *  פיצול לחלקים (machineCheck) אינו מכפיל את השטח.
+ *  אינו נכנס: מדפסת גדולה לפי מ״ר (perM2Tiers) על השטח בפועל של כל היחידות
+ *  יחד, ומינימום העבודה (minJobPrice) נגבה פעם אחת לעבודה — לא לכל יחידה
+ *  (לקוח 9/23: 4 × 35×35 = ₪95, כי כולן נכנסות במטר רבוע). פיצול לחלקים
+ *  (machineCheck) אינו מכפיל את השטח.
  */
 function priceTwoMachineSheet(
   p: PreparedFamily,
@@ -2170,17 +2191,23 @@ function priceTwoMachineSheet(
         noQuote: true,
         error: "לא הוגדרו מדרגות מ״ר למדפסת הגדולה",
       };
-    const { rate, from } = tierRate(cfg.perM2Tiers, area);
+    /* התעריף נקבע לפי גודל המדבקה הבודדת (שם כויל), והעבודה מחויבת לפי שטח
+       כל היחידות יחד עם מינימום אחד לעבודה */
+    const { price: unitPrice, rate, from } = areaPrice(cfg.perM2Tiers, area);
     const minP = cfg.minJobPrice > 0 ? cfg.minJobPrice : 0;
-    const perUnit = Math.max(minP, rate * area);
-    const bound = perUnit > rate * area + 1e-9;
+    const byArea = unitPrice * units;
+    const bound = minP > byArea + 1e-9;
+    const areaNote =
+      units > 1
+        ? `${units.toLocaleString()} יח׳ × ${area.toFixed(3)} מ״ר = ${(area * units).toFixed(3)} מ״ר`
+        : `${area.toFixed(3)} מ״ר`;
     return {
-      raw: perUnit * units,
+      raw: Math.max(minP, byArea),
       bindingRule: "large_format",
       noRound: false,
-      detail: `מדפסת גדולה (דף גדול) · ${area.toFixed(3)} מ״ר × ${shekel(rate)} למ״ר${
+      detail: `מדפסת גדולה (דף גדול) · ${areaNote} × ${shekel(rate)} למ״ר${
         from > 0 ? ` (מ-${from} מ״ר)` : ""
-      }${bound ? ` · מינימום ${shekel(minP)} ליחידה` : ""} × ${units.toLocaleString()} יח׳`,
+      }${bound ? ` · מינימום ${shekel(minP)} לעבודה` : ""}`,
     };
   }
 
@@ -2810,6 +2837,19 @@ function priceJobRaw(
     case "two_machine_sheet":
       er = priceTwoMachineSheet(prepared, cfg, w, h, units);
       break;
+  }
+
+  /* מדפסת גדולה: עבודה של כמה יחידות לעולם אינה זולה ממדבקה אחת מאושרת באותה
+     מידה. בלי זה 2 × 70×50 היו יוצאים ₪95 (מינימום העבודה) מול ₪100 לבודדת
+     המאושרת בקטלוג — בדיוק ההיפוך שהלקוח דיווח עליו ב-8/23. */
+  if (roll && units > 1 && !er.noQuote) {
+    const single = validated.find((a) => a.qty === 1 && sameSize(a.w, a.h, w, h));
+    if (single && single.price > er.raw + 0.01)
+      er = {
+        ...er,
+        raw: single.price,
+        detail: `${er.detail} · לא פחות ממדבקה אחת מאושרת (${shekel(single.price)})`,
+      };
   }
 
   if (er.noQuote) {
