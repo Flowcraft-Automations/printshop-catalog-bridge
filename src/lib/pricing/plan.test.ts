@@ -106,10 +106,10 @@ describe("over-limit = פיצול לחלקים (מדבקות — 120 ס״מ viny
   });
 
   it("splitting does not change the price — same material, same ₪", () => {
-    /* 130×130 = 1.69 m² on the roll → ₪92/m² = ₪155 (the catalog single is
-       also ₪155); delivery in 2 parts must not reprice it */
+    /* 130×130 = 1.69 m² on the big page → ₪95/m² = ₪160; delivery in two
+       parts (9/3) must not reprice it */
     const j = q(130, 130);
-    expect(j.total).toBe(155);
+    expect(j.total).toBe(160);
     expect(j.machineNote).toContain("מסופק ב-2 חלקים");
   });
 
@@ -183,14 +183,19 @@ describe("cost_floor — binds only where the cost figure is confirmed", () => {
     expect(j.label).toContain("רצפת עלות");
   });
 
-  it("מדבקות: OFF — ₪6 is stored in cost_per_m2 but multiplied by sheets, a 7× ambiguity", () => {
+  it("מדבקות: ON — Gena's ₪2.80 a page (9/23) makes the floor real", () => {
     const fix = famFixture("מדבקות");
     expect(resolvePlan(fix.cfg, fix.cfg.plan).modifiers.some((m) => m.kind === "cost_floor")).toBe(
-      false,
+      true,
     );
+    /* 16×7 × 500 is 500 ÷ 18 a page = 28 pages, ₪78 of cost — the shop's own
+       price is far above it and stands */
     const j = priceJob(fix.cfg, fix.anchors, 16, 7, 500, fix.validated)!;
-    /* the shop's own price stands; the cost note is a diagnostic, not a price */
     expect(j.total).toBe(345);
     expect(j.bindingRule).not.toBe("cost_floor");
+    /* 10×15 × 1000 is 250 pages, ₪700 of cost — the site's ₪590 is a loss */
+    const loss = priceJob(fix.cfg, fix.anchors, 10, 15, 1000, fix.validated)!;
+    expect(loss.bindingRule).toBe("cost_floor");
+    expect(loss.total).toBe(910);
   });
 });

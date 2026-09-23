@@ -582,14 +582,23 @@ function Calculator() {
       });
       const engine = j && !j.noQuote && !j.overMachine && !j.belowMinOrder ? j.total : null;
       const delta = engine !== null && v.price > 0 ? (engine - v.price) / v.price : null;
-      return { ...v, engine, delta, rule: j?.bindingRule ?? null };
+      const floor = j ? j.costFloorValue : 0;
+      return {
+        ...v,
+        engine,
+        delta,
+        rule: j?.bindingRule ?? null,
+        belowCost: floor > 0 && v.price < floor - 0.01,
+      };
     });
     const scored = rows.filter((r): r is typeof r & { delta: number } => r.delta !== null);
     const mean = scored.length
       ? scored.reduce((t, r) => t + Math.abs(r.delta), 0) / scored.length
       : 0;
-    const worst = [...scored].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 5);
-    return { total: rows.length, scored: scored.length, mean, worst };
+    const losing = rows.filter((r) => r.belowCost);
+    /* rows sold under cost come first — those are the ones to fix on the site */
+    const worst = [...losing, ...scored.filter((r) => !r.belowCost).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))].slice(0, 5);
+    return { total: rows.length, scored: scored.length, mean, worst, losing: losing.length };
   }, [family, cfg, anchors, validated]);
 
   const famList = useMemo(() => {
@@ -1642,6 +1651,11 @@ function Calculator() {
                     הסכמה עם הקטלוג — {agreement.scored.toLocaleString()} מתוך{" "}
                     {agreement.total.toLocaleString()} שורות מאומתות מתומחרות בנוסחה בלבד · סטייה
                     ממוצעת {Math.round(agreement.mean * 100)}%
+                    {agreement.losing > 0 ? (
+                      <span className="mr-2 text-destructive">
+                        · {agreement.losing} שורות נמכרות מתחת לעלות
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mt-1 text-[11px] font-bold text-muted-foreground">
                     מה הנוסחה (ללא קשירה לקטלוג) הייתה נותנת לכל שורה מאומתת. סטייה גדולה = הקטלוג
@@ -1656,6 +1670,7 @@ function Calculator() {
                           <th className="text-right font-bold">קטלוג</th>
                           <th className="text-right font-bold">נוסחה</th>
                           <th className="text-right font-bold">Δ</th>
+                          <th className="text-right font-bold">מתחת לעלות</th>
                           <th className="text-right font-bold">כלל</th>
                         </tr>
                       </thead>
@@ -1671,11 +1686,17 @@ function Calculator() {
                             <td className="py-1">{r.engine === null ? "—" : shekel(r.engine)}</td>
                             <td
                               className={`py-1 font-black ${
-                                Math.abs(r.delta) > 0.1 ? "text-destructive" : "text-[var(--ink)]"
+                                r.delta !== null && Math.abs(r.delta) > 0.1
+                                  ? "text-destructive"
+                                  : "text-[var(--ink)]"
                               }`}
                             >
-                              {r.delta > 0 ? "+" : ""}
-                              {Math.round(r.delta * 100)}%
+                              {r.delta === null
+                                ? "—"
+                                : `${r.delta > 0 ? "+" : ""}${Math.round(r.delta * 100)}%`}
+                            </td>
+                            <td className="py-1 font-black text-destructive">
+                              {r.belowCost ? "כן" : ""}
                             </td>
                             <td className="py-1 text-muted-foreground">
                               {r.rule ? BINDING_LABEL[r.rule] : ""}

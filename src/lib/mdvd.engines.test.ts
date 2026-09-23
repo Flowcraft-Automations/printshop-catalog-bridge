@@ -32,7 +32,9 @@ describe("מדבקות (two_machine_sheet — small sheet or roll)", () => {
       [5, 9, 500, 280],
       [5, 9, 1000, 420],
       [24, 6, 500, 340],
-      [15, 10, 1000, 590],
+      /* 10×15 is 4 to a page, so 1000 units is 250 pages — the site's ₪590
+         is under Gena's ₪700 cost, and the cost floor lifts it */
+      [15, 10, 1000, 910],
       [16, 6, 100, 187],
       [10, 10, 100, 187],
     ] as [number, number, number, number][])
@@ -62,14 +64,19 @@ describe("מדבקות (two_machine_sheet — small sheet or roll)", () => {
     expect(at(20, 30)).toBeLessThan(at(100, 100));
   });
 
-  it("approved roll-size singles bind; a size between them is floored by the smaller one", () => {
-    /* 80×60 = ₪105 and 120×80 = ₪120 are approved catalog rows; 100×80 has none */
-    expect(job(fix, 80, 60, 1).total).toBe(105);
-    expect(job(fix, 100, 100, 1).total).toBe(120);
-    expect(job(fix, 120, 80, 1).total).toBe(120);
-    const mid = job(fix, 100, 80, 1).total;
-    expect(mid).toBeGreaterThanOrEqual(job(fix, 80, 60, 1).total);
-    expect(mid).toBeLessThanOrEqual(job(fix, 120, 80, 1).total);
+  it("the big page charges one rate per m², whatever the size or shape", () => {
+    /* the website's own singles disagree per m² (₪95 for 0.14 m², ₪180 for
+       1.96) so they no longer set the price — ₪95 a square metre does */
+    for (const [w, h, want] of [
+      [80, 60, 46],
+      [120, 80, 91],
+      [100, 100, 95],
+      [130, 130, 160],
+      [140, 140, 185],
+    ] as [number, number, number][])
+      expect({ w, h, total: job(fix, w, h, 1).total }).toEqual({ w, h, total: want });
+    /* a square metre costs the same however it is cut up */
+    expect(job(fix, 50, 50, 4).total).toBe(job(fix, 100, 100, 1).total);
   });
 
   it("14×11 × 22 → ₪60 (8 per sheet, 3 sheets)", () => {

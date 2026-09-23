@@ -1203,6 +1203,14 @@ export function aspectOf(w: number, h: number): number {
  * עיגול מדורג: עד ₪20 → 0.5 · עד ₪100 → ₪1 · מעל → ₪5.
  * מחירי ריצה קצרה מעוגלים תמיד לשקל שלם (ערכי ביניים של רמפה).
  */
+/** עיגול כלפי מעלה באותן מדרגות — לרצפת עלות, שלא תיפול מתחת לעלות עצמה */
+export function roundUpPrice(v: number): number {
+  if (!(v > 0)) return 0;
+  if (v < 20) return Math.ceil(v * 2) / 2;
+  if (v < 100) return Math.ceil(v);
+  return Math.ceil(v / 5) * 5;
+}
+
 export function roundPrice(v: number, rule?: BindingRule): number {
   if (!(v > 0)) return 0;
   if (rule === "short_run") return Math.round(v);
@@ -1467,17 +1475,17 @@ export function bindableRows(
   if (opts.outsourced || policy === "none") return { anchors: [], validated: [] };
   const inHouse = (a: JobAnchor) =>
     !(cfg.overLimit === "outsource" && cfg.maxPrintW > 0 && Math.min(a.w, a.h) > cfg.maxPrintW + 0.01);
-  /* packs: the small-sheet rule replaces only stickers that fit the sheet in
-     less than a pack; website packs and roll-size singles (100×100 = ₪120 …)
-     are approved prices and keep binding */
+  /* packs: only the website's packs (from the pack quantity) set a price.
+     Singles are priced by the machine — a small page for what fits it, and
+     ₪ per square metre on the big page. The website's own singles disagree
+     with each other per square metre (0.14 מ״ר ב-₪95 מול 1.96 מ״ר ב-₪180),
+     which is exactly what the client asked us to stop doing (9/23). */
   const from = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
-  const packRow = (a: JobAnchor) =>
-    a.qty >= from || (cfg.engine === "two_machine_sheet" && !fitsSheet(cfg, a.w, a.h));
   const keep = (a: JobAnchor) =>
     inHouse(a) &&
     (policy === "all" ||
       (policy === "anchors" && a.anchor === true) ||
-      (policy === "packs" && packRow(a)));
+      (policy === "packs" && a.qty >= from));
   return {
     /* anchors are is_anchor rows by construction — the flag is not re-checked */
     anchors: anchors.filter((a) => policy === "anchors" ? inHouse(a) : keep(a)),
@@ -1558,8 +1566,11 @@ export function prepareFamily(
       if (pts.length) byBucket.set(b.id, pts);
     }
 
-    /* overlay verified catalog anchors — replace same-(bucket, qty) points */
-    for (const a of anchors) {
+    /* Overlay the catalog rows that may set a price — the ⚓ anchors last, so
+       they win a disagreement. Using only the anchors left the curve saying
+       one thing (5×5 ×1000 = ₪385) while the website row said another (₪345),
+       so 999 units cost more than 1000. */
+    for (const a of [...validated.filter((v) => v.anchor !== true), ...anchors]) {
       const b = resolveBucket(buckets, a.w, a.h);
       if (!b) continue;
       const pts = byBucket.get(b.id) ?? [];
@@ -2481,7 +2492,7 @@ function priceJobRaw(
         }
       }
       if (hasFloor("cost_floor") && cost > 0) {
-        const floor = roundPrice(cost * margin);
+        const floor = roundUpPrice(cost * margin);
         if (floor > total + 0.01) {
           text += ` · רצפת עלות: ${shekel(cost)} × ${margin}`;
           total = floor;
@@ -2839,16 +2850,19 @@ function priceJobRaw(
       break;
   }
 
-  /* מדפסת גדולה: עבודה של כמה יחידות לעולם אינה זולה ממדבקה אחת מאושרת באותה
-     מידה. בלי זה 2 × 70×50 היו יוצאים ₪95 (מינימום העבודה) מול ₪100 לבודדת
-     המאושרת בקטלוג — בדיוק ההיפוך שהלקוח דיווח עליו ב-8/23. */
-  if (roll && units > 1 && !er.noQuote) {
+  /* עבודה של כמה יחידות לעולם אינה זולה מיחידה אחת מאושרת באותה מידה — בדיוק
+     ההיפוך שהלקוח דיווח עליו ב-8/23 ("יחידה אחת 100, 2 יח 70 שח"). הרצפה היא
+     מחיר היחידה הבודדת עצמה, לא כפול הכמות, ולכן חבילה מוזלת (10 × 60/40 =
+     ₪560) ממשיכה לעבוד. */
+  if (units > 1 && !er.noQuote) {
     const single = validated.find((a) => a.qty === 1 && sameSize(a.w, a.h, w, h));
     if (single && single.price > er.raw + 0.01)
       er = {
         ...er,
         raw: single.price,
-        detail: `${er.detail} · לא פחות ממדבקה אחת מאושרת (${shekel(single.price)})`,
+        /* המחיר הוא המחיר המאושר עצמו — עיגול היה מוריד אותו שוב מתחת לרצפה */
+        noRound: true,
+        detail: `${er.detail} · לא פחות מיחידה אחת מאושרת (${shekel(single.price)})`,
       };
   }
 

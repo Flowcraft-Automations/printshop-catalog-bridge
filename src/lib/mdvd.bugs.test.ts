@@ -243,8 +243,8 @@ describe("bug8_stickers_price_must_follow_size", () => {
     const j = q(115, 8, 10);
     expect(j.bindingRule).toBe("large_format");
     expect(j.total).not.toBe(136);
-    /* big printer: 10 × 0.092 m² = 0.92 m² × ₪125 = ₪115, above the ₪95 job minimum */
-    expect(j.total).toBe(115);
+    /* big page: 10 × 0.092 m² = 0.92 m² × ₪95 = ₪87 */
+    expect(j.total).toBe(87);
   });
 
   it("a unit that does not fit the sheet still gets a real production cost", () => {
@@ -254,11 +254,12 @@ describe("bug8_stickers_price_must_follow_size", () => {
     expect(j.costFloorValue).toBeGreaterThan(0);
   });
 
-  it("the roll is exempt from a sheet minimum order", () => {
+  it("the big page is exempt from a sheet minimum order", () => {
     const withMin = liveFixture("מדבקות", { minOrderQty: 10 });
     const j = priceJob(withMin.cfg, withMin.anchors, 17, 56, 1, withMin.validated)!;
     expect(j.belowMinOrder).toBe(false);
-    expect(j.total).toBe(95);
+    /* 0.095 m² × ₪95 is under the job minimum of one small page */
+    expect(j.total).toBe(20);
     expect(priceJob(withMin.cfg, withMin.anchors, 5, 5, 5, withMin.validated)!.belowMinOrder).toBe(true);
   });
 
@@ -290,31 +291,30 @@ describe("bug8_stickers_price_must_follow_size", () => {
     expect(q(17, 17, 80).total).toBe(q(17, 17, 100).total);
   });
 
-  it("a roll size between two catalog singles is priced between them", () => {
-    /* 100×80 = 0.8 m² → ₪100 by the roll rate, floored to the approved
-       80×60 = ₪105 it dominates; the approved 120×80 = ₪120 stays above */
+  it("on the big page, price follows area and nothing else", () => {
+    /* 0.48 → 0.80 → 0.96 m², all at ₪95 a square metre */
     const mid = q(100, 80, 1);
     expect(mid.total).toBeGreaterThanOrEqual(q(80, 60, 1).total);
     expect(mid.total).toBeLessThanOrEqual(q(120, 80, 1).total);
-    expect(mid.total).toBe(105);
-    expect(mid.bindingRule).toBe("size_floor");
+    expect(mid.total).toBe(76);
+    expect(mid.bindingRule).toBe("large_format");
   });
 
   it("the big printer bills the whole job by area, with one job minimum", () => {
-    /* approved roll-size singles bind (56×17 = 95, 70×20 = 95, 70×50 = 100) */
+    /* singles are priced by area now, not by the website row (9/23) */
     for (const [w, h, price] of [
-      [17, 56, 95],
-      [20, 70, 95],
-      [50, 70, 100],
+      [17, 56, 20],
+      [20, 70, 20],
+      [50, 70, 33],
     ] as [number, number, number][])
-      expect(q(w, h, 1).total).toBe(price);
-    /* one unit sits on the ₪95 job minimum; ten units are billed by their
-       total area (0.92 m² × ₪125), which is far less than ten minimums */
+      expect({ w, h, total: q(w, h, 1).total }).toEqual({ w, h, total: price });
+    /* one unit sits on the ₪20 job minimum (one small page); ten units are
+       billed by their total area, 0.92 m² × ₪95 */
     const one = q(115, 8, 1);
     const ten = q(115, 8, 10);
-    expect(one.total).toBe(95);
+    expect(one.total).toBe(20);
     expect(ten.qtyFactor).toBe(1);
-    expect(ten.total).toBe(115);
+    expect(ten.total).toBe(87);
     expect(ten.total).toBeLessThan(10 * one.total);
   });
 
@@ -327,7 +327,7 @@ describe("bug8_stickers_price_must_follow_size", () => {
       prev = j.total;
     }
     /* flat while the minimum binds, rising once the area exceeds it */
-    expect(q(115, 8, 5).total).toBe(q(115, 8, 1).total);
+    expect(q(115, 8, 2).total).toBe(q(115, 8, 1).total);
     expect(q(115, 8, 100).total).toBeGreaterThan(q(115, 8, 10).total);
   });
 
