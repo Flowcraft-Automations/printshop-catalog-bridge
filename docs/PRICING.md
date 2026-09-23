@@ -19,23 +19,24 @@
 | מדבקות | 5×5 | 100 | ₪126 | validated | catalog pack |
 | מדבקות | 5×5 | 1000 | ₪345 | validated | catalog pack |
 | מדבקות | 3×3 | 1000 | ₪315 | validated | catalog pack |
-| מדבקות | 40×40 | 1 | ₪20 | large_format | 9/23 Michelle — 0.16 m² must not cost the same as a square metre |
-| מדבקות | 50×50 | 4 | ₪95 | large_format | 9/23 Michelle — four of them are a square metre = ₪95 |
-| מדבקות | 100×100 | 1 | ₪95 | large_format | 9/23 — a square metre is a square metre, whatever its shape |
-| מדבקות | 35×35 | 1 | ₪20 | large_format | job minimum = one small page |
-| מדבקות | 35×35 | 4 | ₪47 | large_format | 0.49 m² × ₪95 |
-| מדבקות | 46×30 | 1 | ₪20 | large_format | just over the small page — same price as a page, never less |
-| מדבקות | 46×30 | 10 | ₪130 | large_format | 1.38 m² × ₪95 |
-| מדבקות | 70×50 | 1 | ₪33 | large_format | 0.35 m² × ₪95 (site says ₪100 — Yulia updates it) |
-| מדבקות | 70×50 | 2 | ₪67 | large_format | 0.70 m² × ₪95 |
-| מדבקות | 80×60 | 1 | ₪46 | large_format | 0.48 m² × ₪95 (site ₪105) |
-| מדבקות | 120×80 | 1 | ₪91 | large_format | 0.96 m² × ₪95 (site ₪120) |
-| מדבקות | 130×130 | 1 | ₪160 | large_format | 1.69 m² × ₪95, split in two above 120 (9/3) — site ₪155 |
-| מדבקות | 140×140 | 1 | ₪185 | large_format | 1.96 m² × ₪95 (site ₪180) |
-| מדבקות | 110×100 | 1 | ₪105 | large_format | 1.1 m² × ₪95 |
-| מדבקות | 140×100 | 1 | ₪135 | large_format | no step left at 1.5 m²: 1.4 m² × ₪95 |
-| מדבקות | 150×100 | 1 | ₪145 | large_format | 1.5 m² × ₪95 — dearer than 1.4 m², as it should be |
-| מדבקות | 115×8 | 10 | ₪87 | large_format | 0.92 m² × ₪95 — one job, one area |
+| מדבקות | 40×40 | 1 | ₪38 | large_format | 9/23 Yulia — one 40×40 uses 100×40 of roll, not 40×40 |
+| מדבקות | 50×50 | 4 | ₪95 | large_format | 9/23 Michelle — two across, two rows, exactly one square metre |
+| מדבקות | 50×50 | 3 | ₪95 | large_format | three fill the same roll piece as four |
+| מדבקות | 51×51 | 4 | ₪195 | large_format | one centimetre wider and only one fits across the roll |
+| מדבקות | 100×100 | 1 | ₪95 | large_format | fills the roll exactly — one square metre |
+| מדבקות | 35×35 | 1 | ₪33 | large_format | 100×35 of roll |
+| מדבקות | 35×35 | 4 | ₪67 | large_format | two across, two rows — 100×70 |
+| מדבקות | 46×30 | 1 | ₪29 | large_format | just over the small page — 100×30 of roll, dearer than a ₪20 page |
+| מדבקות | 46×30 | 10 | ₪145 | large_format | two across, five rows |
+| מדבקות | 70×50 | 1 | ₪48 | large_format | 100×50 of roll (site says ₪100 — Yulia updates it) |
+| מדבקות | 70×50 | 2 | ₪67 | large_format | one across, two rows — 100×100 minus nothing |
+| מדבקות | 80×60 | 1 | ₪57 | large_format | 100×60 of roll (site ₪105) |
+| מדבקות | 110×80 | 1 | ₪91 | large_format | too wide for the 100 roll — billed on the 120 roll |
+| מדבקות | 120×80 | 1 | ₪91 | large_format | fills the 120 roll (site ₪120) |
+| מדבקות | 130×130 | 1 | ₪245 | large_format | split in two (9/3); each part wastes the roll width — site ₪155 |
+| מדבקות | 140×140 | 1 | ₪265 | large_format | split in two — site ₪180 |
+| מדבקות | 115×8 | 1 | ₪20 | large_format | job minimum — one small page |
+| מדבקות | 115×8 | 10 | ₪91 | large_format | stacked ten deep on the 120 roll |
 | מדבקות | 160×160 | 1 | blocked |  | cap 150 |
 | מדבקות | 10×15 | 1000 | ₪910 | cost_floor | 9/23 Gena — 250 pages cost him ₪700; the site sells it at ₪590 |
 | מדבקות | 10×15 | 500 | ₪455 | cost_floor | 125 pages cost ₪350; the site sells it at ₪340 |
@@ -259,6 +260,7 @@
   "todos": [],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -455,6 +457,7 @@
   "todos": [],
   "catalog_binds": "packs",
   "sheet_price": 20,
+  "roll_width": 100,
   "outsourced_rate_m2": 0
 }
 ```
@@ -543,6 +546,7 @@
   "todos": [],
   "catalog_binds": "anchors",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 80
 }
 ```
@@ -698,6 +702,7 @@
   "todos": [],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -789,6 +794,7 @@
   "todos": [],
   "catalog_binds": "none",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 80
 }
 ```
@@ -945,6 +951,7 @@
   "todos": [],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -1035,6 +1042,7 @@
   "todos": [],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -1121,6 +1129,7 @@
   ],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -1228,6 +1237,7 @@
   ],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -1335,6 +1345,7 @@
   ],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```
@@ -1415,6 +1426,7 @@
   ],
   "catalog_binds": "all",
   "sheet_price": 0,
+  "roll_width": 0,
   "outsourced_rate_m2": 0
 }
 ```

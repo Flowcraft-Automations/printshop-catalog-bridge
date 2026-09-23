@@ -399,6 +399,8 @@ export type FamilyPricing = {
   catalogBinds: CatalogBinds;
   /** מחיר גיליון קטן ₪ (מנוע שתי מכונות) */
   sheetPrice: number;
+  /** רוחב גליל המדפסת הגדולה בס״מ; 0 = לחייב לפי שטח המדבקה בלבד */
+  rollWidth: number;
   /** תעריף ייצור חוץ ללקוח ₪ למ״ר (שטוח); 0 = עלות חוץ × מקדם (הנוסחה הישנה) */
   outsourcedRateM2: number;
 };
@@ -662,6 +664,7 @@ export function readFamilyPricing(family: Family | undefined): FamilyPricing {
     /* --- v3.3 --- */
     catalogBinds: isCatalogBinds(v?.["catalog_binds"]) ? v["catalog_binds"] : "all",
     sheetPrice: Math.max(0, num(v?.["sheet_price"])),
+    rollWidth: Math.max(0, num(v?.["roll_width"])),
     outsourcedRateM2: Math.max(0, num(v?.["outsourced_rate_m2"])),
   };
 }
@@ -760,6 +763,7 @@ export function writeFamilyPricing(cfg: FamilyPricing, prev?: unknown) {
       /* --- v3.3 --- */
       catalog_binds: cfg.catalogBinds,
       sheet_price: cfg.sheetPrice,
+      roll_width: cfg.rollWidth,
       outsourced_rate_m2: cfg.outsourcedRateM2,
     },
   };
@@ -1503,6 +1507,66 @@ export function fitsSheet(cfg: FamilyPricing, w: number, h: number): boolean {
   return (w <= s.w + T && h <= s.h + T) || (h <= s.w + T && w <= s.h + T);
 }
 
+export type RollNesting = {
+  /** מ״ר החומר שמחויבים עליו */
+  area: number;
+  /** רוחב הגליל שנבחר, ס״מ */
+  width: number;
+  /** כמה יחידות בשורה לרוחב הגליל */
+  across: number;
+  /** כמה שורות לאורך הגליל */
+  rows: number;
+  /** האורך שנוצל בגליל, ס״מ */
+  length: number;
+  /** לכמה חלקים מחולקת מדבקה רחבה מגבול ההדפסה */
+  panels: number;
+};
+
+/**
+ * מה באמת נצרך מהגליל (ג׳נה בסרטון: "גם אם מדבקה קטנה צריך להחשיב את כל הדבר
+ * הזה, כי זה נחתך פה"). הגליל נחתך לכל רוחבו, ולכן משלמים רוחב מלא × האורך
+ * שנוצל — מדבקה אחת 40×40 צורכת 100×40 ולא 40×40.
+ *
+ * בלי מרווח בין יחידות: 4 מדבקות 50×50 יושבות 2 בשורה × 2 שורות = 100×100,
+ * בדיוק מטר רבוע — המספר שהלקוח נתן (9/23).
+ *
+ * מדבקה רחבה מהגליל הרגיל עוברת לגליל הרחב (maxPrintW); רחבה משניהם בצידה
+ * הצר מחולקת לחלקים, וכל חלק מבזבז את רוחב הגליל שלו בנפרד.
+ */
+export function rollNesting(
+  cfg: FamilyPricing,
+  w: number,
+  h: number,
+  units: number,
+): RollNesting | null {
+  if (!(cfg.rollWidth > 0) || !(w > 0) || !(h > 0) || units < 1) return null;
+  const T = 0.01;
+  const short = Math.min(w, h);
+  const long = Math.max(w, h);
+  const wide = cfg.maxPrintW > cfg.rollWidth ? cfg.maxPrintW : cfg.rollWidth;
+  /* חלוקה לחלקים כשגם הצד הצר רחב מהגליל הרחב — אותו כלל של machineCheck */
+  const panels = short > wide + T ? Math.ceil(short / wide) : 1;
+  const pieceShort = short / panels;
+  const pieces = units * panels;
+
+  let best: RollNesting | null = null;
+  for (const [acrossCm, alongCm] of [
+    [pieceShort, long],
+    [long, pieceShort],
+  ] as [number, number][]) {
+    /* הגליל הצר אם המידה נכנסת בו, אחרת הרחב */
+    const width = acrossCm <= cfg.rollWidth + T ? cfg.rollWidth : acrossCm <= wide + T ? wide : 0;
+    if (!width) continue;
+    const across = Math.floor((width + T) / acrossCm);
+    if (across < 1) continue;
+    const rows = Math.ceil(pieces / across);
+    const length = rows * alongCm;
+    const area = (width * length) / 10000;
+    if (!best || area < best.area - 1e-9) best = { area, width, across, rows, length, panels };
+  }
+  return best;
+}
+
 export function prepareFamily(
   cfg: FamilyPricing,
   anchorsIn: JobAnchor[],
@@ -1742,6 +1806,8 @@ export function prepareFamily(
 
 type EngineResult = {
   raw: number;
+  /** מ״ר חומר שחויבו (מדפסת גדולה) */
+  billedM2?: number;
   bindingRule: BindingRule;
   detail: string;
   noRound: boolean;
@@ -2202,20 +2268,26 @@ function priceTwoMachineSheet(
         noQuote: true,
         error: "לא הוגדרו מדרגות מ״ר למדפסת הגדולה",
       };
-    /* התעריף נקבע לפי גודל המדבקה הבודדת (שם כויל), והעבודה מחויבת לפי שטח
-       כל היחידות יחד עם מינימום אחד לעבודה */
-    const { price: unitPrice, rate, from } = areaPrice(cfg.perM2Tiers, area);
+    /* מחייבים את החומר שנצרך מהגליל, לא את שטח המדבקה */
+    const nest = rollNesting(cfg, w, h, units);
+    const billed = nest ? nest.area : area * units;
+    const { price: byArea, rate, from } = areaPrice(cfg.perM2Tiers, billed);
     const minP = cfg.minJobPrice > 0 ? cfg.minJobPrice : 0;
-    const byArea = unitPrice * units;
     const bound = minP > byArea + 1e-9;
-    const areaNote =
-      units > 1
-        ? `${units.toLocaleString()} יח׳ × ${area.toFixed(3)} מ״ר = ${(area * units).toFixed(3)} מ״ר`
+    const areaNote = nest
+      ? `${units.toLocaleString()} יח׳${nest.panels > 1 ? ` × ${nest.panels} חלקים` : ""} · ${
+          nest.across
+        } בשורה × ${nest.rows} שורות · גליל ${nest.width}×${nest.length.toFixed(0)} ס״מ = ${nest.area.toFixed(
+          3,
+        )} מ״ר`
+      : units > 1
+        ? `${units.toLocaleString()} יח׳ × ${area.toFixed(3)} מ״ר = ${billed.toFixed(3)} מ״ר`
         : `${area.toFixed(3)} מ״ר`;
     return {
       raw: Math.max(minP, byArea),
       bindingRule: "large_format",
       noRound: false,
+      billedM2: billed,
       detail: `מדפסת גדולה (דף גדול) · ${areaNote} × ${shekel(rate)} למ״ר${
         from > 0 ? ` (מ-${from} מ״ר)` : ""
       }${bound ? ` · מינימום ${shekel(minP)} לעבודה` : ""}`,
@@ -2294,6 +2366,8 @@ export type JobPrice = {
   label: string;
   detail: string;
   sheets: number | null;
+  /** מ״ר החומר שחויבו בפועל (מדפסת גדולה: רוחב הגליל × האורך שנוצל) */
+  billedM2: number | null;
   unitsPerSheet: number | null;
   inconsistent: JobAnchor[];
   /** anchor groups describing the same job at different prices */
@@ -2514,6 +2588,7 @@ function priceJobRaw(
       detail: text,
       sheets: per ? sheets : null,
       unitsPerSheet: per ? per.units : null,
+      billedM2: null,
       inconsistent: [],
       conflicts,
       hasAnchors: anchors.length > 0 || prepared.hasCurve,
@@ -2919,7 +2994,13 @@ function priceJobRaw(
     bindingRule,
     BINDING_LABEL[bindingRule],
     detailParts.filter(Boolean).join(" · "),
-    { appliedRules: applied, altQuote, dualPct, dualValue },
+    {
+      appliedRules: applied,
+      altQuote,
+      dualPct,
+      dualValue,
+      ...(er.billedM2 !== undefined ? { billedM2: er.billedM2 } : {}),
+    },
     noRound,
   );
 

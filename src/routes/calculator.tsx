@@ -33,6 +33,7 @@ import {
   readFamilyPricing,
   sheetUnitsFor,
   printableSheet,
+  rollNesting,
   sizeKey,
   shekel,
   slugify,
@@ -161,6 +162,7 @@ type Draft = {
   boardH: string;
   /* --- v3.3 --- */
   sheetPrice: string;
+  rollWidth: string;
   outsourcedRateM2: string;
   minJobPrice: string;
   catalogBinds: CatalogBinds;
@@ -220,6 +222,7 @@ function Calculator() {
     boardW: "",
     boardH: "",
     sheetPrice: "",
+    rollWidth: "",
     outsourcedRateM2: "",
     minJobPrice: "",
     catalogBinds: "all",
@@ -260,6 +263,7 @@ function Calculator() {
       boardW: saved.boardW ? String(saved.boardW) : "",
       boardH: saved.boardH ? String(saved.boardH) : "",
       sheetPrice: saved.sheetPrice ? String(saved.sheetPrice) : "",
+      rollWidth: saved.rollWidth ? String(saved.rollWidth) : "",
       outsourcedRateM2: saved.outsourcedRateM2 ? String(saved.outsourcedRateM2) : "",
       minJobPrice: saved.minJobPrice ? String(saved.minJobPrice) : "",
       catalogBinds: saved.catalogBinds,
@@ -340,6 +344,7 @@ function Calculator() {
 
       /* --- v3.3 --- */
       sheetPrice: n(draft.sheetPrice),
+      rollWidth: n(draft.rollWidth),
       outsourcedRateM2: n(draft.outsourcedRateM2),
       minJobPrice: n(draft.minJobPrice),
       catalogBinds: draft.catalogBinds,
@@ -524,6 +529,12 @@ function Calculator() {
         ...(materialPct ? { material } : {}),
       }),
     [cfg, anchors, nw, nh, nq, validated, sides, prepared, materialPct, material],
+  );
+
+  /* how the job sits on the roll — shown on the big-page line */
+  const nest = useMemo(
+    () => (nw && nh && cfg.rollWidth > 0 && job && job.unitsPerSheet === 0 ? rollNesting(cfg, nw, nh, nq) : null),
+    [cfg, nw, nh, nq, job],
   );
 
   const inconsistent = job?.inconsistent ?? [];
@@ -749,13 +760,18 @@ function Calculator() {
 
           {/* area — always visible */}
           <div className="w-40">
-            <div className={labelCls}>שטח (מ״ר)</div>
+            <div className={labelCls}>{job?.billedM2 ? "מ״ר חומר" : "שטח (מ״ר)"}</div>
             <div className="border-b-2 border-dashed border-[var(--line,#c9d4de)] px-1 py-1 text-lg font-black text-[var(--ink)]">
-              {jobArea ? (nq > 1 ? (jobArea * nq).toFixed(3) : jobArea.toFixed(3)) : "—"}
+              {job?.billedM2
+                ? job.billedM2.toFixed(3)
+                : jobArea
+                  ? (nq > 1 ? jobArea * nq : jobArea).toFixed(3)
+                  : "—"}
             </div>
-            {jobArea && nq > 1 ? (
+            {jobArea && (job?.billedM2 || nq > 1) ? (
               <div className="px-1 pt-1 text-[11px] font-bold text-muted-foreground">
                 {nq.toLocaleString()} יח׳ × {jobArea.toFixed(3)} מ״ר
+                {job?.billedM2 ? " (המדבקה עצמה)" : ""}
               </div>
             ) : null}
           </div>
@@ -938,12 +954,13 @@ function Calculator() {
               ) : (
                 <div className="font-bold text-[var(--ink)]">
                   מדפסת גדולה (דף גדול) ·{" "}
-                  {nq > 1
-                    ? `${nq.toLocaleString()} יח׳ × ${jobArea.toFixed(3)} = ${(jobArea * nq).toFixed(3)} מ״ר`
-                    : `${jobArea.toFixed(3)} מ״ר`}{" "}
+                  {nest
+                    ? `${nq.toLocaleString()} יח׳${nest.panels > 1 ? ` × ${nest.panels} חלקים` : ""} · ${nest.across} בשורה × ${nest.rows} שורות · גליל ${nest.width}×${nest.length.toFixed(0)} ס״מ = ${nest.area.toFixed(3)} מ״ר`
+                    : `${(jobArea * nq).toFixed(3)} מ״ר`}{" "}
                   · לפי מ״ר
                   {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} לעבודה` : ""} —
-                  המדבקה אינה נכנסת לדף הקטן {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                  המדבקה אינה נכנסת לדף הקטן {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ,
+                  והגליל נחתך לכל רוחבו
                 </div>
               )
             ) : job.unitsPerSheet ? (
@@ -1399,6 +1416,13 @@ function Calculator() {
                         onChange={(v) => setDraft((p) => ({ ...p, sheetPrice: v }))}
                         width="w-40"
                         placeholder="20"
+                      />
+                      <Field
+                        label='רוחב גליל (ס"מ)'
+                        value={draft.rollWidth}
+                        onChange={(v) => setDraft((p) => ({ ...p, rollWidth: v }))}
+                        width="w-40"
+                        placeholder="ללא"
                       />
                       <Field
                         label="מדפסת גדולה — מינימום ₪ לעבודה"

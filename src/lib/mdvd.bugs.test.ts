@@ -243,8 +243,9 @@ describe("bug8_stickers_price_must_follow_size", () => {
     const j = q(115, 8, 10);
     expect(j.bindingRule).toBe("large_format");
     expect(j.total).not.toBe(136);
-    /* big page: 10 × 0.092 m² = 0.92 m² × ₪95 = ₪87 */
-    expect(j.total).toBe(87);
+    /* big page: ten of them stack 115 across the 120 roll, 80 long —
+       0.96 m² of material × ₪95 */
+    expect(j.total).toBe(91);
   });
 
   it("a unit that does not fit the sheet still gets a real production cost", () => {
@@ -258,7 +259,7 @@ describe("bug8_stickers_price_must_follow_size", () => {
     const withMin = liveFixture("מדבקות", { minOrderQty: 10 });
     const j = priceJob(withMin.cfg, withMin.anchors, 17, 56, 1, withMin.validated)!;
     expect(j.belowMinOrder).toBe(false);
-    /* 0.095 m² × ₪95 is under the job minimum of one small page */
+    /* 100×56 of roll is still under the job minimum of one small page */
     expect(j.total).toBe(20);
     expect(priceJob(withMin.cfg, withMin.anchors, 5, 5, 5, withMin.validated)!.belowMinOrder).toBe(true);
   });
@@ -291,8 +292,8 @@ describe("bug8_stickers_price_must_follow_size", () => {
     expect(q(17, 17, 80).total).toBe(q(17, 17, 100).total);
   });
 
-  it("on the big page, price follows area and nothing else", () => {
-    /* 0.48 → 0.80 → 0.96 m², all at ₪95 a square metre */
+  it("on the big page, price follows the roll consumed", () => {
+    /* 100×60, 100×80 and 120×80 of roll, all at ₪95 a square metre */
     const mid = q(100, 80, 1);
     expect(mid.total).toBeGreaterThanOrEqual(q(80, 60, 1).total);
     expect(mid.total).toBeLessThanOrEqual(q(120, 80, 1).total);
@@ -301,20 +302,20 @@ describe("bug8_stickers_price_must_follow_size", () => {
   });
 
   it("the big printer bills the whole job by area, with one job minimum", () => {
-    /* singles are priced by area now, not by the website row (9/23) */
+    /* singles are priced by the roll they use, not by the website row (9/23) */
     for (const [w, h, price] of [
       [17, 56, 20],
       [20, 70, 20],
-      [50, 70, 33],
+      [50, 70, 48],
     ] as [number, number, number][])
       expect({ w, h, total: q(w, h, 1).total }).toEqual({ w, h, total: price });
-    /* one unit sits on the ₪20 job minimum (one small page); ten units are
-       billed by their total area, 0.92 m² × ₪95 */
+    /* one unit sits on the ₪20 job minimum (one small page); ten are stacked
+       on one piece of roll, so they cost far less than ten minimums */
     const one = q(115, 8, 1);
     const ten = q(115, 8, 10);
     expect(one.total).toBe(20);
     expect(ten.qtyFactor).toBe(1);
-    expect(ten.total).toBe(87);
+    expect(ten.total).toBe(91);
     expect(ten.total).toBeLessThan(10 * one.total);
   });
 
