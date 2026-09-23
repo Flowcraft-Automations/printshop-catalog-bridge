@@ -105,11 +105,11 @@ describe("over-limit = פיצול לחלקים (מדבקות — 120 ס״מ viny
     expect(q(140, 140).panels).toBe(2);
   });
 
-  it("splitting does not change the price — same material, same ₪", () => {
-    /* 130×130 = 1.69 m² on the big page → ₪95/m² = ₪160; delivery in two
-       parts (9/3) must not reprice it */
+  it("splitting is priced on the roll each part uses", () => {
+    /* 130×130 goes out in two parts of 65×130 (9/3). Neither shares the 100 cm
+       roll with the other, so the job takes 100×260 = 2.6 m² × ₪95 */
     const j = q(130, 130);
-    expect(j.total).toBe(160);
+    expect(j.total).toBe(245);
     expect(j.machineNote).toContain("מסופק ב-2 חלקים");
   });
 

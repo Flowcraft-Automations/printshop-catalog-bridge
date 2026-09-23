@@ -33,7 +33,8 @@ import { loadProductsLive, parseArgs } from "./lib/config-seed";
 const args = parseArgs(process.argv.slice(2));
 const outIdx = args.rest.indexOf("--out");
 const outPath = outIdx >= 0 ? args.rest[outIdx + 1] ?? null : null;
-const families = args.rest.filter((a, i) => a !== "--out" && i !== outIdx + 1);
+/* everything that is not the --out flag or its value is a family name */
+const families = args.rest.filter((a, i) => a !== "--out" && !(outIdx >= 0 && i === outIdx + 1));
 
 function toProducts(rows: Record<string, unknown>[]): Product[] {
   const num = (v: unknown) => (v == null || v === "" ? null : Number(v));

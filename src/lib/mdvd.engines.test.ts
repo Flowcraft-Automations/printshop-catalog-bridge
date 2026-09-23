@@ -64,18 +64,17 @@ describe("מדבקות (two_machine_sheet — small sheet or roll)", () => {
     expect(at(20, 30)).toBeLessThan(at(100, 100));
   });
 
-  it("the big page charges one rate per m², whatever the size or shape", () => {
-    /* the website's own singles disagree per m² (₪95 for 0.14 m², ₪180 for
-       1.96) so they no longer set the price — ₪95 a square metre does */
+  it("the big page charges ₪95 for every square metre of roll it uses", () => {
+    /* the roll is cut across its full width, so the unused width is billed */
     for (const [w, h, want] of [
-      [80, 60, 46],
+      [80, 60, 57],
       [120, 80, 91],
       [100, 100, 95],
-      [130, 130, 160],
-      [140, 140, 185],
+      [130, 130, 245],
+      [140, 140, 265],
     ] as [number, number, number][])
       expect({ w, h, total: job(fix, w, h, 1).total }).toEqual({ w, h, total: want });
-    /* a square metre costs the same however it is cut up */
+    /* four 50×50 tile the roll exactly, so they cost one square metre */
     expect(job(fix, 50, 50, 4).total).toBe(job(fix, 100, 100, 1).total);
   });
 

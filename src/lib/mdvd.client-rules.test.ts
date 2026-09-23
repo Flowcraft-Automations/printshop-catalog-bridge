@@ -221,26 +221,9 @@ describe("never ₪0", () => {
  * two-machine sticker engine (D2)
  * ------------------------------------------------------------------ */
 describe("two_machine_sheet — small sheet or roll", () => {
-  const fix = famFixture("מדבקות", {
-    engine: "two_machine_sheet",
-    sheetW: 48.8,
-    sheetH: 33,
-    sheetMargin: 1.5,
-    sheetGap: 0.5,
-    sheetPrice: 20,
-    minOrderQty: 0,
-    qtyTiersEnabled: false,
-    qtyTiers: [],
-    perM2Tiers: [
-      { minM2: 0, rate: 125 },
-      { minM2: 1.5, rate: 92 },
-    ],
-    minJobPrice: 95,
-    maxPrintW: 120,
-    overLimit: "weld",
-    capW: 150,
-    catalogBinds: "none",
-  });
+  /* the shipped seed, with the catalog switched off so the formula is tested
+     on its own: small page ₪20, big page ₪95 per m² of a 100 cm roll */
+  const fix = famFixture("מדבקות", { catalogBinds: "none" });
   const prepared = prepareFamily(fix.cfg, fix.anchors, fix.validated);
   const q = (w: number, h: number, qty: number) =>
     priceJob(fix.cfg, fix.anchors, w, h, qty, fix.validated, { prepared })!;
@@ -276,53 +259,53 @@ describe("two_machine_sheet — small sheet or roll", () => {
     expect(q(5, 5, 100).bindingRule).toBe("anchor");
     expect(q(5, 5, 1000).total).toBeGreaterThan(q(5, 5, 500).total);
   });
-  it("a sticker that does not fit goes to the big printer: real area × tier rate, ₪95 job minimum", () => {
+  it("a sticker that does not fit the page is billed on the roll it uses", () => {
     expect(q(46, 30, 1).unitsPerSheet).toBe(0);
     for (const [w, h, want] of [
-      [46, 30, 95],
-      [70, 50, 95],
-      [17, 56, 95],
-      [100, 100, 125],
-      [120, 80, 120],
-      [130, 130, 155],
-      [140, 140, 180],
+      [46, 30, 29],
+      [70, 50, 48],
+      [17, 56, 20],
+      [100, 100, 95],
+      [120, 80, 91],
+      [130, 130, 245],
+      [140, 140, 265],
     ] as const) {
       const j = q(w, h, 1);
       expect({ w, h, total: j.total, rule: j.bindingRule }).toEqual({ w, h, total: want, rule: "large_format" });
     }
   });
-  it("the big printer bills the job by total area, with the minimum charged once", () => {
-    /* the client's own case (9/23): four 35×35 stickers fit in a square metre,
-       so the job costs one ₪95 minimum — not four of them */
-    expect(q(35, 35, 1).total).toBe(95);
-    expect(q(35, 35, 4).total).toBe(95);
-    /* once the area passes the minimum the price follows it */
-    expect(q(35, 35, 8).total).toBe(125);
-    expect(q(115, 8, 10).total).toBe(115);
+  it("the roll is billed whole: the client's own square metre (9/23)", () => {
+    /* four 50×50 sit two across and two rows on the 100 cm roll — exactly
+       100×100, one square metre, ₪95. Three of them use the same piece. */
+    expect(q(50, 50, 4).total).toBe(95);
+    expect(q(50, 50, 3).total).toBe(95);
+    expect(q(50, 50, 4).total).toBe(q(100, 100, 1).total);
+    /* one 40×40 consumes 100×40 of roll, not 40×40 (Yulia 9/23) */
+    expect(q(40, 40, 1).total).toBe(38);
+    /* one centimetre wider and only one fits across, so the roll doubles */
+    expect(q(51, 51, 4).total).toBe(195);
+    /* stacking along the roll is what makes a run cheap */
+    expect(q(115, 8, 10).total).toBe(91);
   });
 
-  it("a bigger sticker never costs less: the tier step at 1.5 m² is gone", () => {
-    /* 125 ₪/m² up to 1.5 m² and 92 above it used to make 1.49 m² dearer than
-       1.5 m²; each tier now offers rate × max(area, its threshold) and the
-       cheaper offer wins */
-    expect(q(149, 100, 1).total).toBe(q(150, 100, 1).total);
-    expect(q(140, 100, 1).total).toBe(140);
-    let prev = 0;
-    for (const w of [100, 110, 120, 130, 140, 149, 150]) {
-      const t = q(w, 100, 1).total;
-      expect({ w, ok: t >= prev }).toEqual({ w, ok: true });
-      prev = t;
+  it("a bigger sticker never costs less, at any quantity", () => {
+    for (const n of [1, 2, 4, 10]) {
+      let prev = 0;
+      for (const w of [100, 110, 120, 130, 140, 149, 150]) {
+        const t = q(w, 100, n).total;
+        expect({ n, w, ok: t >= prev }).toEqual({ n, w, ok: true });
+        prev = t;
+      }
     }
-    /* the approved catalog singles are untouched by the rule */
-    expect(q(130, 130, 1).total).toBe(155);
-    expect(q(140, 140, 1).total).toBe(180);
   });
 
-  it("splits above the print width without multiplying the area", () => {
+  it("a split sticker pays for the width each part wastes", () => {
     expect(q(130, 130, 1).panels).toBe(2);
     expect(q(130, 130, 1).machineNote).toContain("2 חלקים");
     expect(q(100, 100, 1).panels).toBe(1);
-    expect(q(130, 130, 2).total).toBe(2 * q(130, 130, 1).total);
+    /* two parts of 65×130 cannot share the 100 cm roll, so each takes its own
+       length — two of them is twice the roll again */
+    expect(q(130, 130, 2).total).toBeGreaterThanOrEqual(2 * q(130, 130, 1).total);
   });
   it("above the absolute cap there is no price", () => {
     const j = q(160, 160, 1);
