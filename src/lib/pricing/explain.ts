@@ -90,11 +90,11 @@ function describeSource(
         he:
           `שתי מדפסות. מדבקה שנכנסת לדף הקטן (${s.w}×${s.h} ס״מ) מתומחרת לפי דפים — ${shekel(cfg.sheetPrice)} לדף לפי כמה מדבקות נכנסות בדף — ולעולם לא יותר מחבילת ${n(cfg.shortRunRefQty)} היחידות של דלי הגודל; ` +
           `מ-${n(cfg.shortRunRefQty)} יחידות המחיר הוא מחירי החבילות של האתר. ` +
-          `מדבקה שאינה נכנסת לדף הקטן מודפסת במדפסת הגדולה (דף גדול) לפי מ״ר${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` עם מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""}`,
+          `מדבקה שאינה נכנסת לדף הקטן מודפסת במדפסת הגדולה (דף גדול) לפי מ״ר — השטח נספר על כל היחידות יחד${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? `, ומינימום ${shekel(cfg.minJobPrice)} נגבה פעם אחת לעבודה` : ""}`,
         en:
           `Two printers. A sticker that fits the small page (${s.w}×${s.h} cm) is priced per page — ${shekel(cfg.sheetPrice)} a page by how many stickers fit — and never above the size bucket's ${n(cfg.shortRunRefQty)}-unit pack; ` +
           `from ${n(cfg.shortRunRefQty)} units the website pack prices apply. ` +
-          `A sticker that does not fit the small page is printed on the big printer (big page) per m²${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` with a ${shekel(cfg.minJobPrice)} minimum per unit` : ""}`,
+          `A sticker that does not fit the small page is printed on the big printer (big page) per m², counting the area of all units together${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? `, with a ${shekel(cfg.minJobPrice)} minimum once per job` : ""}`,
       };
     }
     case "cost_plus":
@@ -270,8 +270,8 @@ export function explainFamily(
     );
   if (cfg.engine === "two_machine_sheet")
     settings.push({
-      he: `דף קטן: ${shekel(cfg.sheetPrice)} · חבילות מ-${n(cfg.shortRunRefQty)} יח׳ · מדפסת גדולה: מינימום ${shekel(cfg.minJobPrice)} ליחידה`,
-      en: `Small page: ${shekel(cfg.sheetPrice)} · packs from ${n(cfg.shortRunRefQty)} units · big printer: minimum ${shekel(cfg.minJobPrice)} per unit`,
+      he: `דף קטן: ${shekel(cfg.sheetPrice)} · חבילות מ-${n(cfg.shortRunRefQty)} יח׳ · מדפסת גדולה: מינימום ${shekel(cfg.minJobPrice)} לעבודה`,
+      en: `Small page: ${shekel(cfg.sheetPrice)} · packs from ${n(cfg.shortRunRefQty)} units · big printer: minimum ${shekel(cfg.minJobPrice)} per job`,
     });
   if (cfg.overLimit === "outsource" && cfg.outsourcedRateM2 > 0)
     settings.push({

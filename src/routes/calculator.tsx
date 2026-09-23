@@ -923,8 +923,12 @@ function Calculator() {
                 </div>
               ) : (
                 <div className="font-bold text-[var(--ink)]">
-                  מדפסת גדולה (דף גדול) · {jobArea.toFixed(3)} מ״ר · לפי מ״ר
-                  {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""} —
+                  מדפסת גדולה (דף גדול) ·{" "}
+                  {nq > 1
+                    ? `${nq.toLocaleString()} יח׳ × ${jobArea.toFixed(3)} = ${(jobArea * nq).toFixed(3)} מ״ר`
+                    : `${jobArea.toFixed(3)} מ״ר`}{" "}
+                  · לפי מ״ר
+                  {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} לעבודה` : ""} —
                   המדבקה אינה נכנסת לדף הקטן {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
                 </div>
               )
@@ -1324,7 +1328,7 @@ function Calculator() {
                     {cfg.perM2Tiers.length
                       ? cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ")
                       : "אין מדרגות מ״ר!"}
-                    {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""}
+                    {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} לעבודה` : ""}
                   </div>
                 ) : null}
                 {(cfg.engine === "anchor_curve" || cfg.engine === "catalog_surface") &&
@@ -1383,7 +1387,7 @@ function Calculator() {
                         placeholder="20"
                       />
                       <Field
-                        label="מדפסת גדולה — מינימום ₪ ליחידה"
+                        label="מדפסת גדולה — מינימום ₪ לעבודה"
                         value={draft.minJobPrice}
                         onChange={(v) => setDraft((p) => ({ ...p, minJobPrice: v }))}
                         width="w-44"

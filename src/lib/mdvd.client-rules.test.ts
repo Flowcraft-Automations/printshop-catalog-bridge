@@ -276,7 +276,7 @@ describe("two_machine_sheet — small sheet or roll", () => {
     expect(q(5, 5, 100).bindingRule).toBe("anchor");
     expect(q(5, 5, 1000).total).toBeGreaterThan(q(5, 5, 500).total);
   });
-  it("a sticker that does not fit goes to the roll: real area × tier rate, ₪95 minimum", () => {
+  it("a sticker that does not fit goes to the big printer: real area × tier rate, ₪95 job minimum", () => {
     expect(q(46, 30, 1).unitsPerSheet).toBe(0);
     for (const [w, h, want] of [
       [46, 30, 95],
@@ -291,11 +291,38 @@ describe("two_machine_sheet — small sheet or roll", () => {
       expect({ w, h, total: j.total, rule: j.bindingRule }).toEqual({ w, h, total: want, rule: "large_format" });
     }
   });
-  it("the roll is linear in quantity and splits above the print width without multiplying the area", () => {
-    expect(q(115, 8, 10).total).toBe(10 * q(115, 8, 1).total);
+  it("the big printer bills the job by total area, with the minimum charged once", () => {
+    /* the client's own case (9/23): four 35×35 stickers fit in a square metre,
+       so the job costs one ₪95 minimum — not four of them */
+    expect(q(35, 35, 1).total).toBe(95);
+    expect(q(35, 35, 4).total).toBe(95);
+    /* once the area passes the minimum the price follows it */
+    expect(q(35, 35, 8).total).toBe(125);
+    expect(q(115, 8, 10).total).toBe(115);
+  });
+
+  it("a bigger sticker never costs less: the tier step at 1.5 m² is gone", () => {
+    /* 125 ₪/m² up to 1.5 m² and 92 above it used to make 1.49 m² dearer than
+       1.5 m²; each tier now offers rate × max(area, its threshold) and the
+       cheaper offer wins */
+    expect(q(149, 100, 1).total).toBe(q(150, 100, 1).total);
+    expect(q(140, 100, 1).total).toBe(140);
+    let prev = 0;
+    for (const w of [100, 110, 120, 130, 140, 149, 150]) {
+      const t = q(w, 100, 1).total;
+      expect({ w, ok: t >= prev }).toEqual({ w, ok: true });
+      prev = t;
+    }
+    /* the approved catalog singles are untouched by the rule */
+    expect(q(130, 130, 1).total).toBe(155);
+    expect(q(140, 140, 1).total).toBe(180);
+  });
+
+  it("splits above the print width without multiplying the area", () => {
     expect(q(130, 130, 1).panels).toBe(2);
     expect(q(130, 130, 1).machineNote).toContain("2 חלקים");
     expect(q(100, 100, 1).panels).toBe(1);
+    expect(q(130, 130, 2).total).toBe(2 * q(130, 130, 1).total);
   });
   it("above the absolute cap there is no price", () => {
     const j = q(160, 160, 1);
@@ -345,6 +372,10 @@ describe("two_machine_sheet — small sheet or roll", () => {
     const roll = priceJob(packs.cfg, [], 100, 100, 1, validated)!;
     expect(roll.total).toBe(120);
     expect(roll.bindingRule).toBe("validated");
+    /* and a multi-unit job of that size never dips below the approved single */
+    const two = priceJob(packs.cfg, [], 70, 50, 2, [...validated, row(70, 50, 1, 100)])!;
+    expect(two.total).toBe(100);
+    expect(two.detail).toContain("לא פחות ממדבקה אחת");
     const thousand = priceJob(packs.cfg, [], 5, 5, 1000, validated)!;
     expect(thousand.bindingRule).toBe("validated");
     expect(thousand.total).toBe(345);
