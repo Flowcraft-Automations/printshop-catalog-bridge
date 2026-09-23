@@ -748,11 +748,16 @@ function Calculator() {
           </div>
 
           {/* area — always visible */}
-          <div className="w-32">
+          <div className="w-40">
             <div className={labelCls}>שטח (מ״ר)</div>
             <div className="border-b-2 border-dashed border-[var(--line,#c9d4de)] px-1 py-1 text-lg font-black text-[var(--ink)]">
-              {jobArea ? jobArea.toFixed(3) : "—"}
+              {jobArea ? (nq > 1 ? (jobArea * nq).toFixed(3) : jobArea.toFixed(3)) : "—"}
             </div>
+            {jobArea && nq > 1 ? (
+              <div className="px-1 pt-1 text-[11px] font-bold text-muted-foreground">
+                {nq.toLocaleString()} יח׳ × {jobArea.toFixed(3)} מ״ר
+              </div>
+            ) : null}
           </div>
 
           <div className="mr-auto text-left">
@@ -956,7 +961,7 @@ function Calculator() {
             ) : null}
             {/* הנחת הכמות של הפורמט הגדול — מראה מה המקדם עושה בפועל לכמות
                 שהוזנה, במקום להשאיר אותו מספר בהגדרות בלבד */}
-            {job.bindingRule === "large_format" && job.qtyFactor < nq ? (
+            {cfg.qtyExponentPinned && job.bindingRule === "large_format" && job.qtyFactor < nq ? (
               <div>
                 מקדם כמות {cfg.qtyExponent}: {nq.toLocaleString()} יח׳ מחויבות כ-
                 {job.qtyFactor.toFixed(2)} · חיסכון {shekel((nq / job.qtyFactor - 1) * job.total)}
