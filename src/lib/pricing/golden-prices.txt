@@ -900,7 +900,7 @@
 40,40,2000|190000;large_format
 40,40,5000|475000;large_format
 40,40,10000|950000;large_format
-50,70,1|95;large_format
+50,70,1|100;validated|95;large_format|100;validated|100;validated
 50,70,5|475;large_format
 50,70,10|950;large_format
 50,70,22|2090;large_format
@@ -936,7 +936,7 @@
 60,40,2000|190000;large_format
 60,40,5000|475000;large_format
 60,40,10000|950000;large_format
-70,50,1|95;large_format
+70,50,1|100;validated|95;large_format|100;validated|100;validated
 70,50,5|475;large_format
 70,50,10|950;large_format
 70,50,22|2090;large_format
@@ -954,7 +954,7 @@
 70,50,2000|190000;large_format
 70,50,5000|475000;large_format
 70,50,10000|950000;large_format
-80,60,1|95;large_format
+80,60,1|105;validated|100;size_floor|105;validated|105;validated
 80,60,5|475;large_format
 80,60,10|950;large_format
 80,60,22|2090;large_format
@@ -972,7 +972,7 @@
 80,60,2000|190000;large_format
 80,60,5000|475000;large_format
 80,60,10000|950000;large_format
-90,90,1|100;large_format
+90,90,1|105;size_floor
 90,90,5|505;large_format
 90,90,10|1015;large_format
 90,90,22|2230;large_format
@@ -990,7 +990,7 @@
 90,90,2000|202500;large_format
 90,90,5000|506250;large_format
 90,90,10000|1012500;large_format
-100,70,1|95;large_format
+100,70,1|105;size_floor
 100,70,5|475;large_format
 100,70,10|950;large_format
 100,70,22|2090;large_format
@@ -1008,7 +1008,7 @@
 100,70,2000|190000;large_format
 100,70,5000|475000;large_format
 100,70,10000|950000;large_format
-100,100,1|125;large_format
+100,100,1|120;validated|125;large_format|120;validated|120;validated
 100,100,5|625;large_format
 100,100,10|1250;large_format
 100,100,22|2750;large_format
@@ -1044,7 +1044,7 @@
 115,8,2000|190000;large_format
 115,8,5000|475000;large_format
 115,8,10000|950000;large_format
-120,80,1|120;large_format
+120,80,1|120;validated|120;large_format|120;validated|120;validated
 120,80,5|600;large_format
 120,80,10|1200;large_format
 120,80,22|2640;large_format
@@ -1080,7 +1080,7 @@
 120,100,2000|300000;large_format
 120,100,5000|750000;large_format
 120,100,10000|1500000;large_format
-130,130,1|155;large_format;p2
+130,130,1|155;validated;p2|155;large_format;p2|155;validated;p2|155;validated;p2
 130,130,5|775;large_format;p2
 130,130,10|1555;large_format;p2
 130,130,22|3420;large_format;p2
@@ -1098,7 +1098,7 @@
 130,130,2000|310960;large_format;p2
 130,130,5000|777400;large_format;p2
 130,130,10000|1554800;large_format;p2
-140,140,1|180;large_format;p2
+140,140,1|180;validated;p2|180;large_format;p2|180;validated;p2|180;validated;p2
 140,140,5|900;large_format;p2
 140,140,10|1805;large_format;p2
 140,140,22|3965;large_format;p2

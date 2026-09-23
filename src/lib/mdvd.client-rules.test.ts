@@ -331,12 +331,20 @@ describe("two_machine_sheet — small sheet or roll", () => {
       expect(q(30, 20, n).total).toBeLessThanOrEqual(q(46, 30, n).total);
     }
   });
-  it("pack rows bind under the 'packs' policy, singles do not", () => {
+  it("pack rows and roll-size singles bind under the 'packs' policy; sheet-size singles do not", () => {
     const packs = famFixture("מדבקות", { ...fix.cfg, catalogBinds: "packs" });
-    const validated = [row(30, 20, 1, 95), row(5, 5, 1000, 345), row(5, 5, 100, 126)];
+    const validated = [
+      row(30, 20, 1, 95),
+      row(100, 100, 1, 120),
+      row(5, 5, 1000, 345),
+      row(5, 5, 100, 126),
+    ];
     const one = priceJob(packs.cfg, [], 30, 20, 1, validated)!;
     expect(one.total).toBe(20);
     expect(one.bindingRule).toBe("sheet");
+    const roll = priceJob(packs.cfg, [], 100, 100, 1, validated)!;
+    expect(roll.total).toBe(120);
+    expect(roll.bindingRule).toBe("validated");
     const thousand = priceJob(packs.cfg, [], 5, 5, 1000, validated)!;
     expect(thousand.bindingRule).toBe("validated");
     expect(thousand.total).toBe(345);

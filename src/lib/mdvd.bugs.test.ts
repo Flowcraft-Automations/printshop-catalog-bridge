@@ -291,17 +291,21 @@ describe("bug8_stickers_price_must_follow_size", () => {
   });
 
   it("a roll size between two catalog singles is priced between them", () => {
-    const mid = q(100, 80, 1).total;
-    expect(mid).toBeGreaterThan(q(80, 60, 1).total);
-    expect(mid).toBeLessThan(q(120, 80, 1).total);
-    expect(mid).toBe(100);
+    /* 100×80 = 0.8 m² → ₪100 by the roll rate, floored to the approved
+       80×60 = ₪105 it dominates; the approved 120×80 = ₪120 stays above */
+    const mid = q(100, 80, 1);
+    expect(mid.total).toBeGreaterThanOrEqual(q(80, 60, 1).total);
+    expect(mid.total).toBeLessThanOrEqual(q(120, 80, 1).total);
+    expect(mid.total).toBe(105);
+    expect(mid.bindingRule).toBe("size_floor");
   });
 
   it("the roll is linear in quantity — no exponent discount, no single-unit surprise", () => {
+    /* approved roll-size singles bind (56×17 = 95, 70×20 = 95, 70×50 = 100) */
     for (const [w, h, price] of [
       [17, 56, 95],
       [20, 70, 95],
-      [50, 70, 95],
+      [50, 70, 100],
     ] as [number, number, number][])
       expect(q(w, h, 1).total).toBe(price);
     const ten = q(115, 8, 10);
