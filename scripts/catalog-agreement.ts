@@ -78,9 +78,13 @@ type Line = {
   row: JobAnchor;
   engine: number | null;
   rule: string;
+  cost: number;
+  belowCost: boolean;
   delta: number | null;
 };
-const csv: string[] = ["family,width_cm,height_cm,qty,is_anchor,catalog_price,engine_price,delta_pct,rule"];
+const csv: string[] = [
+  "family,width_cm,height_cm,qty,is_anchor,site_price,new_price,change,delta_pct,cost,below_cost,rule",
+];
 const names = Object.keys(SPEC_FAMILY_CONFIGS).filter((n) => !families.length || families.includes(n));
 for (const name of names) {
   const seed = SPEC_FAMILY_CONFIGS[name]!;
@@ -96,26 +100,53 @@ for (const name of names) {
     });
     const engine = j && !j.noQuote && !j.overMachine && !j.belowMinOrder ? j.total : null;
     const rule = !j ? "-" : j.overMachine ? "blocked" : j.noQuote ? "quote" : j.belowMinOrder ? "min-order" : j.bindingRule;
-    return { family: name, row, engine, rule, delta: engine !== null ? (engine - row.price) / row.price : null };
+    /* what the shop pays for this job, and whether the site sells it under that */
+    const floor = j ? j.costFloorValue : 0;
+    return {
+      family: name,
+      row,
+      engine,
+      rule,
+      cost: j ? j.cost : 0,
+      belowCost: floor > 0 && row.price < floor - 0.01,
+      delta: engine !== null ? (engine - row.price) / row.price : null,
+    };
   });
   const scored = lines.filter((l) => l.delta !== null) as (Line & { delta: number })[];
   const abs = scored.map((l) => Math.abs(l.delta)).sort((a, b) => a - b);
   const mean = abs.length ? abs.reduce((t, x) => t + x, 0) / abs.length : 0;
   const median = abs.length ? abs[Math.floor(abs.length / 2)]! : 0;
   const within10 = abs.filter((x) => x <= 0.1).length;
+  const losing = lines.filter((l) => l.belowCost);
   console.log(
     `\n# ${name} — engine ${cfg.engine}, catalog_binds ${cfg.catalogBinds} · ${validated.length} verified rows (${anchors.length} ⚓) · ` +
-      `formula prices ${scored.length} · mean |Δ| ${Math.round(mean * 100)}% · median ${Math.round(median * 100)}% · within 10%: ${within10}/${scored.length}`,
+      `formula prices ${scored.length} · mean |Δ| ${Math.round(mean * 100)}% · median ${Math.round(median * 100)}% · within 10%: ${within10}/${scored.length}` +
+      (losing.length ? ` · ⚠ ${losing.length} SOLD BELOW COST` : ""),
   );
   const sorted = [...lines].sort((a, b) => Math.abs(b.delta ?? 9) - Math.abs(a.delta ?? 9));
-  console.log(`  ${"size".padEnd(10)} ${"qty".padStart(5)} ${"⚓".padEnd(2)} ${"catalog".padStart(9)} ${"formula".padStart(9)} ${"Δ".padStart(6)}  rule`);
+  console.log(
+    `  ${"size".padEnd(10)} ${"qty".padStart(5)} ${"⚓".padEnd(2)} ${"site".padStart(9)} ${"new".padStart(9)} ${"Δ".padStart(6)} ${"cost".padStart(8)}  rule`,
+  );
   for (const l of sorted) {
     const d = l.delta === null ? "  n/a" : `${l.delta > 0 ? "+" : ""}${Math.round(l.delta * 100)}%`;
     console.log(
-      `  ${`${l.row.w}×${l.row.h}`.padEnd(10)} ${String(l.row.qty).padStart(5)} ${(l.row.anchor ? "⚓" : "").padEnd(2)} ${shekel(l.row.price).padStart(9)} ${(l.engine === null ? "—" : shekel(l.engine)).padStart(9)} ${d.padStart(6)}  ${l.rule}`,
+      `  ${`${l.row.w}×${l.row.h}`.padEnd(10)} ${String(l.row.qty).padStart(5)} ${(l.row.anchor ? "⚓" : "").padEnd(2)} ${shekel(l.row.price).padStart(9)} ${(l.engine === null ? "—" : shekel(l.engine)).padStart(9)} ${d.padStart(6)} ${shekel(l.cost).padStart(8)}  ${l.rule}${l.belowCost ? "  ⚠ מתחת לעלות" : ""}`,
     );
     csv.push(
-      [name, l.row.w, l.row.h, l.row.qty, l.row.anchor ? 1 : 0, l.row.price, l.engine ?? "", l.delta === null ? "" : (l.delta * 100).toFixed(1), l.rule]
+      [
+        name,
+        l.row.w,
+        l.row.h,
+        l.row.qty,
+        l.row.anchor ? 1 : 0,
+        l.row.price,
+        l.engine ?? "",
+        l.engine === null ? "" : l.engine > l.row.price ? "raise" : l.engine < l.row.price ? "lower" : "same",
+        l.delta === null ? "" : (l.delta * 100).toFixed(1),
+        l.cost.toFixed(2),
+        l.belowCost ? "YES" : "",
+        l.rule,
+      ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(","),
     );

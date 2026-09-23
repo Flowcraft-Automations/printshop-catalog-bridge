@@ -19,23 +19,27 @@
 | מדבקות | 5×5 | 100 | ₪126 | validated | catalog pack |
 | מדבקות | 5×5 | 1000 | ₪345 | validated | catalog pack |
 | מדבקות | 3×3 | 1000 | ₪315 | validated | catalog pack |
-| מדבקות | 46×30 | 1 | ₪95 | large_format | 8/31 11:51 — above the small page → big printer; job minimum |
-| מדבקות | 46×30 | 10 | ₪175 | large_format | 1.38 m² × ₪125 — the job is billed by area |
-| מדבקות | 35×35 | 1 | ₪95 | large_format | 9/23 Michelle — job minimum |
-| מדבקות | 35×35 | 4 | ₪95 | large_format | 9/23 Michelle — 4 fit in a m²; the minimum is once per job, not per unit |
-| מדבקות | 35×35 | 8 | ₪125 | large_format | 0.98 m² × ₪125 — above the job minimum |
-| מדבקות | 70×50 | 1 | ₪100 | validated | approved catalog single (big-printer size) |
-| מדבקות | 70×50 | 2 | ₪100 | large_format | never less than one approved sticker (8/23 — 1 unit ₪100, 2 units ₪70 was the complaint) |
-| מדבקות | 17×56 | 1 | ₪95 | validated | approved catalog single (roll size) |
-| מדבקות | 100×100 | 1 | ₪120 | validated | approved catalog single — Yulia 9/23 |
-| מדבקות | 120×80 | 1 | ₪120 | validated | approved catalog single |
-| מדבקות | 130×130 | 1 | ₪155 | validated | 9/3 08:30 — split above 120, same price; catalog ₪155 |
-| מדבקות | 140×140 | 1 | ₪180 | validated | approved catalog single |
-| מדבקות | 110×100 | 1 | ₪140 | large_format | no catalog row — 1.1 m² on the big printer |
-| מדבקות | 140×100 | 1 | ₪140 | large_format | no tier step: 1.4 m² never costs more than 1.5 m² (₪140) |
-| מדבקות | 150×100 | 1 | ₪140 | large_format | 1.5 m² × ₪92 |
-| מדבקות | 115×8 | 10 | ₪115 | large_format | 0.92 m² × ₪125 — one job, one area |
+| מדבקות | 40×40 | 1 | ₪20 | large_format | 9/23 Michelle — 0.16 m² must not cost the same as a square metre |
+| מדבקות | 50×50 | 4 | ₪95 | large_format | 9/23 Michelle — four of them are a square metre = ₪95 |
+| מדבקות | 100×100 | 1 | ₪95 | large_format | 9/23 — a square metre is a square metre, whatever its shape |
+| מדבקות | 35×35 | 1 | ₪20 | large_format | job minimum = one small page |
+| מדבקות | 35×35 | 4 | ₪47 | large_format | 0.49 m² × ₪95 |
+| מדבקות | 46×30 | 1 | ₪20 | large_format | just over the small page — same price as a page, never less |
+| מדבקות | 46×30 | 10 | ₪130 | large_format | 1.38 m² × ₪95 |
+| מדבקות | 70×50 | 1 | ₪33 | large_format | 0.35 m² × ₪95 (site says ₪100 — Yulia updates it) |
+| מדבקות | 70×50 | 2 | ₪67 | large_format | 0.70 m² × ₪95 |
+| מדבקות | 80×60 | 1 | ₪46 | large_format | 0.48 m² × ₪95 (site ₪105) |
+| מדבקות | 120×80 | 1 | ₪91 | large_format | 0.96 m² × ₪95 (site ₪120) |
+| מדבקות | 130×130 | 1 | ₪160 | large_format | 1.69 m² × ₪95, split in two above 120 (9/3) — site ₪155 |
+| מדבקות | 140×140 | 1 | ₪185 | large_format | 1.96 m² × ₪95 (site ₪180) |
+| מדבקות | 110×100 | 1 | ₪105 | large_format | 1.1 m² × ₪95 |
+| מדבקות | 140×100 | 1 | ₪135 | large_format | no step left at 1.5 m²: 1.4 m² × ₪95 |
+| מדבקות | 150×100 | 1 | ₪145 | large_format | 1.5 m² × ₪95 — dearer than 1.4 m², as it should be |
+| מדבקות | 115×8 | 10 | ₪87 | large_format | 0.92 m² × ₪95 — one job, one area |
 | מדבקות | 160×160 | 1 | blocked |  | cap 150 |
+| מדבקות | 10×15 | 1000 | ₪910 | cost_floor | 9/23 Gena — 250 pages cost him ₪700; the site sells it at ₪590 |
+| מדבקות | 10×15 | 500 | ₪455 | cost_floor | 125 pages cost ₪350; the site sells it at ₪340 |
+| מדבקות | 10×15 | 250 | ₪242 | validated | 63 pages cost ₪176 — the site price stands |
 | שמשונית | 120×10 | 1 | ₪70 | package_min | 8/23 10:36 — minimum ₪70 |
 | שמשונית | 60×40 | 1 | ₪70 |  | approved anchor = minimum |
 | שמשונית | 120×80 | 1 | ₪90 |  | approved anchor (SPEC_ANCHORS) |
@@ -268,12 +272,13 @@
 **איך נקבע המחיר:**
 
 1. מחיר מאומת בקטלוג נלקח כמות שהוא לחבילות (מ-100 יח׳) ולמדבקות שאינן נכנסות לדף הקטן (45.8×30 ס״מ); מדבקה בודדת שנכנסת לדף הקטן מתומחרת לפי הדף
-1. שתי מדפסות. מדבקה שנכנסת לדף הקטן (45.8×30 ס״מ) מתומחרת לפי דפים — ₪20 לדף לפי כמה מדבקות נכנסות בדף — ולעולם לא יותר מחבילת 100 היחידות של דלי הגודל; מ-100 יחידות המחיר הוא מחירי החבילות של האתר. מדבקה שאינה נכנסת לדף הקטן מודפסת במדפסת הגדולה (דף גדול) לפי מ״ר — השטח נספר על כל היחידות יחד (0+ מ״ר → ₪125 · 1.5+ מ״ר → ₪92), ומינימום ₪95 נגבה פעם אחת לעבודה
+1. שתי מדפסות. מדבקה שנכנסת לדף הקטן (45.8×30 ס״מ) מתומחרת לפי דפים — ₪20 לדף לפי כמה מדבקות נכנסות בדף — ולעולם לא יותר מחבילת 100 היחידות של דלי הגודל; מ-100 יחידות המחיר הוא מחירי החבילות של האתר. מדבקה שאינה נכנסת לדף הקטן מודפסת במדפסת הגדולה (דף גדול) לפי מ״ר — השטח נספר על כל היחידות יחד (0+ מ״ר → ₪95), ומינימום ₪20 נגבה פעם אחת לעבודה
 1. רוחב הדפסה מרבי 120 ס״מ · מידה רחבה מ-120 ס״מ מסופקת בכמה חלקים — אותו מחיר, כי שטח החומר זהה · גבול ייצור מוחלט 150 ס״מ
 1. המחיר לעולם אינו נמוך ממידה מאושרת קטנה יותר (בשני הממדים) באותה כמות — הרצפה הופכת למחיר
+1. המחיר לעולם אינו נמוך מעלות הייצור × מקדם הרווח (1.3) — הרצפה הופכת למחיר
 1. לבסוף המחיר מעוגל: עד ₪20 לחצי שקל · עד ₪100 לשקל · מעל ₪100 לחמישה שקלים
 
-**הגדרות בתוקף:** מנוע תמחור: שתי מדפסות — דף קטן / דף גדול · רוחב הדפסה: 120 ס״מ · גבול ייצור: 150×∞ ס״מ · שטח הדף הקטן: 45.8×30 ס״מ · דף קטן: ₪20 · חבילות מ-100 יח׳ · מדפסת גדולה: מינימום ₪95 לעבודה
+**הגדרות בתוקף:** מנוע תמחור: שתי מדפסות — דף קטן / דף גדול · רוחב הדפסה: 120 ס״מ · גבול ייצור: 150×∞ ס״מ · שטח הדף הקטן: 45.8×30 ס״מ · דף קטן: ₪20 · חבילות מ-100 יח׳ · מדפסת גדולה: מינימום ₪20 לעבודה
 
 <details><summary>התצורה המלאה (pricing_config.v3)</summary>
 
@@ -314,7 +319,13 @@
   "whole_board": false,
   "board_w": 0,
   "board_h": 0,
-  "plan": null,
+  "plan": {
+    "modifiers": [
+      {
+        "kind": "cost_floor"
+      }
+    ]
+  },
   "short_run_ref_qty": 100,
   "min_order_value": 0,
   "dual_surcharge": [],
@@ -428,14 +439,10 @@
   "per_m2_tiers": [
     {
       "min_m2": 0,
-      "rate": 125
-    },
-    {
-      "min_m2": 1.5,
-      "rate": 92
+      "rate": 95
     }
   ],
-  "min_job_price": 95,
+  "min_job_price": 20,
   "size_ladder": [],
   "panoramic_aspect": 0,
   "panoramic_pct": 0,
