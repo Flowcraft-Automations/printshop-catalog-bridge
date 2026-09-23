@@ -88,13 +88,13 @@ function describeSource(
       const tiers = cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ");
       return {
         he:
-          `שתי מכונות. מדבקה שנכנסת לגיליון הקטן (${s.w}×${s.h} ס״מ) מתומחרת לפי גיליונות — ${shekel(cfg.sheetPrice)} לגיליון לפי כמה נכנסות בגיליון — ולעולם לא יותר מחבילת ${n(cfg.shortRunRefQty)} היחידות של דלי הגודל; ` +
+          `שתי מדפסות. מדבקה שנכנסת לדף הקטן (${s.w}×${s.h} ס״מ) מתומחרת לפי דפים — ${shekel(cfg.sheetPrice)} לדף לפי כמה מדבקות נכנסות בדף — ולעולם לא יותר מחבילת ${n(cfg.shortRunRefQty)} היחידות של דלי הגודל; ` +
           `מ-${n(cfg.shortRunRefQty)} יחידות המחיר הוא מחירי החבילות של האתר. ` +
-          `מדבקה שאינה נכנסת לגיליון מודפסת במדפסת הגדולה (גליל) לפי מ״ר${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` עם מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""}`,
+          `מדבקה שאינה נכנסת לדף הקטן מודפסת במדפסת הגדולה (דף גדול) לפי מ״ר${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` עם מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""}`,
         en:
-          `Two machines. A sticker that fits the small sheet (${s.w}×${s.h} cm) is priced per sheet — ${shekel(cfg.sheetPrice)} a sheet by how many fit — and never above the size bucket's ${n(cfg.shortRunRefQty)}-unit pack; ` +
+          `Two printers. A sticker that fits the small page (${s.w}×${s.h} cm) is priced per page — ${shekel(cfg.sheetPrice)} a page by how many stickers fit — and never above the size bucket's ${n(cfg.shortRunRefQty)}-unit pack; ` +
           `from ${n(cfg.shortRunRefQty)} units the website pack prices apply. ` +
-          `A sticker that does not fit is printed on the big roll printer per m²${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` with a ${shekel(cfg.minJobPrice)} minimum per unit` : ""}`,
+          `A sticker that does not fit the small page is printed on the big printer (big page) per m²${tiers ? ` (${tiers})` : ""}${cfg.minJobPrice > 0 ? ` with a ${shekel(cfg.minJobPrice)} minimum per unit` : ""}`,
       };
     }
     case "cost_plus":
@@ -121,10 +121,28 @@ export function explainFamily(
     return { steps, settings: [], todos: cfg.todos };
   }
 
-  steps.push({
-    he: "מחיר מאומת בקטלוג לאותה מידה ולאותה כמות נלקח כמות שהוא — לפני כל חישוב",
-    en: "An approved catalog price for this exact size and quantity is used as-is, before any calculation",
-  });
+  const s0 = printableSheet(cfg);
+  steps.push(
+    cfg.catalogBinds === "none"
+      ? {
+          he: "הקטלוג אינו קובע מחיר למשפחה זו — המחיר מחושב מהנוסחה בלבד; השורות המאומתות מוצגות להשוואה",
+          en: "The catalog does not set prices for this family — the formula alone prices it; approved rows are shown for comparison",
+        }
+      : cfg.catalogBinds === "anchors"
+        ? {
+            he: "רק שורה שסומנה כעוגן ⚓ בקטלוג, לאותה מידה ולאותה כמות, נלקחת כמות שהיא — לפני כל חישוב; שאר השורות המאומתות משמשות להשוואה",
+            en: "Only a catalog row marked as an anchor ⚓, for this exact size and quantity, is used as-is before any calculation; other approved rows are for comparison",
+          }
+        : cfg.catalogBinds === "packs"
+          ? {
+              he: `מחיר מאומת בקטלוג נלקח כמות שהוא לחבילות (מ-${n(cfg.shortRunRefQty)} יח׳) ולמדבקות שאינן נכנסות לדף הקטן (${s0.w}×${s0.h} ס״מ); מדבקה בודדת שנכנסת לדף הקטן מתומחרת לפי הדף`,
+              en: `An approved catalog price is used as-is for packs (from ${n(cfg.shortRunRefQty)} units) and for stickers that do not fit the small page (${s0.w}×${s0.h} cm); a single sticker that fits the small page is priced by the page`,
+            }
+          : {
+              he: "מחיר מאומת בקטלוג לאותה מידה ולאותה כמות נלקח כמות שהוא — לפני כל חישוב",
+              en: "An approved catalog price for this exact size and quantity is used as-is, before any calculation",
+            },
+  );
 
   steps.push(describeSource(cfg, plan, prepared));
 
@@ -245,11 +263,15 @@ export function explainFamily(
     cfg.engine === "sheet_yield" ||
     cfg.engine === "two_machine_sheet";
   if (sheetBased)
-    settings.push({ he: `שטח הדפסה: ${s.w}×${s.h} ס״מ`, en: `Printable sheet: ${s.w}×${s.h} cm` });
+    settings.push(
+      cfg.engine === "two_machine_sheet"
+        ? { he: `שטח הדף הקטן: ${s.w}×${s.h} ס״מ`, en: `Small page area: ${s.w}×${s.h} cm` }
+        : { he: `שטח הדפסה: ${s.w}×${s.h} ס״מ`, en: `Printable sheet: ${s.w}×${s.h} cm` },
+    );
   if (cfg.engine === "two_machine_sheet")
     settings.push({
-      he: `גיליון קטן: ${shekel(cfg.sheetPrice)} · חבילות מ-${n(cfg.shortRunRefQty)} יח׳ · גליל: מינימום ${shekel(cfg.minJobPrice)} ליחידה`,
-      en: `Small sheet: ${shekel(cfg.sheetPrice)} · packs from ${n(cfg.shortRunRefQty)} units · roll: minimum ${shekel(cfg.minJobPrice)} per unit`,
+      he: `דף קטן: ${shekel(cfg.sheetPrice)} · חבילות מ-${n(cfg.shortRunRefQty)} יח׳ · מדפסת גדולה: מינימום ${shekel(cfg.minJobPrice)} ליחידה`,
+      en: `Small page: ${shekel(cfg.sheetPrice)} · packs from ${n(cfg.shortRunRefQty)} units · big printer: minimum ${shekel(cfg.minJobPrice)} per unit`,
     });
   if (cfg.overLimit === "outsource" && cfg.outsourcedRateM2 > 0)
     settings.push({

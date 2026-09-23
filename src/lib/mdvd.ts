@@ -410,7 +410,8 @@ export type OverLimit = "weld" | "mount" | "block" | "outsource";
  * מדיניות קשירה לקטלוג — אילו שורות מאומתות רשאיות לקבוע מחיר לעבודה:
  *  none    — נוסחה בלבד (הקטלוג משמש להשוואה בלבד)
  *  anchors — רק שורות שסומנו is_anchor
- *  packs   — רק שורות מכמות החבילה הקטנה (shortRunRefQty) ומעלה
+ *  packs   — שורות מכמות החבילה הקטנה (shortRunRefQty) ומעלה; במנוע שתי המכונות
+ *            גם מדבקות שאינן נכנסות לגיליון הקטן (הגיליון מחליף רק את הבודדים הקטנים)
  *  all     — כל שורה מאומתת (ההתנהגות הישנה)
  */
 export type CatalogBinds = "none" | "anchors" | "packs" | "all";
@@ -1042,7 +1043,7 @@ export const ENGINE_LABEL: Record<EngineKind, string> = {
   sheet_yield: "תפוקת גיליון",
   unit_floor: "מחיר רצפה",
   catalog_surface: "משטח מחירים מהקטלוג",
-  two_machine_sheet: "שתי מכונות — גיליון / גליל",
+  two_machine_sheet: "שתי מדפסות — דף קטן / דף גדול",
 };
 
 export function isEngineKind(v: unknown): v is EngineKind {
@@ -1091,7 +1092,7 @@ export const BINDING_LABEL: Record<BindingRule, string> = {
   min_order_qty: "מינימום הזמנה",
   machine_blocked: "מעל מגבלות המכונה",
   tier: "מדרגת כמות",
-  sheet: "גיליון קטן",
+  sheet: "דף קטן",
   cost: "לפי עלות",
 };
 
@@ -1466,11 +1467,17 @@ export function bindableRows(
   if (opts.outsourced || policy === "none") return { anchors: [], validated: [] };
   const inHouse = (a: JobAnchor) =>
     !(cfg.overLimit === "outsource" && cfg.maxPrintW > 0 && Math.min(a.w, a.h) > cfg.maxPrintW + 0.01);
+  /* packs: the small-sheet rule replaces only stickers that fit the sheet in
+     less than a pack; website packs and roll-size singles (100×100 = ₪120 …)
+     are approved prices and keep binding */
+  const from = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
+  const packRow = (a: JobAnchor) =>
+    a.qty >= from || (cfg.engine === "two_machine_sheet" && !fitsSheet(cfg, a.w, a.h));
   const keep = (a: JobAnchor) =>
     inHouse(a) &&
     (policy === "all" ||
       (policy === "anchors" && a.anchor === true) ||
-      (policy === "packs" && a.qty >= Math.max(1, Math.floor(cfg.shortRunRefQty || 100))));
+      (policy === "packs" && packRow(a)));
   return {
     /* anchors are is_anchor rows by construction — the flag is not re-checked */
     anchors: anchors.filter((a) => policy === "anchors" ? inHouse(a) : keep(a)),
@@ -2152,7 +2159,7 @@ function priceTwoMachineSheet(
 ): EngineResult {
   const area = (w * h) / 10000;
 
-  /* ---- גליל (מדפסת גדולה) ---- */
+  /* ---- דף גדול (מדפסת גדולה) ---- */
   if (!fitsSheet(cfg, w, h)) {
     if (!cfg.perM2Tiers.length)
       return {
@@ -2161,7 +2168,7 @@ function priceTwoMachineSheet(
         detail: "",
         noRound: false,
         noQuote: true,
-        error: "לא הוגדרו מדרגות מ״ר לגליל",
+        error: "לא הוגדרו מדרגות מ״ר למדפסת הגדולה",
       };
     const { rate, from } = tierRate(cfg.perM2Tiers, area);
     const minP = cfg.minJobPrice > 0 ? cfg.minJobPrice : 0;
@@ -2171,13 +2178,13 @@ function priceTwoMachineSheet(
       raw: perUnit * units,
       bindingRule: "large_format",
       noRound: false,
-      detail: `מדפסת גדולה (גליל) · ${area.toFixed(3)} מ״ר × ${shekel(rate)} למ״ר${
+      detail: `מדפסת גדולה (דף גדול) · ${area.toFixed(3)} מ״ר × ${shekel(rate)} למ״ר${
         from > 0 ? ` (מ-${from} מ״ר)` : ""
       }${bound ? ` · מינימום ${shekel(minP)} ליחידה` : ""} × ${units.toLocaleString()} יח׳`,
     };
   }
 
-  /* ---- גיליון (מדפסת קטנה) ---- */
+  /* ---- דף קטן (מדפסת קטנה) ---- */
   if (!(cfg.sheetPrice > 0))
     return {
       raw: 0,
@@ -2185,12 +2192,12 @@ function priceTwoMachineSheet(
       detail: "",
       noRound: false,
       noQuote: true,
-      error: "לא הוגדר מחיר גיליון למשפחה",
+      error: "לא הוגדר מחיר דף קטן למשפחה",
     };
   const per = Math.max(1, sheetUnitsFor(cfg, w, h).units);
   const sheets = Math.ceil(units / per);
   const sheetTotal = sheets * cfg.sheetPrice;
-  const sheetNote = `${per} יח׳ בגיליון · ${sheets} גיליונות × ${shekel(cfg.sheetPrice)}`;
+  const sheetNote = `${per} יח׳ בדף · ${sheets} דפים × ${shekel(cfg.sheetPrice)}`;
   const bucket = resolveBucket(p.buckets, w, h);
   const pts = bucket ? (p.byBucket.get(bucket.id) ?? []) : [];
   if (!bucket || !pts.length)
@@ -2198,7 +2205,7 @@ function priceTwoMachineSheet(
       raw: sheetTotal,
       bindingRule: "sheet",
       noRound: true,
-      detail: `מדפסת קטנה · ${sheetNote} · אין דלי גודל — מחיר לפי גיליונות`,
+      detail: `מדפסת קטנה · ${sheetNote} · אין דלי גודל — מחיר לפי דפים`,
     };
   const refQty = Math.max(1, Math.floor(cfg.shortRunRefQty || 100));
   /* מכמות החבילה ומעלה — עקומת הדליים (התאמה מדויקת / אינטרפולציה / זנב) */

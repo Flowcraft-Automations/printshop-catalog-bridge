@@ -61,11 +61,14 @@ describe("מדבקות (two_machine_sheet — small sheet or roll)", () => {
     expect(at(20, 30)).toBeLessThan(at(100, 100));
   });
 
-  it("a roll size between two catalog singles is priced between them", () => {
-    /* 100×80 = 0.80 מ״ר → ₪100, between 80×60 (₪95) and 120×80 (₪120) */
+  it("approved roll-size singles bind; a size between them is floored by the smaller one", () => {
+    /* 80×60 = ₪105 and 120×80 = ₪120 are approved catalog rows; 100×80 has none */
+    expect(job(fix, 80, 60, 1).total).toBe(105);
+    expect(job(fix, 100, 100, 1).total).toBe(120);
+    expect(job(fix, 120, 80, 1).total).toBe(120);
     const mid = job(fix, 100, 80, 1).total;
-    expect(mid).toBeGreaterThan(job(fix, 80, 60, 1).total);
-    expect(mid).toBeLessThan(job(fix, 120, 80, 1).total);
+    expect(mid).toBeGreaterThanOrEqual(job(fix, 80, 60, 1).total);
+    expect(mid).toBeLessThanOrEqual(job(fix, 120, 80, 1).total);
   });
 
   it("14×11 × 22 → ₪60 (8 per sheet, 3 sheets)", () => {

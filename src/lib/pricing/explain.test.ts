@@ -37,7 +37,7 @@ describe("family explanation", () => {
       explain("מדבקות")
         .steps.map((l) => l.he)
         .join(" "),
-    ).toContain("גיליון");
+    ).toContain("דף הקטן");
     expect(
       explain("שמשונית")
         .steps.map((l) => l.he)

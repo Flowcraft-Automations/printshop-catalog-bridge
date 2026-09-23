@@ -48,7 +48,7 @@ import {
 const CATALOG_BINDS_HELP: Record<CatalogBinds, string> = {
   all: "כל שורה מאומתת בקטלוג באותה מידה וכמות קובעת את המחיר כמות שהוא, ומידה מאומתת קטנה יותר מרצפת את המחיר.",
   anchors: "רק שורות שסומנו ⚓ (עוגן) קובעות מחיר ומרצפות; שאר השורות המאומתות משמשות להשוואה בלבד.",
-  packs: "רק שורות מכמות החבילה הקטנה ומעלה (מחירי האתר לחבילות) קובעות; מחירי הבודדים הישנים אינם קובעים.",
+  packs: "חבילות (מכמות החבילה הקטנה ומעלה) ומדבקות שאינן נכנסות לדף הקטן קובעות מחיר; מדבקה בודדת שנכנסת לדף הקטן מתומחרת לפי הדף, לא לפי הקטלוג.",
   none: "הקטלוג אינו קובע מחיר — הנוסחה בלבד. השורות מוצגות בלוח ההסכמה לצורך השוואה.",
 };
 
@@ -911,8 +911,8 @@ function Calculator() {
             {cfg.engine === "two_machine_sheet" ? (
               job.unitsPerSheet ? (
                 <div className="font-bold text-[var(--ink)]">
-                  מדפסת קטנה · {job.unitsPerSheet} יח׳ בגיליון · {Math.ceil(job.sheets ?? 0)}{" "}
-                  גיליונות · {shekel(cfg.sheetPrice)} לגיליון · שטח הדפסה {printableSheet(cfg).w}×
+                  מדפסת קטנה · {job.unitsPerSheet} יח׳ בדף · {Math.ceil(job.sheets ?? 0)} דפים ·{" "}
+                  {shekel(cfg.sheetPrice)} לדף · שטח הדף {printableSheet(cfg).w}×
                   {printableSheet(cfg).h} ס״מ
                   {job.bindingRule === "validated" ||
                   job.bindingRule === "anchor" ||
@@ -923,9 +923,9 @@ function Calculator() {
                 </div>
               ) : (
                 <div className="font-bold text-[var(--ink)]">
-                  מדפסת גדולה (גליל) · {jobArea.toFixed(3)} מ״ר · לפי מ״ר
+                  מדפסת גדולה (דף גדול) · {jobArea.toFixed(3)} מ״ר · לפי מ״ר
                   {cfg.minJobPrice > 0 ? ` · מינימום ${shekel(cfg.minJobPrice)} ליחידה` : ""} —
-                  המדבקה אינה נכנסת לגיליון {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
+                  המדבקה אינה נכנסת לדף הקטן {printableSheet(cfg).w}×{printableSheet(cfg).h} ס״מ
                 </div>
               )
             ) : job.unitsPerSheet ? (
@@ -1142,7 +1142,8 @@ function Calculator() {
             </span>
           </summary>
           <div className="border-t-2 border-[var(--line,#c9d4de)] p-5">
-            <fieldset disabled={!isAdmin} className="min-w-0 border-0 p-0">
+            {/* כל משתמש עם גישה למשפחה עורך את התצורה (9/23); מדיניות המסד: families_update_by_access */}
+            <fieldset className="min-w-0 border-0 p-0">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-base font-black text-[var(--ink)]">תמחור משפחה — {family}</h2>
                 <button
@@ -1186,7 +1187,7 @@ function Calculator() {
                 >
                   <option value="all">כל שורה מאומתת</option>
                   <option value="anchors">רק עוגנים ⚓</option>
-                  <option value="packs">רק חבילות (מכמות {cfg.shortRunRefQty})</option>
+                  <option value="packs">חבילות (מ-{cfg.shortRunRefQty}) + מדבקות מחוץ לדף הקטן</option>
                   <option value="none">אף שורה — נוסחה בלבד</option>
                 </Field>
                 <div className="w-full text-[11px] font-bold text-muted-foreground">
@@ -1317,9 +1318,9 @@ function Calculator() {
                 {/* סיכום קריאה-בלבד של טבלאות התצורה (נטענות מהזרעים; עריכה בקוד) */}
                 {cfg.engine === "two_machine_sheet" ? (
                   <div className="mb-3 text-[11px] font-bold text-muted-foreground">
-                    גיליון קטן: {shekel(cfg.sheetPrice)} לגיליון · חבילות האתר מ-
+                    דף קטן: {shekel(cfg.sheetPrice)} לדף · חבילות האתר מ-
                     {cfg.shortRunRefQty.toLocaleString()} יח׳ ({cfg.sizeBuckets.length} דליי גודל ×{" "}
-                    {cfg.qtyMultipliers.length} מקדמי כמות) · גליל:{" "}
+                    {cfg.qtyMultipliers.length} מקדמי כמות) · מדפסת גדולה:{" "}
                     {cfg.perM2Tiers.length
                       ? cfg.perM2Tiers.map((t) => `${t.minM2}+ מ״ר → ${shekel(t.rate)}`).join(" · ")
                       : "אין מדרגות מ״ר!"}
@@ -1375,14 +1376,14 @@ function Calculator() {
                   {cfg.engine === "two_machine_sheet" ? (
                     <>
                       <Field
-                        label="מחיר גיליון קטן ₪"
+                        label="מחיר דף קטן ₪"
                         value={draft.sheetPrice}
                         onChange={(v) => setDraft((p) => ({ ...p, sheetPrice: v }))}
                         width="w-40"
                         placeholder="20"
                       />
                       <Field
-                        label="גליל — מינימום ₪ ליחידה"
+                        label="מדפסת גדולה — מינימום ₪ ליחידה"
                         value={draft.minJobPrice}
                         onChange={(v) => setDraft((p) => ({ ...p, minJobPrice: v }))}
                         width="w-44"
@@ -1504,7 +1505,7 @@ function Calculator() {
                   {sheetish && (
                     <div className="w-full border-t-2 border-dashed border-[var(--line,#c9d4de)] pt-4">
                       <div className="mb-3 text-[11px] font-black tracking-widest text-muted-foreground">
-                        {cfg.engine === "two_machine_sheet" ? "גיליון המדפסת הקטנה" : "גיליון הדפסה"}
+                        {cfg.engine === "two_machine_sheet" ? "הדף של המדפסת הקטנה" : "גיליון הדפסה"}
                       </div>
                       <div className="flex flex-wrap items-end gap-6">
                         <Field
