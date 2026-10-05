@@ -1,0 +1,72 @@
+{
+  "schema": "ruleset.lock/1",
+  "catalog_pin": "0.2.3",
+  "ruleset_hash": "94f78cc37af13595",
+  "engine_hash": "9d8dd7af6c9a2d37ba7505a5e66f5c1f6ef252a9b6ed4b2e6fce0f1d3bfcadac",
+  "catalog_hash": "062beeb9c07c5f8c9930279aca7793db6bfa90b3fe10467b1dbedf9005be7c19",
+  "profile_hash": "fbeea281f2267be35df9698d92d0768b6f0eea41af6c49a39df1f335fd900f33",
+  "selected": [
+    {
+      "rule_id": "product.responds",
+      "severity": "blocking",
+      "primitive": "http_smoke@1"
+    },
+    {
+      "rule_id": "secrets.no_key_in_history",
+      "severity": "blocking",
+      "primitive": "no_service_jwt@1"
+    },
+    {
+      "rule_id": "secrets.no_literal_password_in_sql",
+      "severity": "advisory",
+      "primitive": "shell@1"
+    }
+  ],
+  "rejected": [
+    {
+      "rule_id": "k8s.non_root",
+      "reason": "profile.deploys_to = 'ssr' not in ['kubernetes']"
+    },
+    {
+      "rule_id": "project.business_rules",
+      "reason": "profile.schema_source = 'live_only' not in ['schema_file', 'migrations_only']"
+    },
+    {
+      "rule_id": "project.must_work_operations",
+      "reason": "profile.schema_source = 'live_only' not in ['schema_file', 'migrations_only']"
+    },
+    {
+      "rule_id": "repo.migrations_present",
+      "reason": "profile.manages_migrations = 'manual' not in ['supabase', 'prisma', 'flyway']"
+    },
+    {
+      "rule_id": "repo.schema_file_present",
+      "reason": "profile.schema_source = 'live_only' not in ['schema_file']"
+    },
+    {
+      "rule_id": "schema.matches_migrations",
+      "reason": "profile.manages_migrations = 'manual' not in ['supabase', 'prisma', 'flyway']"
+    },
+    {
+      "rule_id": "schema.rls_on_every_table",
+      "reason": "profile.multi_tenancy = 'none' not in ['column', 'schema']"
+    },
+    {
+      "rule_id": "schema.runnable_in_one_pass",
+      "reason": "profile.schema_source = 'live_only' not in ['schema_file', 'migrations_only']"
+    },
+    {
+      "rule_id": "schema.tenant_key_on_every_table",
+      "reason": "profile.multi_tenancy = 'none' not in ['column']"
+    },
+    {
+      "rule_id": "schema.views_security_invoker",
+      "reason": "profile.multi_tenancy = 'none' not in ['column', 'schema']"
+    },
+    {
+      "rule_id": "source.row_count_matches",
+      "reason": "profile.mapping_file is not set"
+    }
+  ],
+  "binary_version": "0.2.3"
+}

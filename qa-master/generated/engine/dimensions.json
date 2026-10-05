@@ -1,0 +1,51 @@
+{
+  "$comment": "אוצר המילים הסגור. דימנסיה שאינה כאן נרשמת בפרופיל ואינה מאומתת, כי אף חוק ב-v1 אינו מסנן לפיה. סוגרים אותה ביום שחוק ראשון קורא אותה.",
+  "$defaults": "ערך שהפרופיל רשאי לא לציין, ומה הוא נקרא כשאינו מציין. schema_source נכנס ב-0.2.2, וכל חוק עד אז הניח קובץ סכמה: פרופיל שאינו אומר נקרא schema_file, ולקוח שמשדרג בלי לגעת בפרופיל מקבל את סט החוקים שהיה לו.",
+  "enforced": {
+    "data_store": [
+      "none",
+      "postgres",
+      "supabase",
+      "mysql"
+    ],
+    "multi_tenancy": [
+      "none",
+      "column",
+      "schema",
+      "database"
+    ],
+    "manages_migrations": [
+      "no",
+      "supabase",
+      "prisma",
+      "flyway",
+      "manual"
+    ],
+    "ingests_from": [
+      "no",
+      "file",
+      "api",
+      "db_replica"
+    ],
+    "deploys_to": [
+      "no",
+      "static",
+      "spa",
+      "ssr"
+    ],
+    "schema_source": [
+      "schema_file",
+      "migrations_only",
+      "live_only"
+    ]
+  },
+  "recorded_not_enforced": [
+    "handles_money",
+    "agent_authored",
+    "team_size",
+    "language_build"
+  ],
+  "defaults": {
+    "schema_source": "schema_file"
+  }
+}

@@ -1,0 +1,391 @@
+{
+  "catalog_version": "0.2.3",
+  "min_binary_version": "0.2.3",
+  "max_waiver_days": 30,
+  "rules": [
+    {
+      "id": "secrets.no_key_in_history",
+      "family": 1,
+      "primitive": "no_service_jwt@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": false,
+      "applies_when": {},
+      "params": {},
+      "$comment": "Decodes every JWT in the history and fails only on role=service_role. gitleaks keeps the formats that are unambiguous on sight; this takes the one that needs decoding, because no regex can tell the roles apart."
+    },
+    {
+      "id": "repo.schema_file_present",
+      "family": 1,
+      "primitive": "file_exists@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "data_store": [
+          "postgres",
+          "supabase"
+        ],
+        "schema_source": [
+          "schema_file"
+        ]
+      },
+      "params": {
+        "path": "$schema_file"
+      }
+    },
+    {
+      "id": "repo.migrations_present",
+      "family": 1,
+      "primitive": "glob_nonempty@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "manages_migrations": [
+          "supabase",
+          "prisma",
+          "flyway"
+        ]
+      },
+      "params": {
+        "glob": "$migrations_dir/*.sql"
+      }
+    },
+    {
+      "id": "schema.runnable_in_one_pass",
+      "family": 2,
+      "primitive": "sql_file_clean@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "data_store": [
+          "postgres",
+          "supabase"
+        ],
+        "schema_source": [
+          "schema_file",
+          "migrations_only"
+        ]
+      },
+      "params": {
+        "source": "$schema_source",
+        "file": "$schema_file",
+        "migrations": "$migrations_dir",
+        "bootstrap": "$engine/platforms/supabase/harness/auth-stub.sql"
+      },
+      "$comment": "builds what schema_source names, in one pass on a fresh database: the schema file, or for migrations_only every migration in name order, each once, stopping at the first error."
+    },
+    {
+      "id": "schema.rls_on_every_table",
+      "family": 2,
+      "primitive": "sql_returns_no_rows@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "multi_tenancy": [
+          "column",
+          "schema"
+        ]
+      },
+      "params": {
+        "predicate": "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and not c.relrowsecurity",
+        "population": "select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'",
+        "counterexample": "create table public.__ce_no_rls (id int)",
+        "bootstrap": [
+          "$engine/platforms/supabase/harness/auth-stub.sql",
+          {
+            "file": "$schema_file",
+            "when": {
+              "schema_source": [
+                "schema_file"
+              ]
+            },
+            "schema": true
+          },
+          {
+            "file": "$client/db/harness/*.sql",
+            "optional": true
+          },
+          "$migrations_dir/*.sql",
+          "$engine/platforms/supabase/harness/grants.sql"
+        ]
+      }
+    },
+    {
+      "id": "schema.views_security_invoker",
+      "family": 2,
+      "primitive": "sql_returns_no_rows@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "data_store": [
+          "postgres",
+          "supabase"
+        ],
+        "multi_tenancy": [
+          "column",
+          "schema"
+        ]
+      },
+      "params": {
+        "predicate": "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='v' and coalesce((select option_value from pg_options_to_table(c.reloptions) where option_name='security_invoker'),'false') <> 'true'",
+        "population": "select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='v'",
+        "counterexample": "create view public.__ce_view as select 1 as x",
+        "bootstrap": [
+          "$engine/platforms/supabase/harness/auth-stub.sql",
+          {
+            "file": "$schema_file",
+            "when": {
+              "schema_source": [
+                "schema_file"
+              ]
+            },
+            "schema": true
+          },
+          {
+            "file": "$client/db/harness/*.sql",
+            "optional": true
+          },
+          "$migrations_dir/*.sql",
+          "$engine/platforms/supabase/harness/grants.sql"
+        ]
+      }
+    },
+    {
+      "id": "schema.tenant_key_on_every_table",
+      "family": 2,
+      "primitive": "sql_returns_no_rows@1",
+      "severity": "advisory",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "multi_tenancy": [
+          "column"
+        ]
+      },
+      "params": {
+        "predicate": "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity and not exists (select 1 from pg_attribute a where a.attrelid=c.oid   and a.attname='$tenant_key' and a.attnum>0 and not a.attisdropped) and not exists (select 1 from pg_policies p where p.schemaname='public'   and p.tablename=c.relname   and (coalesce(p.qual,'')||coalesce(p.with_check,'')) like '%$tenant_key%') and exists (select 1 from pg_policies p where p.schemaname='public'   and p.tablename=c.relname)",
+        "population": "select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity",
+        "counterexample": "create table public.__ce_no_tenant (id int); alter table public.__ce_no_tenant enable row level security",
+        "bootstrap": [
+          "$engine/platforms/supabase/harness/auth-stub.sql",
+          {
+            "file": "$schema_file",
+            "when": {
+              "schema_source": [
+                "schema_file"
+              ]
+            },
+            "schema": true
+          },
+          {
+            "file": "$client/db/harness/*.sql",
+            "optional": true
+          },
+          "$migrations_dir/*.sql",
+          "$engine/platforms/supabase/harness/grants.sql"
+        ]
+      },
+      "$comment": "A table is separated by tenant if it carries the key, or if a policy reaches the key through another table, or if it has RLS and no policy at all — which denies everyone rather than exposing anyone. The first version flagged five tables and all five were one of those three, so it reported a leak where there was none."
+    },
+    {
+      "id": "k8s.non_root",
+      "family": 1,
+      "primitive": "file_absent@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "deploys_to": [
+          "kubernetes"
+        ]
+      },
+      "params": {
+        "path": "k8s/root-allowed.yaml"
+      }
+    },
+    {
+      "id": "source.row_count_matches",
+      "family": 4,
+      "primitive": "reconcile@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "ingests_from": [
+          "file",
+          "api",
+          "db_replica"
+        ],
+        "mapping_file": "*"
+      },
+      "params": {
+        "mapping": "$mapping_file"
+      }
+    },
+    {
+      "id": "project.business_rules",
+      "family": 3,
+      "primitive": "sql_suite@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "data_store": [
+          "postgres",
+          "supabase"
+        ],
+        "schema_source": [
+          "schema_file",
+          "migrations_only"
+        ]
+      },
+      "params": {
+        "file": "$client/db/rules/unit-tests.sql",
+        "bootstrap": [
+          "$engine/platforms/supabase/harness/auth-stub.sql",
+          {
+            "file": "$schema_file",
+            "when": {
+              "schema_source": [
+                "schema_file"
+              ]
+            },
+            "schema": true
+          },
+          {
+            "file": "$client/db/harness/*.sql",
+            "optional": true
+          },
+          "$migrations_dir/*.sql",
+          "$engine/platforms/supabase/harness/grants.sql"
+        ]
+      },
+      "depends_on": [
+        "schema.runnable_in_one_pass"
+      ],
+      "$depends_on": "A business rule runs against a database built from schema.sql. If that file did not apply, 'owner A sees 0 of its 5 bookings' may mean the isolation is broken or may mean the table holding the bookings was never created — and those go to different people. schema.matches_migrations already reported unprovable for exactly this reason; applying the distinction to one rule and not to the one carrying the most serious finding was inconsistent."
+    },
+    {
+      "id": "project.must_work_operations",
+      "family": 3,
+      "primitive": "sql_suite@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {
+        "data_store": [
+          "postgres",
+          "supabase"
+        ],
+        "schema_source": [
+          "schema_file",
+          "migrations_only"
+        ]
+      },
+      "params": {
+        "file": "$client/db/operations/must-work.sql",
+        "bootstrap": [
+          "$engine/platforms/supabase/harness/auth-stub.sql",
+          {
+            "file": "$schema_file",
+            "when": {
+              "schema_source": [
+                "schema_file"
+              ]
+            },
+            "schema": true
+          },
+          {
+            "file": "$client/db/harness/*.sql",
+            "optional": true
+          },
+          "$migrations_dir/*.sql",
+          "$engine/platforms/supabase/harness/grants.sql"
+        ]
+      }
+    },
+    {
+      "id": "schema.matches_migrations",
+      "family": 2,
+      "primitive": "schema_equals_migrations@1",
+      "severity": "advisory",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "$comment": "advisory, not blocking: it only becomes deterministic once schema.runnable_in_one_pass passes. until then the two build orders disagree and the rule would measure its own harness.",
+      "applies_when": {
+        "data_store": [
+          "postgres",
+          "supabase"
+        ],
+        "manages_migrations": [
+          "supabase",
+          "prisma",
+          "flyway"
+        ],
+        "schema_source": [
+          "schema_file"
+        ]
+      },
+      "params": {
+        "schema": "$schema_file",
+        "migrations": "$migrations_dir",
+        "bootstrap": [
+          "$engine/platforms/supabase/harness/auth-stub.sql"
+        ]
+      }
+    },
+    {
+      "id": "product.responds",
+      "family": 5,
+      "primitive": "http_smoke@1",
+      "severity": "blocking",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "$comment": "family 5 needs a public URL and network in CI, which changes the install footprint every other v1 claim rests on. it is selected only when the profile declares one.",
+      "applies_when": {
+        "deploys_to": [
+          "spa",
+          "ssr",
+          "static"
+        ],
+        "public_url": "*"
+      },
+      "params": {
+        "url": "$public_url",
+        "must_not_contain": [
+          "Application error",
+          "502 Bad Gateway",
+          "Internal Server Error",
+          "Cannot GET"
+        ],
+        "timeout_s": 10
+      }
+    },
+    {
+      "id": "secrets.no_literal_password_in_sql",
+      "family": 1,
+      "primitive": "shell@1",
+      "severity": "advisory",
+      "enforcement": "exit_code",
+      "waivable": true,
+      "applies_when": {},
+      "params": {
+        "cmd": "! grep -rInE \"crypt\\\\(\\\\s*'[^']{4,}'\" --include='*.sql' . ",
+        "population_cmd": "find . -name '*.sql' -not -path './node_modules/*' | wc -l",
+        "expect_exit": 0,
+        "conceal": "crypt\\(\\s*'([^']{4,})'"
+      },
+      "empty_population": {
+        "allowed": true,
+        "reason": "a project with no SQL file has no SQL in which to commit a password: an app on an ORM, an automation export",
+        "expires": "2027-04-01"
+      },
+      "$comment": "A password passed to crypt() as a literal is committed in clear. Advisory rather than blocking: seeding a known user is a normal thing to do before an application is live, and blocking on it would be refused as noise. It becomes worth acting on the day the application has real users, and the report will already have been saying so."
+    }
+  ]
+}
