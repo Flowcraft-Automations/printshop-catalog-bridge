@@ -1,0 +1,4 @@
+# engine_hash in generated/ruleset.lock.json is over the raw bytes of
+# generated/engine/, so no checkout may convert their line endings. Paths here
+# are relative to this folder.
+generated/** -text
