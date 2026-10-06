@@ -1,0 +1,49 @@
+# gitleaks configuration · QA Master
+#
+# Installed at the root of the repository, where gitleaks finds it without a
+# --config flag. The secrets job in .github/workflows/qa-master.yml runs
+# gitleaks over the whole history with it.
+#
+# gitleaks matches by regular expression and does not decode. A Supabase JWT
+# carries its role inside a base64 payload whose offsets shift with every field
+# before it, so no regex distinguishes an anon key from a service_role key. Two
+# attempts at one matched both or neither.
+#
+# So the built-in rule set is not extended here — it is replaced by the formats
+# that are unambiguous on sight. The JWT question moves to the tool that can
+# actually answer it.
+#
+#   this file   — sb_secret_, private keys, provider tokens
+#   qa-master   — decodes every JWT and fails only on role=service_role
+#                 (secrets.no_key_in_history)
+#
+# The anon key is a JWT, it is designed to ship in the browser bundle, and it
+# appears in the code that creates the Supabase client by construction. A gate
+# that fires on it fires on every Supabase project forever, and a gate that
+# always fires is one people learn to ignore.
+
+title = "QA Master · secrets"
+
+[[rules]]
+id = "supabase-secret-key"
+description = "A Supabase secret key. Bypasses row-level security entirely."
+regex = '''sb_secret_[A-Za-z0-9_-]{16,}'''
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "private-key"
+description = "A PEM private key."
+regex = '''-----BEGIN[ A-Z]*PRIVATE KEY-----'''
+keywords = ["-----BEGIN"]
+
+[[rules]]
+id = "aws-access-key"
+description = "An AWS access key id."
+regex = '''\b(A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b'''
+keywords = ["AKIA", "ASIA"]
+
+[[rules]]
+id = "github-pat"
+description = "A GitHub personal access token."
+regex = '''\b(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}'''
+keywords = ["ghp_", "github_pat_"]
