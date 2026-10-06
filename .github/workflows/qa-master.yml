@@ -1,0 +1,482 @@
+# .github/workflows/qa-master.yml
+#
+# שער מרג'. רץ על כל PR ל-main, אחרי כל מיזוג וביד, ולא בדיפלוימנט.
+# הבדיקות אינן כאן — הן ב-/qa-master/. הקובץ הזה רק מריץ אותן.
+#
+# This file is QA Master's template, templates/client/.github/workflows/qa-master.yml,
+# installed byte for byte, and it is the same file in every client (decision
+# 022). Nothing in it belongs to one client: what differs between clients comes
+# from qa-master/profile.json and from the fixed layout of qa-master/
+# (contracts/client-layout.json). It holds QA Master's jobs only (decision 023).
+# The project's own jobs, such as lint, unit tests and the build, live in its own
+# workflow files, so that installing a newer template never erases them. A
+# change belongs in the template, and reaches a client by installing it again.
+
+name: QA Master
+# ubuntu-latest migrates to Ubuntu 26 on 19 October. A runner that changes
+# under a gate makes it red for a reason that is not the code, which is how
+# people learn to stop reading it — so it is pinned, and the upgrade gets taken
+# deliberately on a pull request where the failures can be read.
+on:
+  # After a merge, so main is known to be healthy rather than assumed. Nothing
+  # ever ran against main itself, so whether the branch everyone deploys from
+  # is sound was never actually checked.
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+  # Also runnable by hand, from Actions → QA Master → Run workflow.
+  #
+  # Without it the only way to exercise the gate is to invent a pull request,
+  # which meant that after a fix nobody could check whether it worked. A gate
+  # that cannot be run on demand gets verified by guesswork.
+  workflow_dispatch:
+
+# PR חדש מבטל ריצה קודמת על אותו ענף. בלי זה, דחיפות רצופות מצטברות בתור.
+concurrency:
+  group: qa-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema:
+    name: סכמה · בסיס חד-פעמי
+    runs-on: ubuntu-24.04
+    # שירות מנוהל. אין צורך להתקין Postgres ידנית, והוא מת עם העבודה.
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+        ports: ['5432:5432']
+    env:
+      PGURL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      # The whole history: the gate below runs secrets.no_key_in_history, which
+      # reads it. On the default one commit it passed whatever the history held;
+      # from catalog 0.2.3 the engine says unprovable there, and blocks.
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+
+      # What to build is the profile's: the data store, where the schema is
+      # written down, the schema file and the migrations folder. Read once,
+      # here, for the steps below, and refused unless each is a plain name or a
+      # plain repository path, because the steps below hand them to a shell. A
+      # profile that does not say where its schema is written is read as
+      # schema_file, as the engine reads it (dimensions.json, catalog 0.2.2).
+      - name: הפרופיל · מה בונים
+        run: |
+          python3 - <<'PY'
+          import json, os, re, sys
+          p = json.load(open("qa-master/profile.json", encoding="utf-8"))
+          shapes = {"data_store": r"[a-z0-9_]+",
+                    "schema_source": r"[a-z0-9_]+",
+                    "schema_file": r"[A-Za-z0-9._/-]+",
+                    "migrations_dir": r"[A-Za-z0-9._/-]+"}
+          defaults = {"schema_source": "schema_file"}
+          env = []
+          for key, shape in shapes.items():
+              v = p.get(key, defaults.get(key, ""))
+              if not isinstance(v, str) or (v and (not re.fullmatch(shape, v)
+                                                   or ".." in v.split("/"))):
+                  print(f"::error::qa-master/profile.json: {key} is not a plain name or path")
+                  sys.exit(1)
+              print(f"  {key:15} {v or '— not in the profile'}")
+              env.append(f"QAM_{key.upper()}={v}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              f.write("\n".join(env) + "\n")
+          PY
+
+      # קובץ הסכמה מניח את סכמת auth של הפלטפורמה ואינו מכיל אף GRANT.
+      # שניהם חלק מאתחול הפלטפורמה ולא מהסכמה, ולכן הם של המנוע
+      # (החלטה 008): platforms/<data_store>/harness/.
+      - name: מעטפת · auth ותפקידים
+        run: |
+          f=qa-master/generated/engine/platforms/$QAM_DATA_STORE/harness/auth-stub.sql
+          if [ ! -f "$f" ]; then
+            echo "::notice::the engine has no harness for data_store $QAM_DATA_STORE · nothing to stub"
+            exit 0
+          fi
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f "$f"
+
+      # פעמיים בכוונה. קובץ סכמה יכול להפנות לפונקציה שמוגדרת אחריו בקובץ;
+      # בסבב הראשון נוצר רק מה שאינו תלוי בה.
+      - name: סכמה · סבב ראשון
+        run: |
+          if [ "$QAM_SCHEMA_SOURCE" != schema_file ]; then
+            echo "::notice::schema_source is $QAM_SCHEMA_SOURCE · no schema file is built"
+            exit 0
+          fi
+          if [ -z "$QAM_SCHEMA_FILE" ]; then
+            echo "::notice::the profile names no schema_file · the migrations build the database"
+            exit 0
+          fi
+          psql "$PGURL" -f "$QAM_SCHEMA_FILE"
+
+      # What this project prepares in the database and no other project does:
+      # every .sql file in qa-master/db/harness/, in name order. Between the two
+      # schema passes, because such a file may seed a table the schema creates
+      # and a migration reads, and a data migration that cannot tell which row
+      # to touch fails on an empty build.
+      - name: מעטפת · של הפרויקט
+        run: |
+          shopt -s nullglob
+          files=(qa-master/db/harness/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::notice::qa-master/db/harness/ holds no .sql file · nothing to prepare"
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            psql "$PGURL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: סכמה · סבב שני
+        run: |
+          if [ "$QAM_SCHEMA_SOURCE" != schema_file ]; then
+            echo "::notice::schema_source is $QAM_SCHEMA_SOURCE · no schema file is built"
+            exit 0
+          fi
+          if [ -z "$QAM_SCHEMA_FILE" ]; then
+            echo "::notice::the profile names no schema_file · the migrations build the database"
+            exit 0
+          fi
+          psql "$PGURL" -f "$QAM_SCHEMA_FILE"
+
+      # קובץ הסכמה אינו מחזיק בהכרח את כל מה שהמיגרציות יוצרות. בלי השלב
+      # הזה, בדיקות שנוגעות בטבלה שקיימת רק במיגרציות נופלות על "relation
+      # does not exist", וזה נראה ככשל של הבדיקה במקום כפער בקובץ. עם
+      # schema_source migrations_only, המיגרציות הן הסכמה, והן כל הבנייה.
+      - name: מיגרציות · מה שקובץ הסכמה אינו מחזיק
+        run: |
+          shopt -s nullglob
+          files=()
+          [ -n "$QAM_MIGRATIONS_DIR" ] && files=("$QAM_MIGRATIONS_DIR"/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::notice::no migrations · the profile names no migrations_dir, or it holds no .sql file"
+            exit 0
+          fi
+          for m in "${files[@]}"; do
+            psql "$PGURL" -f "$m" >/dev/null 2>&1 || true
+          done
+      - name: מעטפת · הרשאות
+        run: |
+          f=qa-master/generated/engine/platforms/$QAM_DATA_STORE/harness/grants.sql
+          if [ ! -f "$f" ]; then
+            echo "::notice::the engine has no harness for data_store $QAM_DATA_STORE · nothing to grant"
+            exit 0
+          fi
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f "$f"
+
+      # ==== והשער האמיתי ====
+      # ON_ERROR_STOP הוא מה שהופך את זה לשער. בלעדיו psql יוצא 0 גם אחרי
+      # שגיאה, והעבודה ירוקה על בדיקה שנפלה.
+      # The tool is vendored into qa-master/generated/engine/ rather than
+      # fetched at runtime: sync writes it there at the profile's catalog_pin,
+      # and resolve locks it (qa-master/generated/ruleset.lock.json).
+      #
+      # Fetching it from our repository does not work and would not have been
+      # right even if it did: the repository is private, so raw.githubusercontent
+      # returns 404 without a token — and handing every client repo a token that
+      # reads ours is a stronger permission than the ingest key, growing with
+      # every client.
+      #
+      # The argument that decided it is not convenience. A gate that downloads
+      # its own tool can go red because we changed something, or because GitHub
+      # was slow. Vendored, the client's pipeline is self-contained and the
+      # version that ran is in the commit that ran it.
+      #
+      # The cost is real and recorded: a new generic rule now needs a copy into
+      # each client repository rather than one line in one file. What that does
+      # not cost is anyone rewriting rules — copying a file is not writing
+      # thirteen checks by hand. The report carries binary_version and
+      # catalog_version, so a client running an old copy is visible rather than
+      # silent.
+      - name: הכלי נמצא
+        run: |
+          missing=""
+          for f in qa-master/generated/engine/qa_master.py qa-master/generated/engine/catalog.json qa-master/profile.json; do
+            [ -f "$f" ] || missing="$missing $f"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::הכלי אינו בריפו:$missing"
+            echo "זו אינה בעיה בקוד של הפרויקט. להריץ sync ו-resolve מ-qa-master ולדחוף."
+            exit 1
+          fi
+          pip install --quiet "psycopg[binary]>=3.1"
+          python3 qa-master/generated/engine/qa_master.py self-test
+
+      - name: השער
+        continue-on-error: true
+        run: |
+          python3 qa-master/generated/engine/qa_master.py run \
+            --profile qa-master/profile.json \
+            --catalog qa-master/generated/engine/catalog.json \
+            --repo . --db "$PGURL" \
+            --waivers qa-master/config/waivers.json \
+            --out report.json
+
+      # Two failures, two messages. "The tool could not run" is our problem and
+      # says so; "the gate found something" is the project's. Collapsing them
+      # would send whoever reads the red to the wrong place — which is the same
+      # mistake as collapsing fail and unrunnable.
+      - name: קוד היציאה
+        run: |
+          if [ ! -f report.json ]; then
+            echo "::error::הכלי רץ ולא הפיק דוח. זו תקלה בכלי, לא ממצא על הקוד."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, sys
+          r = json.load(open("report.json", encoding="utf-8"))
+          s = r["summary"]
+          print(f"{s['pass']} עבר · {s['fail']} נכשל · {s['vacuous']} ריק · "
+                f"{s['unprovable']} לא מוכח · {s['unrunnable']} לא רץ · "
+                f"{s['waived']} בוויתור")
+          print(f"כלי {r['binary_version']} · קטלוג {r['catalog_version']}")
+          sys.exit(s["exit_code"])
+          PY
+
+      - name: שמירת הדוח
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: qa-master-report
+          path: report.json
+          if-no-files-found: warn
+
+  # QA Master's own files in this repository, checked against themselves: the
+  # engine is the one the lock pins, the agent layer names the ruleset the gate
+  # runs, and every gate meets its contract. None of it needs a database.
+  #
+  # Seeing each gate in every direction (empty → VACUOUS, seeded → pass, each
+  # break → FAIL) is not here. What seeds a project, and in which order, is that
+  # project's own knowledge: its seed files depend on each other. So the
+  # directions run in the project's own workflow, with check-gates.sh from
+  # qa-master/generated/engine/gate/.
+  #
+  # A job of its own, and the gate below does not wait for it. What decides
+  # whether a pull request merges is the jobs the gate names; red here shows on
+  # the pull request without blocking it.
+  engine:
+    name: QA Master · מנוע, נעילה ושערים
+    runs-on: ubuntu-24.04
+    steps:
+      # verify reads no history, but every job that runs the engine has all of
+      # it, so a rule that needs it never runs on one commit by a job's choice.
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+
+      # Everything under qa-master/generated/ is written by sync and resolve,
+      # never by hand. verify fails when the committed lock differs from a
+      # fresh resolve, or when a file in generated/engine/ no longer hashes to
+      # the lock's engine_hash: the rules would run on code nobody pinned.
+      - name: המנוע הוא המוצמד · verify
+        run: python3 qa-master/generated/engine/qa_master.py verify
+
+      # The third leg of the triple match (contracts-spec §2.7): qa-master/AGENTS.md
+      # is written by `qa_master.py agent` from the ruleset (decision 027), and
+      # must name the ruleset the lock pins and the gate runs. Coding agents are
+      # told what the gate checks; a layer that names another ruleset told them
+      # something else.
+      #
+      # Reported, not blocking: an AGENTS.md written by hand before the layer
+      # was generated is a finding about this repository, and red on its first
+      # day gets a gate ripped out.
+      - name: "שכבת הסוכן · triple match · מדווח, לא חוסם"
+        continue-on-error: true
+        run: |
+          if ! python3 qa-master/generated/engine/qa_master.py verify \
+                 --lock qa-master/generated/ruleset.lock.json --agent qa-master/AGENTS.md; then
+            echo "::warning title=QA Master · שכבת הסוכן::qa-master/AGENTS.md does not name the ruleset the gate runs · run qa_master.py agent --out qa-master/AGENTS.md · reported, not blocking"
+            exit 1
+          fi
+
+      # The gate contract, statically: one declared population and one break
+      # per rule, in every gate. Needs no database, so it fails first.
+      - name: כל שער מצהיר על אוכלוסיות ועל שבירות
+        run: |
+          shopt -s nullglob
+          gates=(qa-master/db/gates/*.gate.sql)
+          if [ ${#gates[@]} -eq 0 ]; then
+            echo "::notice::qa-master/db/gates/ holds no gate · nothing to lint"
+            exit 0
+          fi
+          bash qa-master/generated/engine/gate/check-gates.sh lint qa-master/db/gates
+
+  secrets:
+    name: סודות · כל ההיסטוריה
+    runs-on: ubuntu-24.04
+    steps:
+      # fetch-depth 0 הוא הכול. בלעדיו נסרק רק הקומיט האחרון, ומפתח שנמחק
+      # בקומיט הבא נשאר בהיסטוריה ואינו נמצא. זה קרה כאן.
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      # The marketplace Action requires a paid GITLEAKS_LICENSE in an
+      # organisation repository. The CLI it wraps is MIT and free, so we fetch
+      # it directly at a pinned version — no secret, no licence, and the version
+      # cannot move under us.
+      - name: gitleaks
+        env:
+          GITLEAKS_VERSION: 8.21.2
+        run: |
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks version
+          # --no-banner keeps the log readable; the exit code is what gates.
+          # No --config: gitleaks reads .gitleaks.toml from the root of what it
+          # scans, and QA Master's template installs one there. Its comments say
+          # why it replaces the built-in rules rather than extending them.
+          /tmp/gitleaks detect --source . --redact --no-banner || CODE=$?
+          if [ "${CODE:-0}" -eq 1 ]; then
+            echo "gitleaks found a secret in the history"; exit 1
+          elif [ "${CODE:-0}" -ne 0 ]; then
+            echo "gitleaks failed to run (exit ${CODE})"; exit 1
+          fi
+          echo "no secret found"
+
+  gate:
+    name: שער
+    # The project's own jobs (lint, unit tests, the build) are in its own
+    # workflow files (decision 023), and a job here cannot wait for a job in
+    # another file: each workflow shows its own result on the pull request.
+    needs: [schema, secrets]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      # A cancelled job is not a failed one, and treating it as one erodes the
+      # gate faster than anything else here: two pushes in quick succession
+      # cancel each other through `concurrency`, the gate saw `cancelled`,
+      # returned exit 1, and the pull request went red on a run that found
+      # nothing wrong. After that happens a few times people learn that red does
+      # not mean broken — and then they ignore the red that does.
+      #
+      # So the three outcomes are separated. `failure` blocks. `cancelled` and
+      # `skipped` say so and do not block, because a check that did not finish
+      # has not found anything, which is neither a pass nor a failure. It is the
+      # same distinction the tool itself draws between `fail` and `unrunnable`.
+      - name: כל העבודות חייבות לעבור
+        run: |
+          set -u
+          blocked=0
+          incomplete=0
+
+          check() {
+            name="$1"; result="$2"
+            case "$result" in
+              success)
+                echo "  ok         $name"
+                ;;
+              failure)
+                echo "  FAILED     $name"
+                blocked=1
+                ;;
+              cancelled|skipped)
+                echo "  $result  $name — did not finish, so it found nothing"
+                incomplete=1
+                ;;
+              *)
+                echo "  $result  $name — unrecognised, treating as a failure"
+                blocked=1
+                ;;
+            esac
+          }
+
+          check "סכמה"  "${{ needs.schema.result }}"
+          check "סודות" "${{ needs.secrets.result }}"
+
+          echo
+          if [ "$blocked" -eq 1 ]; then
+            echo "השער חוסם: בדיקה נכשלה."
+            exit 1
+          fi
+          if [ "$incomplete" -eq 1 ]; then
+            echo "::warning::חלק מהבדיקות לא הסתיימו — ככל הנראה בוטלו על ידי דחיפה חדשה."
+            echo "אין כשל, אבל גם אין אישור. הריצה של הדחיפה האחרונה היא הקובעת."
+            exit 0
+          fi
+          echo "השער ירוק."
+
+  # Reporting is its own job rather than a step inside `gate`, and it runs
+  # whatever happened. A report from a red gate is the one worth having; if it
+  # ran only on success we would record only the runs where nothing went wrong,
+  # which is the same shape as an empty result read as a good answer.
+  #
+  # It never blocks. The gate decides whether this merges — if our service is
+  # down that must not become a reason a correct change cannot ship. A missing
+  # report is visible in the history; a blocked pipeline is an outage we caused.
+  report:
+    name: דיווח ל-QA Master
+    needs: [schema, secrets, gate]
+    if: always()
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      # The schema job ran on a different runner, so report.json has to travel.
+      # A missing artifact is a skip with a warning, not a failure.
+      - uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: qa-master-report
+
+      - name: שליחה
+        env:
+          INGEST_URL: ${{ vars.QA_MASTER_INGEST_URL }}
+          INGEST_KEY: ${{ secrets.QA_MASTER_INGEST_KEY }}
+          GATE_RESULT: ${{ needs.gate.result }}
+        run: |
+          set -u
+
+          # Reporting runs only where the key exists. Without it this is a
+          # notice and a skip, never a failure: a repository is registered with
+          # QA Master, and given its key, after its first run, and secrets are
+          # not available to a workflow triggered by a pull request from a fork.
+          if [ -z "$INGEST_KEY" ]; then
+            # On a manual run there is no pull request, so head.repo.full_name
+            # is empty and a bare inequality reports every manual run as a fork.
+            # A wrong explanation is worse than none: it sends whoever reads it
+            # to look for a fork that does not exist.
+            head="${{ github.event.pull_request.head.repo.full_name }}"
+            if [ -n "$head" ] && [ "$head" != "${{ github.repository }}" ]; then
+              echo "::notice::הדיווח דולג: ל-PR מפורק אין גישה ל-secrets. זו מגבלה של GitHub, לא תקלה."
+            else
+              echo "::notice::הדיווח דולג: QA_MASTER_INGEST_KEY אינו מוגדר בריפו הזה."
+            fi
+            exit 0
+          fi
+          if [ -z "$INGEST_URL" ]; then
+            echo "::warning::הדיווח דולג: QA_MASTER_INGEST_URL אינו מוגדר."
+            exit 0
+          fi
+          if [ ! -f report.json ]; then
+            echo "::warning::אין report.json — השער לא הפיק אחד. אין מה לשלוח."
+            exit 0
+          fi
+
+          # Only CI knows which commit was actually checked out.
+          python3 - <<'PY'
+          import json, os, pathlib
+          r = json.loads(pathlib.Path("report.json").read_text(encoding="utf-8"))
+          r["commit_sha"] = os.environ.get("GITHUB_SHA")
+          pathlib.Path("report.json").write_text(json.dumps(r, ensure_ascii=False),
+                                                 encoding="utf-8")
+          PY
+
+          code=$(curl -sS --max-time 30 -o response.json -w '%{http_code}' \
+            -X POST "$INGEST_URL" \
+            -H "Authorization: Bearer $INGEST_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @report.json)
+
+          echo "ingest responded $code"
+          cat response.json || true
+
+          case "$code" in
+            201) echo "דווח" ;;
+            401) echo "::warning::QA Master דחה את המפתח — ייתכן שבוטל" ;;
+            422) echo "::warning::QA Master לא זיהה את זה כדוח — השער מפיק משהו אחר" ;;
+            *)   echo "::warning::QA Master החזיר $code" ;;
+          esac

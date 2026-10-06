@@ -1,0 +1,18 @@
+{
+  "$comment": "מה הפרויקט הזה. QA Master גוזר מכאן אילו חוקים גנריים חלים, במקום שנכתוב אותם ביד.",
+  "catalog_pin": "0.2.3",
+
+  "data_store":        "supabase",
+  "multi_tenancy":     "none",
+  "handles_money":     "internal",
+  "ingests_from":      "file",
+  "deploys_to":        "ssr",
+  "manages_migrations":"manual",
+  "schema_source":     "live_only",
+  "agent_authored":    "agent_authored",
+  "team_size":         "solo",
+  "language_build":    "ts_vite",
+  "public_url":        "https://mdvd-catalog-sync.lovable.app",
+
+  "migrations_dir":"supabase/migrations"
+}
