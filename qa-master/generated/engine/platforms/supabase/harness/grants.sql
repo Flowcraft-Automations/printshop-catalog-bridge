@@ -1,4 +1,18 @@
-grant select, insert, update, delete on all tables in schema public to authenticated;
-grant select on all tables in schema public to anon;
-grant execute on all functions in schema public to anon, authenticated;
-grant usage on all sequences in schema public to authenticated;
+-- Grants nothing, on purpose (catalog 0.2.5).
+--
+-- Supabase gives anon, authenticated and service_role their privileges in
+-- public once, at project bootstrap, as default privileges, before any
+-- migration runs. auth-stub.sql does the same, first in every build, so every
+-- table, view, sequence and function the building role creates afterwards is
+-- granted as Supabase would grant it, a dump with no GRANT in it included. A migration that wants
+-- less says so with a revoke, and on Supabase the revoke stands.
+--
+-- This file ran after the migrations, and granted execute on every function to
+-- anon and authenticated and select on every table to anon. That undid every
+-- revoke a project wrote: a test that checks one failed here and passed on
+-- Supabase, and a revoke that is missing could never be caught. Granting only
+-- where an object has no privileges recorded does not fix it: a project that
+-- revokes the default privileges themselves creates exactly such objects.
+--
+-- It stays, empty, because the bootstrap of every rule that builds a database
+-- and the template's build steps name it.
