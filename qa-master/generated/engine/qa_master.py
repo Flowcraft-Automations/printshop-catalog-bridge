@@ -23,7 +23,7 @@ In a client, sync, resolve and verify find every file by the layout, under
 from __future__ import annotations
 import argparse, datetime, fnmatch, glob, hashlib, json, os, re, subprocess, sys
 
-BINARY_VERSION = "0.2.3"
+BINARY_VERSION = "0.2.4"
 REPORT_SCHEMA  = "report/1"
 
 # ── outcomes ────────────────────────────────────────────────────────────────
@@ -726,7 +726,7 @@ def prim_glob_nonempty(ctx, params):
 # first four hex characters of the value's sha256. That tells two findings
 # apart and shows one value in two places, and is no part of the value.
 SECRET_RULES = "secrets."
-SECRET_EVIDENCE = ("findings", "findings_truncated", "violations", "offending",
+SECRET_EVIDENCE = ("findings", "findings_truncated", "violations", "offending", "inert",
                    "roles_found", "commits", "reason", "cmd")
 FINDING_FIELDS = ("file", "line", "commit", "value_sha256")
 
@@ -1244,6 +1244,11 @@ def prim_http_smoke(ctx, params):
     return PASS, checks, {"status": status, "bytes": len(body)}
 
 
+# The bytes a signature decodes to under each alg a Supabase key is signed
+# with: an HMAC is as long as its hash, and ES256 is r and s, 32 bytes each.
+SIGNATURE_BYTES = {"HS256": 32, "HS384": 48, "HS512": 64, "ES256": 64}
+
+
 def prim_no_service_jwt(ctx, params):
     """Finds every JWT in the history and decodes it, failing only on
     role=service_role.
@@ -1255,7 +1260,17 @@ def prim_no_service_jwt(ctx, params):
     takes the one that needs decoding.
 
     The anon key is publishable by design and ships in the browser bundle.
-    Failing on it would fail every Supabase project forever."""
+    Failing on it would fail every Supabase project forever.
+
+    Nor does every service_role token fail (catalog 0.2.4). A test that checks
+    that a forged token is refused has to write one down, and that token failed
+    this rule forever: the rule is not waivable, and history is not rewritten.
+    A forged token gives itself away in its signature, which is whatever its
+    author typed, while a real one decodes to the length its header's alg
+    makes (SIGNATURE_BYTES). Such a token is counted under `inert`, which is
+    present only when it is above zero. Whatever cannot be judged fails as
+    before: another alg, a header that cannot be read, and no signature at all,
+    which cannot be told from a key whose signature is on the next line."""
     import base64, json as _json
     p = subprocess.run("git log -p --all -- .", shell=True, cwd=ctx.repo,
                        capture_output=True, text=True)
@@ -1272,29 +1287,50 @@ def prim_no_service_jwt(ctx, params):
 
     unreadable = object()
 
+    def decoded(part):
+        return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+
     def role_of(tok):
-        payload = tok.split(".")[1]
-        payload += "=" * (-len(payload) % 4)
         try:
-            return _json.loads(base64.urlsafe_b64decode(payload)).get("role")
+            return _json.loads(decoded(tok.split(".")[1])).get("role")
         except Exception:
             return unreadable             # not a JWT we can read; gitleaks' problem
 
-    # Each token is counted once by role, as before; each place an offending
-    # one appears is a finding: where it is, never what (see _conceal).
-    roles, seen, offending, findings = {}, {}, set(), []
-    for commit, path, line, tok in _log_hits(p.stdout or "",
-                                             re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")):
+    def could_be_signed(tok, sig):
+        """False when the signature is not the length the header's alg makes;
+        None when that cannot be said."""
+        try:
+            want = SIGNATURE_BYTES.get(_json.loads(decoded(tok.split(".")[0])).get("alg"))
+            got = len(decoded(sig)) if sig else None
+        except Exception:
+            return None
+        return None if want is None or got is None else got == want
+
+    # A token is its header and payload, as before: that is what is counted by
+    # role and fingerprinted, so a history without an inert token reports what
+    # it did. The signature after it, if any, is read only to judge it. Each
+    # place a token that could work appears is a finding: where it is, never
+    # what (see _conceal).
+    roles, seen, offending, inert, findings = {}, {}, set(), set(), []
+    for commit, path, line, (tok, sig) in _log_hits(
+            p.stdout or "",
+            re.compile(r"(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})(?:\.([A-Za-z0-9_-]*))?")):
         if tok not in seen:
             seen[tok] = role_of(tok)
             if seen[tok] is not unreadable:
                 roles[seen[tok]] = roles.get(seen[tok], 0) + 1
-        if seen[tok] in ("service_role", "supabase_admin"):
-            offending.add(tok)
-            findings.append({"file": path, "line": line, "commit": commit,
-                             "value_sha256": _fingerprint(tok)})
+        if seen[tok] not in ("service_role", "supabase_admin"):
+            continue
+        if could_be_signed(tok, sig) is False:
+            inert.add(tok)
+            continue
+        offending.add(tok)
+        findings.append({"file": path, "line": line, "commit": commit,
+                         "value_sha256": _fingerprint(tok)})
+    inert -= offending
+    counted = {"inert": len(inert)} if inert else {}
     if offending:
-        evidence = {"roles_found": roles, "offending": len(offending),
+        evidence = {"roles_found": roles, "offending": len(offending), **counted,
                     "findings": findings[:OBJECTS_SHOWN]}
         if len(findings) > OBJECTS_SHOWN:
             evidence["findings_truncated"] = True
@@ -1314,8 +1350,8 @@ def prim_no_service_jwt(ctx, params):
                        if shallow == "true" else
                        "git could not say whether the clone is shallow, so the history "
                        "read may not be all of it"),
-            "commits": examined}
-    return PASS, examined, {"roles_found": roles or {"none": 0}, "commits": examined}
+            "commits": examined, **counted}
+    return PASS, examined, {"roles_found": roles or {"none": 0}, "commits": examined, **counted}
 
 
 def prim_reconcile(ctx, params):
